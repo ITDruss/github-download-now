@@ -1,0 +1,54 @@
+:root { color-scheme: light dark; font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 390px; background: Canvas; color: CanvasText; }
+.popup { width: 390px; max-height: 590px; overflow: auto; padding: 14px; }
+.header { display: flex; align-items: center; gap: 10px; }
+.brand { min-width: 0; flex: 1; }
+h1 { margin: 0; font-size: 14px; white-space: nowrap; }
+.header p { margin: 2px 0 0; color: GrayText; font-size: 10px; }
+.switch { position: relative; width: 38px; height: 22px; flex: 0 0 auto; }
+.switch input { position: absolute; opacity: 0; }
+.switch span { display: block; height: 100%; border-radius: 999px; background: #8c959f; cursor: pointer; transition: .15s; }
+.switch span:after { content: ""; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; border-radius: 50%; background: white; transition: .15s; }
+.switch input:checked + span { background: #1f883d; }
+.switch input:checked + span:after { transform: translateX(16px); }
+.tabs { display: grid; grid-template-columns: repeat(4,1fr); gap: 3px; margin: 14px 0 12px; padding: 3px; border-radius: 9px; background: color-mix(in srgb, CanvasText 7%, Canvas); }
+.tab { min-width: 0; min-height: 32px; padding: 0 5px; border: 0; border-radius: 7px; background: transparent; color: GrayText; font: inherit; font-size: 11px; font-weight: 650; cursor: pointer; }
+.tab.active { background: Canvas; color: CanvasText; box-shadow: 0 1px 4px color-mix(in srgb, CanvasText 12%, transparent); }
+.tab b { display: inline-grid; place-items: center; min-width: 17px; height: 17px; margin-left: 3px; border-radius: 999px; background: #1f883d; color: white; font-size: 9px; }
+.panel { display: none; }
+.panel.active { display: block; }
+.panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+h2 { margin: 0; font-size: 14px; }
+.panel-head p { margin: 3px 0 0; color: GrayText; font-size: 10px; }
+.small-button,.text-button { flex: 0 0 auto; min-height: 29px; padding: 0 9px; border: 1px solid color-mix(in srgb, CanvasText 18%, transparent); border-radius: 6px; background: Canvas; color: CanvasText; font: inherit; font-size: 10px; font-weight: 650; cursor: pointer; }
+.text-button { border: 0; color: #cf222e; }
+.small-button:hover,.text-button:hover { background: color-mix(in srgb, CanvasText 7%, Canvas); }
+.item-list { display: grid; gap: 8px; }
+.empty { padding: 24px 14px; border: 1px dashed color-mix(in srgb, CanvasText 20%, transparent); border-radius: 9px; color: GrayText; text-align: center; font-size: 12px; }
+.item { padding: 10px; border: 1px solid color-mix(in srgb, CanvasText 15%, transparent); border-radius: 9px; background: color-mix(in srgb, CanvasText 2%, Canvas); }
+.item-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.item-title { min-width: 0; font-size: 12px; font-weight: 700; overflow-wrap: anywhere; }
+.item-tag { flex: 0 0 auto; padding: 2px 6px; border-radius: 999px; background: color-mix(in srgb, #1f883d 13%, Canvas); color: #1a7f37; font-size: 9px; font-weight: 700; }
+.item-meta { margin-top: 4px; color: GrayText; font-size: 10px; overflow-wrap: anywhere; }
+.item-file { margin-top: 7px; padding: 6px 7px; border-radius: 6px; background: color-mix(in srgb, CanvasText 5%, Canvas); font-size: 10px; overflow-wrap: anywhere; }
+.item-actions { display: flex; gap: 6px; margin-top: 8px; }
+.item-actions button { min-height: 29px; padding: 0 9px; border: 1px solid color-mix(in srgb, CanvasText 18%, transparent); border-radius: 6px; background: Canvas; color: CanvasText; font: inherit; font-size: 10px; font-weight: 650; cursor: pointer; }
+.item-actions .primary { background: #1f883d; border-color: #1f883d; color: white; }
+.item-actions .danger { margin-left: auto; color: #cf222e; }
+.detected { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 10px; padding: 9px 11px; border: 1px solid color-mix(in srgb, CanvasText 16%, transparent); border-radius: 8px; background: color-mix(in srgb, CanvasText 4%, Canvas); font-size: 11px; }
+.detected span { color: GrayText; }
+.field { display: grid; gap: 5px; margin-top: 9px; font-size: 11px; font-weight: 650; }
+select,.options-button { width: 100%; min-height: 34px; border: 1px solid color-mix(in srgb, CanvasText 20%, transparent); border-radius: 7px; background: Canvas; color: CanvasText; font: inherit; font-size: 11px; }
+select { padding: 0 8px; }
+.quick-checks { display: grid; gap: 8px; margin-top: 12px; }
+.quick-checks label { display: flex; align-items: center; gap: 8px; font-size: 11px; }
+.quick-checks input { width: 15px; height: 15px; accent-color: #1f883d; }
+.options-button { margin-top: 12px; background: #1f883d; border-color: #1f883d; color: white; font-weight: 700; cursor: pointer; }
+.status { min-height: 15px; margin-top: 8px; color: #1a7f37; text-align: center; font-size: 10px; }
+.status.error { color: #cf222e; }
+body.disabled .tabs, body.disabled .panel { opacity: .52; }
+@media (min-width: 700px) {
+  body { min-width: 0; background: color-mix(in srgb, CanvasText 4%, Canvas); }
+  .popup { width: min(560px, calc(100vw - 32px)); max-height: none; margin: 30px auto; padding: 20px; border: 1px solid color-mix(in srgb, CanvasText 15%, transparent); border-radius: 12px; background: Canvas; box-shadow: 0 8px 30px color-mix(in srgb, CanvasText 10%, transparent); }
+}

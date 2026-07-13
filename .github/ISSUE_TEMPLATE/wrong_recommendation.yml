@@ -1,0 +1,43 @@
+name: Wrong download recommendation
+description: Report a GitHub Release asset that was selected incorrectly
+title: "[Wrong recommendation] "
+labels: ["selector", "bug"]
+body:
+  - type: input
+    id: repository
+    attributes:
+      label: Repository URL
+      placeholder: https://github.com/owner/repository
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Detected platform
+      placeholder: Linux x64
+    validations:
+      required: true
+  - type: input
+    id: selected
+    attributes:
+      label: Asset selected by the extension
+    validations:
+      required: true
+  - type: input
+    id: expected
+    attributes:
+      label: Asset you expected
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and extension version
+      placeholder: Firefox 140, GitHub Download Now 0.4.1
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Additional details
+      description: Explain why the expected asset is preferable.

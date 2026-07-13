@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="ru" data-color-mode="light" data-light-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GitHub Download Now Demo</title>
+  <link rel="stylesheet" href="../../src/styles.css">
+  <style>
+    :root {
+      --fgColor-default: #1f2328;
+      --fgColor-muted: #656d76;
+      --fgColor-accent: #0969da;
+      --fgColor-success: #1a7f37;
+      --borderColor-default: #d0d7de;
+      --borderColor-muted: #d8dee4;
+      --borderColor-success-muted: rgba(46,160,67,.4);
+      --bgColor-muted: #f6f8fa;
+      --bgColor-success-muted: rgba(46,160,67,.1);
+      --overlay-bgColor: #fff;
+      --button-primary-bgColor-rest: #1f883d;
+      --button-primary-bgColor-hover: #1a7f37;
+      --button-primary-fgColor-rest: #fff;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #fff; color: #1f2328; font: 14px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    .topbar { height: 64px; display:flex; align-items:center; gap:16px; padding:0 28px; background:#f6f8fa; border-bottom:1px solid #d0d7de; }
+    .mark { width:32px; height:32px; border-radius:50%; background:#24292f; position:relative; }
+    .mark:after { content:"<>"; position:absolute; inset:0; display:grid; place-items:center; color:#fff; font-weight:800; font-size:11px; }
+    .search { width:340px; height:34px; border:1px solid #d0d7de; border-radius:7px; background:#fff; color:#656d76; display:flex; align-items:center; padding:0 12px; }
+    .page { width:min(1180px, calc(100% - 48px)); margin:28px auto; }
+    #repository-container-header { display:flex; align-items:center; justify-content:space-between; gap:20px; padding-bottom:18px; border-bottom:1px solid #d8dee4; }
+    .repo-title { display:flex; align-items:center; gap:8px; font-size:20px; }
+    .repo-title a { color:#0969da; text-decoration:none; }
+    .public { border:1px solid #d0d7de; border-radius:999px; color:#656d76; font-size:12px; padding:1px 7px; }
+    .d-flex { display:flex; align-items:center; gap:8px; }
+    .native-btn { display:inline-flex; align-items:center; height:36px; padding:0 12px; border:1px solid #d0d7de; border-radius:7px; background:#f6f8fa; color:#24292f; font-weight:600; text-decoration:none; }
+    .content { display:grid; grid-template-columns:minmax(0,1fr) 300px; gap:28px; margin-top:24px; }
+    .card { border:1px solid #d0d7de; border-radius:8px; overflow:hidden; }
+    .card-head { height:48px; background:#f6f8fa; border-bottom:1px solid #d0d7de; display:flex; align-items:center; padding:0 16px; font-weight:600; }
+    .files { padding:0 16px; }
+    .file { height:46px; display:flex; align-items:center; border-bottom:1px solid #d8dee4; color:#0969da; }
+    .readme { margin-top:20px; border:1px solid #d0d7de; border-radius:8px; padding:22px; }
+    .readme h1 { font-size:28px; margin:0 0 12px; }
+    .readme p { color:#656d76; line-height:1.55; }
+    .side-card { border:1px solid #d0d7de; border-radius:8px; padding:16px; color:#656d76; }
+    .side-card h3 { margin:0 0 8px; color:#1f2328; }
+  </style>
+</head>
+<body>
+  <div class="topbar"><div class="mark"></div><div class="search">Type / to search</div></div>
+  <main class="page">
+    <div id="repository-container-header">
+      <div class="repo-title"><span>◫</span><a href="#">localsend</a><span>/</span><a href="#"><strong>localsend</strong></a><span class="public">Public</span></div>
+      <div class="d-flex">
+        <a class="native-btn" href="/localsend/localsend/stargazers">☆ Star</a>
+        <button class="native-btn">Fork</button>
+      </div>
+    </div>
+    <div class="content">
+      <section>
+        <div class="card"><div class="card-head">main</div><div class="files"><div class="file">android</div><div class="file">app</div><div class="file">linux</div><div class="file">README.md</div></div></div>
+        <div class="readme"><h1>LocalSend</h1><p>Share files to nearby devices. Free, open source and cross-platform.</p></div>
+      </section>
+      <aside class="side-card"><h3>About</h3><p>An open-source cross-platform alternative to AirDrop.</p><hr><p>Releases&nbsp; 31</p><p>Stars&nbsp; 75k</p></aside>
+    </div>
+  </main>
+  <script>
+    window.__GHDN_TEST_REPOSITORY__ = {owner: "localsend", repo: "localsend"};
+    const fakeResponse = {
+      ok: true,
+      release: {
+        id: 1,
+        tag_name: "v1.17.0",
+        name: "LocalSend v1.17.0",
+        html_url: "https://github.com/localsend/localsend/releases/tag/v1.17.0",
+        published_at: "2026-06-20T12:00:00Z",
+        prerelease: false,
+        assets: [
+          {id:1,name:"LocalSend-1.17.0-linux-x86-64.AppImage",size:96300000,state:"uploaded",download_count:125310,browser_download_url:"https://example.test/appimage"},
+          {id:2,name:"LocalSend-1.17.0-linux-x86-64.deb",size:71400000,state:"uploaded",download_count:52290,browser_download_url:"https://example.test/deb"},
+          {id:3,name:"LocalSend-1.17.0-linux-x86-64.tar.gz",size:68400000,state:"uploaded",download_count:8290,browser_download_url:"https://example.test/targz"},
+          {id:4,name:"LocalSend-1.17.0-linux-arm64.AppImage",size:92100000,state:"uploaded",download_count:4830,browser_download_url:"https://example.test/arm"},
+          {id:5,name:"LocalSend-1.17.0-windows-x86-64.exe",size:75600000,state:"uploaded",download_count:161220,browser_download_url:"https://example.test/exe"},
+          {id:6,name:"LocalSend-1.17.0-macos-arm64.dmg",size:79200000,state:"uploaded",download_count:89410,browser_download_url:"https://example.test/dmg"},
+          {id:7,name:"LocalSend-1.17.0-android-arm64.apk",size:41800000,state:"uploaded",download_count:11320,browser_download_url:"https://example.test/apk"}
+        ],
+        zipball_url: "https://example.test/source.zip",
+        tarball_url: "https://example.test/source.tar.gz"
+      }
+    };
+    window.chrome = window.chrome || {};
+    const storedSettings = {};
+    Object.defineProperty(window.chrome, "storage", {
+      configurable: true,
+      value: {
+        sync: {
+          get: (defaults, callback) => callback({...defaults, ...storedSettings}),
+          set: (values, callback) => { Object.assign(storedSettings, values); if (callback) callback(); },
+          clear: (callback) => { Object.keys(storedSettings).forEach((key) => delete storedSettings[key]); if (callback) callback(); }
+        },
+        onChanged: { addListener: () => {}, removeListener: () => {} }
+      }
+    });
+    Object.defineProperty(window.chrome, "runtime", {
+      configurable: true,
+      value: {
+        getManifest: () => ({version: "0.3.0"}),
+        openOptionsPage: () => {},
+        sendMessage: async (_message) => {
+          const selector = window.GHDNAssetSelector;
+          const platform = _message.platform || {os:"linux",arch:"x64",browser:"chromium"};
+          const selection = selector.recommendation(fakeResponse.release.assets, platform);
+          return {
+            ...fakeResponse,
+            rankedAssets: selection.ranked,
+            recommendation: {best:selection.best,confidence:selection.confidence,gap:selection.gap}
+          };
+        }
+      }
+    });
+  </script>
+  <script src="../../src/settings.js"></script>
+  <script src="../../src/asset-selector.js"></script>
+  <script src="../../src/content.js"></script>
+</body>
+</html>

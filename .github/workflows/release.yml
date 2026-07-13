@@ -1,0 +1,40 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run package
+      - name: Prepare checksums
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          sha256sum \
+            "github-download-now-chromium-v${VERSION}.zip" \
+            "github-download-now-firefox-v${VERSION}.zip" \
+            > "SHA256SUMS-v${VERSION}.txt"
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          gh release create "${GITHUB_REF_NAME}" \
+            "github-download-now-chromium-v${VERSION}.zip" \
+            "github-download-now-firefox-v${VERSION}.zip" \
+            "SHA256SUMS-v${VERSION}.txt" \
+            --generate-notes \
+            --title "GitHub Download Now ${GITHUB_REF_NAME}"

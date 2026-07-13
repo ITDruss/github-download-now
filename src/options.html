@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>GitHub Download Now — Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <img src="icons/icon-128.png" width="72" height="72" alt="">
+      <div><h1>GitHub Download Now</h1><p id="subtitle"></p></div>
+    </header>
+
+    <section class="card">
+      <h2 id="generalTitle"></h2>
+      <div class="grid two">
+        <label><span id="languageLabel"></span><select id="language"><option value="auto">Auto</option><option value="ru">Русский</option><option value="en">English</option></select></label>
+        <label><span id="showOnLabel"></span><select id="showOn"><option value="all"></option><option value="main_releases"></option><option value="main"></option></select></label>
+        <label><span id="buttonStyleLabel"></span><select id="buttonStyle"><option value="accent"></option><option value="native"></option><option value="compact"></option></select></label>
+        <label><span id="primaryActionLabel"></span><select id="primaryAction"><option value="download"></option><option value="menu"></option><option value="release"></option></select></label>
+      </div>
+      <div class="checks">
+        <label><input id="enabled" type="checkbox"><span id="enabledLabel"></span></label>
+        <label><input id="showSubtitle" type="checkbox"><span id="showSubtitleLabel"></span></label>
+        <label><input id="showOtherPlatforms" type="checkbox"><span id="showOtherPlatformsLabel"></span></label>
+        <label><input id="showSourceCode" type="checkbox"><span id="showSourceCodeLabel"></span></label>
+        <label><input id="showRecommendationReason" type="checkbox"><span id="showRecommendationReasonLabel"></span></label>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2 id="systemTitle"></h2>
+      <p class="note" id="systemNote"></p>
+      <div class="grid two">
+        <label><span id="osOverrideLabel"></span><select id="osOverride"><option value="auto"></option><option value="linux">Linux</option><option value="windows">Windows</option><option value="macos">macOS</option><option value="android">Android</option></select></label>
+        <label><span id="archOverrideLabel"></span><select id="archOverride"><option value="auto"></option><option value="x64">x64</option><option value="arm64">ARM64</option><option value="x86">x86</option><option value="arm">ARM</option></select></label>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2 id="formatsTitle"></h2>
+      <div class="grid two">
+        <label><span>Linux</span><select id="preferredLinux"><option value="auto"></option><option value="appimage">AppImage</option><option value="deb">DEB</option><option value="rpm">RPM</option><option value="flatpak">Flatpak</option><option value="snap">Snap</option><option value="archive"></option></select></label>
+        <label><span>Windows</span><select id="preferredWindows"><option value="auto"></option><option value="exe">EXE</option><option value="msi">MSI</option><option value="msix">MSIX</option><option value="portable">Portable</option></select></label>
+        <label><span>macOS</span><select id="preferredMacos"><option value="auto"></option><option value="dmg">DMG</option><option value="pkg">PKG</option><option value="zip">ZIP</option></select></label>
+        <label><span>Android</span><select id="preferredAndroid"><option value="auto"></option><option value="apk">APK</option><option value="apks">APKS</option></select></label>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2 id="releasesTitle"></h2>
+      <div class="grid two">
+        <label><span id="releaseChannelLabel"></span><select id="releaseChannel"><option value="stable"></option><option value="newest"></option></select></label>
+        <label><span id="staleReleaseLabel"></span><select id="staleReleaseMonths"><option value="0"></option><option value="3">3</option><option value="6">6</option><option value="12">12</option><option value="24">24</option><option value="36">36</option></select></label>
+      </div>
+    </section>
+
+
+    <section class="card">
+      <h2 id="updatesSettingsTitle"></h2>
+      <p class="note" id="updatesSettingsNote"></p>
+      <div class="grid two">
+        <label><span id="afterDownloadLabel"></span><select id="afterDownload"><option value="ask"></option><option value="always"></option><option value="never"></option></select></label>
+        <label><span id="updateCheckIntervalLabel"></span><select id="updateCheckInterval"><option value="manual"></option><option value="6h"></option><option value="24h"></option><option value="72h"></option><option value="168h"></option></select></label>
+      </div>
+      <div class="checks">
+        <label><input id="historyEnabled" type="checkbox"><span id="historyEnabledLabel"></span></label>
+        <label><input id="notificationsEnabled" type="checkbox"><span id="notificationsEnabledLabel"></span></label>
+        <label><input id="badgeEnabled" type="checkbox"><span id="badgeEnabledLabel"></span></label>
+      </div>
+      <div class="data-actions">
+        <button id="checkUpdatesNow" type="button"></button>
+        <button id="clearHistory" type="button"></button>
+        <button id="clearTracking" class="danger" type="button"></button>
+      </div>
+    </section>
+
+    <footer>
+      <span id="status" aria-live="polite"></span>
+      <button id="reset" type="button"></button>
+    </footer>
+  </main>
+  <script src="settings.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>
