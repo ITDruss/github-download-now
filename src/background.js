@@ -4,14 +4,18 @@ if (typeof importScripts === "function") {
   if (!globalThis.GHDNSettings) importScripts("settings.js");
   if (!globalThis.GHDNAssetSelector) importScripts("asset-selector.js");
   if (!globalThis.GHDNTracker) importScripts("tracker.js");
+  if (!globalThis.GHDNBuildInstructions) importScripts("build-instructions.js");
 }
 
 const extensionApi = typeof browser !== "undefined" ? browser : chrome;
 const settingsApi = globalThis.GHDNSettings;
 const selector = globalThis.GHDNAssetSelector;
 const tracker = globalThis.GHDNTracker;
+const buildInstructions = globalThis.GHDNBuildInstructions;
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const releaseCache = new Map();
+const buildInstructionsCache = new Map();
+const BUILD_CACHE_TTL_MS = 60 * 60 * 1000;
 const VALID_PART = /^[A-Za-z0-9_.-]{1,100}$/;
 const UPDATE_ALARM = "ghdn-update-check";
 const NOTIFICATION_PREFIX = "ghdn-update:";
@@ -123,6 +127,136 @@ function buildResponse(release, platform, fromCache, etag = "") {
     fromCache,
     etag
   };
+}
+
+
+async function fetchText(url) {
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      "Accept": "application/vnd.github.raw+json",
+      "X-GitHub-Api-Version": "2022-11-28"
+    }
+  });
+
+  if (!response.ok) {
+    const limits = rateLimitDetails(response);
+    if (response.status === 404) return { ok: false, error: "not_found", status: 404 };
+    if ((response.status === 403 || response.status === 429) && (limits.remaining === "0" || response.status === 429)) {
+      return { ok: false, error: "rate_limited", status: response.status, resetAt: limits.resetAt };
+    }
+    return { ok: false, error: "github_api_error", status: response.status };
+  }
+
+  return { ok: true, text: await response.text() };
+}
+
+function validGitRef(value) {
+  const ref = String(value || "").trim();
+  if (!ref) return "";
+  if (ref.length > 240 || /[\u0000-\u001f\u007f]/.test(ref)) return null;
+  return ref;
+}
+
+function contentsUrl(owner, repo, path = "", ref = "") {
+  const encodedRepository = `${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
+  const encodedPath = String(path || "")
+    .split("/")
+    .filter(Boolean)
+    .map((part) => encodeURIComponent(part))
+    .join("/");
+  const suffix = encodedPath ? `/contents/${encodedPath}` : "/contents";
+  const query = ref ? `?ref=${encodeURIComponent(ref)}` : "";
+  return `https://api.github.com/repos/${encodedRepository}${suffix}${query}`;
+}
+
+function sanitizeContentEntry(entry) {
+  if (!entry || typeof entry !== "object") return null;
+  const type = entry.type === "dir" ? "dir" : entry.type === "file" ? "file" : "";
+  const path = String(entry.path || entry.name || "").replace(/^\/+|\/+$/g, "");
+  if (!type || !path || path.length > 500) return null;
+  return {
+    type,
+    name: String(entry.name || path.split("/").pop() || ""),
+    path,
+    html_url: /^https:\/\/github\.com\//i.test(String(entry.html_url || "")) ? String(entry.html_url) : ""
+  };
+}
+
+async function getContentDirectory(owner, repo, path, ref) {
+  const result = await fetchJson(contentsUrl(owner, repo, path, ref));
+  if (!result.ok) return result;
+  const entries = Array.isArray(result.data)
+    ? result.data.map(sanitizeContentEntry).filter(Boolean)
+    : [];
+  return { ok: true, entries };
+}
+
+async function getBuildInstructions(owner, repo, requestedRef = "") {
+  if (!VALID_PART.test(owner) || !VALID_PART.test(repo)) {
+    return { ok: false, error: "invalid_repository" };
+  }
+  if (!buildInstructions) return { ok: false, error: "internal_error" };
+
+  const ref = validGitRef(requestedRef);
+  if (ref === null) return { ok: false, error: "invalid_ref" };
+
+  const cacheKey = `${owner.toLowerCase()}/${repo.toLowerCase()}:${ref || "default"}`;
+  const cached = buildInstructionsCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < BUILD_CACHE_TTL_MS) {
+    return { ...cached.value, fromCache: true };
+  }
+
+  let refUsed = ref;
+  let rootResult = await getContentDirectory(owner, repo, "", refUsed);
+  let usedDefaultBranchFallback = false;
+
+  if (!rootResult.ok && rootResult.status === 404 && refUsed) {
+    refUsed = "";
+    usedDefaultBranchFallback = true;
+    rootResult = await getContentDirectory(owner, repo, "", "");
+  }
+
+  if (!rootResult.ok) return rootResult;
+
+  const entries = [...rootResult.entries];
+  const docsDirectories = rootResult.entries.filter((entry) =>
+    entry.type === "dir" && /^(docs?|documentation)$/i.test(entry.name)
+  );
+
+  for (const directory of docsDirectories.slice(0, 2)) {
+    const docsResult = await getContentDirectory(owner, repo, directory.path, refUsed);
+    if (!docsResult.ok) {
+      if (docsResult.error === "rate_limited") return docsResult;
+      continue;
+    }
+    entries.push(...docsResult.entries);
+  }
+
+  const candidates = buildInstructions.chooseCandidates(entries, 6);
+  const documents = candidates
+    .map((candidate) => ({
+      path: candidate.path,
+      htmlUrl: /^https:\/\/github\.com\//i.test(String(candidate.html_url || ""))
+        ? String(candidate.html_url)
+        : ""
+    }))
+    .filter((candidate) => candidate.path && candidate.htmlUrl);
+
+  const repositoryUrl = `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
+  const value = {
+    ok: true,
+    found: documents.length > 0,
+    documents,
+    repositoryUrl,
+    refRequested: ref,
+    refUsed: refUsed || "default",
+    usedDefaultBranchFallback,
+    checked: candidates.map((candidate) => candidate.path)
+  };
+
+  buildInstructionsCache.set(cacheKey, { timestamp: Date.now(), value });
+  return value;
 }
 
 function chromeStorageGet(area, defaults) {
@@ -510,6 +644,9 @@ extensionApi.runtime.onMessage.addListener((message, sender, sendResponse) => {
   switch (message.type) {
     case "GHDN_GET_LATEST_RELEASE":
       operation = getRelease(message.owner, message.repo, message.platform, message.releaseChannel);
+      break;
+    case "GHDN_GET_BUILD_INSTRUCTIONS":
+      operation = getBuildInstructions(message.owner, message.repo, message.ref);
       break;
     case "GHDN_RECORD_DOWNLOAD":
       operation = recordDownload(message.download, sender);

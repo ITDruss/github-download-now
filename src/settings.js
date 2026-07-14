@@ -29,6 +29,7 @@
     showOn: "all",
     historyEnabled: true,
     afterDownload: "ask",
+    installGuidance: "beginner",
     updateCheckInterval: "24h",
     notificationsEnabled: false,
     badgeEnabled: true
@@ -47,6 +48,7 @@
     releaseChannel: new Set(["stable", "newest"]),
     showOn: new Set(["all", "main_releases", "main"]),
     afterDownload: new Set(["ask", "always", "never"]),
+    installGuidance: new Set(["beginner", "compact", "off"]),
     updateCheckInterval: new Set(["manual", "6h", "24h", "72h", "168h"])
   });
 

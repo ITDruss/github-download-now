@@ -13,6 +13,9 @@ It adds a clear download control to GitHub repositories, detects the current ope
 - Recommends common installers and packages for each supported platform, including EXE and MSI, DMG and PKG, AppImage, DEB and RPM, and APK.
 - Keeps suitable alternatives available in a structured menu.
 - Avoids checksums, signatures, SBOMs, debug symbols and source archives during automatic selection.
+- Finds likely build-documentation files for the selected release tag and links to the original GitHub files without interpreting or executing their contents.
+- Shows local, deterministic installation and launch guidance for common release formats, including copyable commands that use the exact downloaded filename.
+- Lets users choose beginner guidance after downloads, compact on-demand help, or no installation guidance.
 - Provides configurable package preferences and manual OS/architecture overrides.
 - Warns about stale releases and explains why an asset was recommended.
 - Keeps an optional local history of downloads started through the extension.
@@ -32,7 +35,7 @@ See [PRIVACY.md](PRIVACY.md) for the complete policy and Limited Use disclosure.
 
 ### Chromium
 
-1. Extract `github-download-now-chromium-v0.4.1.zip`.
+1. Extract `github-download-now-chromium-v0.4.2.zip`.
 2. Open `chrome://extensions`.
 3. Enable **Developer mode**.
 4. Choose **Load unpacked**.
@@ -40,7 +43,7 @@ See [PRIVACY.md](PRIVACY.md) for the complete policy and Limited Use disclosure.
 
 ### Firefox
 
-1. Extract `github-download-now-firefox-v0.4.1.zip`.
+1. Extract `github-download-now-firefox-v0.4.2.zip`.
 2. Open `about:debugging#/runtime/this-firefox`.
 3. Choose **Load Temporary Add-on**.
 4. Select `manifest.json`.

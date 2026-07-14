@@ -4,7 +4,11 @@
   const extensionApi = typeof browser !== "undefined" ? browser : chrome;
   const selector = globalThis.GHDNAssetSelector;
   const settingsApi = globalThis.GHDNSettings;
+  const installGuides = globalThis.GHDNInstallGuides;
   const ROOT_ID = "ghdn-root";
+  const MENU_ID = "ghdn-menu";
+  const NOTICE_STACK_ID = "ghdn-notice-stack";
+  const TOOLBAR_BREAKPOINT = 760;
   const MAX_VISIBLE_ASSETS = 18;
   const RESERVED_ROOTS = new Set([
     "about", "account", "apps", "codespaces", "collections", "contact", "customer-stories",
@@ -17,17 +21,26 @@
   let strings = createStrings(settings.language);
   let activeRepoKey = "";
   let releaseState = null;
+  let buildInstructionsState = null;
+  let buildInstructionsPromise = null;
   let loadingPromise = null;
   let detectedPlatformPromise = null;
   let mountTimer = null;
   let prefetchTimer = null;
   let closeListenerInstalled = false;
+  let layoutFrame = null;
+  let resizeObserver = null;
+  let observedLayoutHost = null;
+  let placementBusy = false;
+  let rejectedToolbarHost = null;
+  let rejectedToolbarWidth = 0;
   let settingsReady = refreshSettings();
 
   function createStrings(language) {
     const russian = language === "ru" || (language !== "en" && /^(ru|uk|be|kk)(-|$)/i.test(navigator.language || ""));
     return russian ? {
       downloadNow: "Скачать сейчас",
+      downloadCompact: "Скачать",
       downloadFormat: (format) => `Скачать ${format}`,
       chooseDownload: "Выбрать файл",
       detecting: "Определяю систему…",
@@ -42,6 +55,17 @@
       moreOnRelease: (count) => `Ещё ${count} файлов на странице релиза`,
       sourceZip: "Исходный код (ZIP)",
       sourceTar: "Исходный код (TAR.GZ)",
+      buildFromSource: "Документация по сборке",
+      buildLoading: "Ищу документы по сборке…",
+      buildNotFound: "Документы по сборке не найдены.",
+      buildError: "Не удалось получить документы по сборке.",
+      buildFallbackNotice: "Ссылки ведут на основную ветку: документация для тега релиза недоступна.",
+      installHelp: "Как установить или запустить",
+      installAfterDownload: "Файл скачивается — что делать дальше",
+      installCopyCommand: "Копировать команду",
+      installCopyAll: "Копировать все команды",
+      installCopied: "Команда скопирована",
+      installClose: "Закрыть",
       noRelease: "У репозитория нет подходящего опубликованного релиза.",
       noAssets: "В релизе нет готовых файлов. Можно скачать исходный код.",
       apiError: "GitHub API временно недоступен.",
@@ -73,11 +97,15 @@
       formatHints: {
         ".appimage": "Универсальный запуск без установки",
         ".flatpakref": "Установка через Flatpak",
+        ".flatpak": "Локальный пакет Flatpak",
         ".deb": "Пакет для Debian, Ubuntu и производных",
         ".rpm": "Пакет для Fedora, RHEL и производных",
         ".snap": "Пакет Snap",
+        ".run": "Исполняемый установщик Linux",
+        ".sh": "Shell-скрипт — проверьте перед запуском",
         ".tar.gz": "Архив для ручной установки",
         ".tar.xz": "Архив для ручной установки",
+        ".tar.zst": "Архив для ручной установки",
         ".tgz": "Архив для ручной установки",
         ".exe": "Приложение или установщик Windows",
         ".msi": "Установочный пакет Windows",
@@ -97,6 +125,7 @@
       }
     } : {
       downloadNow: "Download now",
+      downloadCompact: "Download",
       downloadFormat: (format) => `Download ${format}`,
       chooseDownload: "Choose a file",
       detecting: "Detecting your system…",
@@ -111,6 +140,17 @@
       moreOnRelease: (count) => `${count} more files on the release page`,
       sourceZip: "Source code (ZIP)",
       sourceTar: "Source code (TAR.GZ)",
+      buildFromSource: "Build documentation",
+      buildLoading: "Looking for build documentation…",
+      buildNotFound: "No build documentation was found.",
+      buildError: "Could not load build documentation.",
+      buildFallbackNotice: "Links point to the default branch because documentation for the release tag is unavailable.",
+      installHelp: "How to install or run",
+      installAfterDownload: "The file is downloading — what to do next",
+      installCopyCommand: "Copy command",
+      installCopyAll: "Copy all commands",
+      installCopied: "Command copied",
+      installClose: "Close",
       noRelease: "This repository has no suitable published release.",
       noAssets: "The release has no uploaded binaries. You can download its source code.",
       apiError: "GitHub API is temporarily unavailable.",
@@ -142,11 +182,15 @@
       formatHints: {
         ".appimage": "Portable Linux app without installation",
         ".flatpakref": "Install with Flatpak",
+        ".flatpak": "Local Flatpak bundle",
         ".deb": "Package for Debian, Ubuntu and derivatives",
         ".rpm": "Package for Fedora, RHEL and derivatives",
         ".snap": "Snap package",
+        ".run": "Executable Linux installer",
+        ".sh": "Shell script — review before running",
         ".tar.gz": "Archive for manual installation",
         ".tar.xz": "Archive for manual installation",
+        ".tar.zst": "Archive for manual installation",
         ".tgz": "Archive for manual installation",
         ".exe": "Windows application or installer",
         ".msi": "Windows installer package",
@@ -175,10 +219,13 @@
 
   function parseRepository() {
     const testRepository = globalThis.__GHDN_TEST_REPOSITORY__;
-    if (testRepository && document.querySelector("#repository-container-header")) {
+    if (testRepository) {
       const owner = String(testRepository.owner || "test-owner");
       const repo = String(testRepository.repo || "test-repository");
-      return { owner, repo, key: `${owner.toLowerCase()}/${repo.toLowerCase()}`, parts: [owner, repo] };
+      const parts = Array.isArray(testRepository.parts) && testRepository.parts.length >= 2
+        ? testRepository.parts.map((part) => String(part))
+        : [owner, repo];
+      return { owner, repo, key: `${owner.toLowerCase()}/${repo.toLowerCase()}`, parts };
     }
 
     const parts = location.pathname.split("/").filter(Boolean);
@@ -186,7 +233,23 @@
     const owner = parts[0];
     const repo = parts[1].replace(/\.git$/i, "");
     if (!/^[A-Za-z0-9_.-]+$/.test(owner) || !/^[A-Za-z0-9_.-]+$/.test(repo)) return null;
-    if (!document.querySelector("#repository-container-header")) return null;
+    const repositoryNwo = document
+      .querySelector('meta[name="octolytics-dimension-repository_nwo"]')
+      ?.getAttribute("content");
+
+    if (
+      repositoryNwo &&
+      repositoryNwo.toLowerCase() !== `${owner}/${repo}`.toLowerCase()
+    ) {
+      return null;
+    }
+
+    if (
+      !repositoryNwo &&
+      !document.querySelector("#repository-container-header")
+    ) {
+      return null;
+    }
     return { owner, repo, key: `${owner.toLowerCase()}/${repo.toLowerCase()}`, parts };
   }
 
@@ -197,16 +260,301 @@
     return true;
   }
 
-  function findMountTarget() {
-    const header = document.querySelector("#repository-container-header");
-    if (!header) return null;
-    const legacyActions = header.querySelector("ul.pagehead-actions");
-    if (legacyActions) return { element: legacyActions, listMode: true, floating: false };
-    const starLink = header.querySelector('a[href$="/stargazers"], a[href*="/stargazers?"]');
-    const actionRow = starLink && starLink.closest("ul, .d-flex, [class*='ButtonGroup']");
-    if (actionRow) return { element: actionRow, listMode: actionRow.tagName === "UL", floating: false };
-    const candidate = header.querySelector(":scope > div") || header;
-    return { element: candidate, listMode: false, floating: true };
+  function isVisibleElement(element) {
+    if (!element || !element.isConnected || element.closest(`#${ROOT_ID}`)) return false;
+
+    const style = getComputedStyle(element);
+    if (
+      style.display === "none" ||
+      style.visibility === "hidden" ||
+      style.visibility === "collapse" ||
+      Number(style.opacity) === 0
+    ) {
+      return false;
+    }
+
+    const rect = element.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
+  }
+
+  function normalizedActionText(element) {
+    return [
+      element.getAttribute("aria-label"),
+      element.getAttribute("title"),
+      element.textContent
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function actionKind(element) {
+    if (!element) return "";
+    const label = normalizedActionText(element);
+    const aria = element.getAttribute("aria-label") || "";
+    const href = element.getAttribute("href") || "";
+
+    if (/\/stargazers(?:[/?#]|$)/i.test(href) || /(^|\s)Star(?:\s|$)/i.test(label) || /star/i.test(aria)) {
+      return "star";
+    }
+    if (/\/forks(?:[/?#]|$)/i.test(href) || /(^|\s)Fork(?:\s|$)/i.test(label) || /fork/i.test(aria)) {
+      return "fork";
+    }
+    if (/(^|\s)Watch(?:\s|$)/i.test(label) || /watch/i.test(aria)) {
+      return "watch";
+    }
+    if (/(^|\s)Sponsor(?:\s|$)/i.test(label) || /sponsor/i.test(aria)) {
+      return "sponsor";
+    }
+    return "";
+  }
+
+  function isStarActionControl(element) {
+    return actionKind(element) === "star";
+  }
+
+  function collectVisibleActionControls() {
+    const selectors = [
+      'a[href$="/stargazers"]',
+      'a[href*="/stargazers?"]',
+      'a[href$="/forks"]',
+      'a[href*="/forks?"]',
+      'button[aria-label*="Star" i]',
+      'button[aria-label*="Fork" i]',
+      'button[aria-label*="Watch" i]',
+      'summary[aria-label*="Star" i]',
+      'summary[aria-label*="Fork" i]',
+      'summary[aria-label*="Watch" i]',
+      'a[aria-label*="Sponsor" i]'
+    ];
+
+    const controls = new Set();
+    for (const element of document.querySelectorAll(selectors.join(","))) {
+      if (isVisibleElement(element) && actionKind(element)) controls.add(element);
+    }
+
+    for (const element of document.querySelectorAll("a, button, summary")) {
+      if (!isVisibleElement(element)) continue;
+      if (actionKind(element)) controls.add(element);
+    }
+
+    return [...controls];
+  }
+
+  function directChildWithin(container, descendant) {
+    let node = descendant;
+    while (node && node.parentElement !== container) node = node.parentElement;
+    return node && node.parentElement === container ? node : null;
+  }
+
+  function actionKindsWithin(container, controls) {
+    return new Set(
+      controls
+        .filter((control) => container.contains(control))
+        .map(actionKind)
+        .filter(Boolean)
+    );
+  }
+
+  function findCompleteActionGroup(control, controls) {
+    const kind = actionKind(control);
+    if (!kind) return null;
+
+    let node = control;
+    let best = control;
+    let depth = 0;
+
+    while (node.parentElement && node.parentElement !== document.body && depth < 8) {
+      const parent = node.parentElement;
+      if (!isVisibleElement(parent)) break;
+
+      const rect = parent.getBoundingClientRect();
+      if (rect.height < 20 || rect.height > 88) break;
+
+      const kinds = actionKindsWithin(parent, controls);
+      if (kinds.size !== 1 || !kinds.has(kind)) break;
+
+      best = parent;
+      node = parent;
+      depth += 1;
+    }
+
+    return best;
+  }
+
+  function findToolbarForActionGroup(group, controls) {
+    let node = group && group.parentElement;
+    let depth = 0;
+
+    while (node && node !== document.body && depth < 6) {
+      if (isVisibleElement(node)) {
+        const style = getComputedStyle(node);
+        const rect = node.getBoundingClientRect();
+        const layout = style.display;
+        const groupChild = directChildWithin(node, group);
+        const kinds = actionKindsWithin(node, controls);
+
+        if (
+          groupChild &&
+          kinds.size >= 2 &&
+          ["flex", "inline-flex", "grid", "inline-grid"].includes(layout) &&
+          rect.height >= 24 &&
+          rect.height <= 88 &&
+          rect.width >= 120
+        ) {
+          return { element: node, group: groupChild, depth };
+        }
+      }
+
+      node = node.parentElement;
+      depth += 1;
+    }
+
+    return null;
+  }
+
+  function findToolbarTarget() {
+    const controls = collectVisibleActionControls();
+    if (controls.length < 2) return null;
+
+    const seenGroups = new Set();
+    const candidates = [];
+
+    for (const starControl of controls.filter(isStarActionControl)) {
+      const completeGroup = findCompleteActionGroup(starControl, controls);
+      if (!completeGroup || seenGroups.has(completeGroup)) continue;
+      seenGroups.add(completeGroup);
+
+      const toolbar = findToolbarForActionGroup(completeGroup, controls);
+      if (!toolbar) continue;
+
+      const hostRect = toolbar.element.getBoundingClientRect();
+      const groupRect = toolbar.group.getBoundingClientRect();
+      const flexDirection = getComputedStyle(toolbar.element).flexDirection || "row";
+
+      candidates.push({
+        mode: "toolbar",
+        element: toolbar.element,
+        insertBefore: /-reverse$/.test(flexDirection),
+        anchor: toolbar.group,
+        listMode: toolbar.element.tagName === "UL",
+        score:
+          toolbar.depth * -40 -
+          hostRect.height * 0.2 -
+          hostRect.width * 0.001 +
+          groupRect.right * 0.0001
+      });
+    }
+
+    if (!candidates.length) return null;
+    return candidates.sort((a, b) => b.score - a.score)[0];
+  }
+
+  function isFlowEligibleRoute(repo) {
+    if (!repo || repo.parts.length === 2) return true;
+    const section = String(repo.parts[2] || "").toLowerCase();
+    return section === "releases" || section === "tags";
+  }
+
+  function findFlowTarget(repo) {
+    if (!isFlowEligibleRoute(repo)) return null;
+
+    const candidates = [
+      document.querySelector("#repo-content-pjax-container"),
+      document.querySelector("main#js-repo-pjax-container"),
+      document.querySelector("main .Layout-main"),
+      document.querySelector("main")
+    ];
+
+    const element = candidates.find((candidate) => candidate && isVisibleElement(candidate));
+    if (!element) return null;
+    return { mode: "flow", element, prepend: true, listMode: false };
+  }
+
+  function findMountTarget(repo, options = {}) {
+    if (!options.preferFlow && window.innerWidth >= TOOLBAR_BREAKPOINT) {
+      const toolbar = findToolbarTarget();
+      if (toolbar) {
+        const currentWidth = toolbar.element.clientWidth;
+        const stillRejected =
+          rejectedToolbarHost === toolbar.element &&
+          Math.abs(rejectedToolbarWidth - currentWidth) < 4;
+        if (!stillRejected) return toolbar;
+      }
+    }
+
+    const flow = findFlowTarget(repo);
+    if (flow) return flow;
+
+    return {
+      mode: "floating",
+      element: document.body,
+      listMode: false
+    };
+  }
+
+  function insertRoot(root, target) {
+    if (target.anchor && target.anchor.parentElement === target.element) {
+      if (target.insertBefore) {
+        target.element.insertBefore(root, target.anchor);
+      } else {
+        target.element.insertBefore(root, target.anchor.nextSibling);
+      }
+    } else if (target.prepend) {
+      target.element.prepend(root);
+    } else {
+      target.element.append(root);
+    }
+    root.__ghdnLayoutHost = target.element;
+  }
+
+  function observeLayoutHost(element) {
+    if (observedLayoutHost === element) return;
+    if (resizeObserver) resizeObserver.disconnect();
+    observedLayoutHost = element || null;
+    if (!element || typeof ResizeObserver === "undefined") return;
+    resizeObserver = new ResizeObserver(scheduleLayoutRefresh);
+    resizeObserver.observe(element);
+  }
+
+  function toolbarFits(root) {
+    if (!root || !root.isConnected) return false;
+    const host = root.__ghdnLayoutHost || root.parentElement;
+    if (!host || !isVisibleElement(host)) return false;
+
+    const rootRect = root.getBoundingClientRect();
+    if (rootRect.width <= 0 || rootRect.height <= 0) return false;
+    if (rootRect.right > window.innerWidth - 8) return false;
+    if (host.scrollWidth > host.clientWidth + 3) return false;
+
+    const sibling = [...host.children].find((child) => child !== root && isVisibleElement(child));
+    if (sibling) {
+      const siblingRect = sibling.getBoundingClientRect();
+      if (Math.abs(rootRect.top - siblingRect.top) > 10) return false;
+    }
+    return true;
+  }
+
+  function applyToolbarDensity(root) {
+    if (!root || root.dataset.placement !== "toolbar") return true;
+    root.classList.remove("ghdn-density-compact");
+    root.classList.add("ghdn-density-full");
+    if (toolbarFits(root)) return true;
+
+    root.classList.remove("ghdn-density-full");
+    root.classList.add("ghdn-density-compact");
+    return toolbarFits(root);
+  }
+
+  function scheduleLayoutRefresh() {
+    if (layoutFrame) cancelAnimationFrame(layoutFrame);
+    layoutFrame = requestAnimationFrame(() => {
+      layoutFrame = null;
+      refreshPlacement().catch((error) => {
+        console.warn("[GHDN] layout refresh failed", error);
+      });
+    });
   }
 
   function createElement(tag, className, text) {
@@ -216,11 +564,23 @@
     return element;
   }
 
+  const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
+
   function createSvgNode(markup) {
-    const parsed = new DOMParser().parseFromString(markup, "image/svg+xml");
+    const source = markup.replace(
+      /^<svg\b(?![^>]*\bxmlns=)/,
+      `<svg xmlns="${SVG_NAMESPACE}"`
+    );
+    const parsed = new DOMParser().parseFromString(source, "image/svg+xml");
     if (parsed.querySelector("parsererror")) return document.createTextNode("");
     const svg = parsed.documentElement;
-    if (!svg || svg.nodeName.toLowerCase() !== "svg") return document.createTextNode("");
+    if (
+      !svg ||
+      svg.nodeName.toLowerCase() !== "svg" ||
+      svg.namespaceURI !== SVG_NAMESPACE
+    ) {
+      return document.createTextNode("");
+    }
     return document.importNode(svg, true);
   }
 
@@ -252,10 +612,11 @@
     return icon;
   }
 
-  function createRoot(listMode, floating) {
-    const root = createElement(listMode ? "li" : "div", "ghdn-root");
+  function createRoot(target) {
+    const root = createElement(target.listMode ? "li" : "div", "ghdn-root");
     root.id = ROOT_ID;
-    if (floating) root.classList.add("ghdn-floating");
+    root.dataset.placement = target.mode;
+    root.classList.add(`ghdn-placement-${target.mode}`, "ghdn-density-full");
     root.classList.add(`ghdn-style-${settings.buttonStyle}`);
     if (!settings.showSubtitle) root.classList.add("ghdn-hide-subtitle");
 
@@ -265,7 +626,12 @@
     primary.dataset.role = "primary";
     primary.append(createIcon("download", "ghdn-primary-icon"), createElement("span", "ghdn-primary-copy"));
     const copy = primary.querySelector(".ghdn-primary-copy");
-    copy.append(createElement("span", "ghdn-primary-title", strings.downloadNow), createElement("span", "ghdn-primary-subtitle", strings.detecting));
+    const title = createElement("span", "ghdn-primary-title");
+    title.append(
+      createElement("span", "ghdn-primary-title-full", strings.downloadNow),
+      createElement("span", "ghdn-primary-title-compact", strings.downloadCompact)
+    );
+    copy.append(title, createElement("span", "ghdn-primary-subtitle", strings.detecting));
 
     const arrow = createElement("button", "ghdn-arrow");
     arrow.type = "button";
@@ -273,11 +639,8 @@
     arrow.append(createIcon("chevron", "ghdn-arrow-icon"));
     arrow.setAttribute("aria-label", strings.chooseDownload);
     arrow.setAttribute("aria-haspopup", "menu");
+    arrow.setAttribute("aria-controls", MENU_ID);
     arrow.setAttribute("aria-expanded", "false");
-
-    const menu = createElement("div", "ghdn-menu");
-    menu.hidden = true;
-    menu.setAttribute("role", "menu");
 
     primary.addEventListener("click", handlePrimaryClick);
     arrow.addEventListener("click", handleMenuClick);
@@ -285,44 +648,110 @@
     group.addEventListener("mouseleave", cancelPrefetch);
     group.addEventListener("focusin", schedulePrefetch);
     group.append(primary, arrow);
-    root.append(group, menu);
+    root.append(group);
     return root;
   }
 
+  function ensureMenu() {
+    let menu = document.getElementById(MENU_ID);
+    if (menu) return menu;
+    menu = createElement("div", "ghdn-menu");
+    menu.id = MENU_ID;
+    menu.hidden = true;
+    menu.setAttribute("role", "menu");
+    document.body.append(menu);
+    return menu;
+  }
+
+  async function refreshPlacement(options = {}) {
+    if (placementBusy) return;
+    placementBusy = true;
+    try {
+      await settingsReady;
+      const repo = parseRepository();
+      let existing = document.getElementById(ROOT_ID);
+
+      if (!repo || !shouldShow(repo)) {
+        if (existing) existing.remove();
+        setMenuOpen(false);
+        activeRepoKey = "";
+        releaseState = null;
+        buildInstructionsState = null;
+        buildInstructionsPromise = null;
+        loadingPromise = null;
+        detectedPlatformPromise = null;
+        observeLayoutHost(null);
+        return;
+      }
+
+      if (activeRepoKey !== repo.key) {
+        activeRepoKey = repo.key;
+        releaseState = null;
+        buildInstructionsState = null;
+        buildInstructionsPromise = null;
+        loadingPromise = null;
+        detectedPlatformPromise = null;
+        if (existing) existing.remove();
+        existing = null;
+        setMenuOpen(false);
+      }
+
+      const target = findMountTarget(repo, options);
+      if (!target) return;
+      const sameTarget =
+        existing &&
+        existing.dataset.placement === target.mode &&
+        existing.__ghdnLayoutHost === target.element &&
+        existing.isConnected;
+
+      if (!sameTarget) {
+        if (existing) existing.remove();
+        existing = createRoot(target);
+        insertRoot(existing, target);
+        installCloseListeners();
+        getDetectedPlatform().then((platform) => updatePrimaryPresentation(releaseState && releaseState.response, platform));
+      }
+
+      observeLayoutHost(target.element);
+
+      if (target.mode === "toolbar") {
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+        if (!applyToolbarDensity(existing)) {
+          rejectedToolbarHost = target.element;
+          rejectedToolbarWidth = target.element.clientWidth;
+          existing.remove();
+          existing = null;
+          const fallback = findMountTarget(repo, { preferFlow: true });
+          const flowRoot = createRoot(fallback);
+          insertRoot(flowRoot, fallback);
+          observeLayoutHost(fallback.element);
+          getDetectedPlatform().then((platform) => updatePrimaryPresentation(releaseState && releaseState.response, platform));
+        } else {
+          rejectedToolbarHost = null;
+          rejectedToolbarWidth = 0;
+        }
+      } else if (target.mode === "floating") {
+        existing.classList.remove("ghdn-density-full");
+        existing.classList.add("ghdn-density-compact");
+      }
+
+      if (!ensureMenu().hidden) positionMenu();
+    } finally {
+      placementBusy = false;
+    }
+  }
+
   async function mount() {
-    await settingsReady;
-    const repo = parseRepository();
-    const existing = document.getElementById(ROOT_ID);
-
-    if (!repo || !shouldShow(repo)) {
-      if (existing) existing.remove();
-      activeRepoKey = "";
-      releaseState = null;
-      loadingPromise = null;
-      detectedPlatformPromise = null;
-      return;
-    }
-
-    if (activeRepoKey !== repo.key) {
-      activeRepoKey = repo.key;
-      releaseState = null;
-      loadingPromise = null;
-      detectedPlatformPromise = null;
-      if (existing) existing.remove();
-    } else if (existing && existing.isConnected) {
-      return;
-    }
-
-    const target = findMountTarget();
-    if (!target) return;
-    target.element.append(createRoot(target.listMode, target.floating));
-    installCloseListeners();
-    getDetectedPlatform().then((platform) => updatePrimaryPresentation(null, platform));
+    await refreshPlacement();
   }
 
   function scheduleMount() {
     clearTimeout(mountTimer);
-    mountTimer = setTimeout(() => { mount().catch(() => {}); }, 80);
+    mountTimer = setTimeout(() => {
+      mount().catch((error) => {
+        console.warn("[GHDN] mount failed", error);
+      });
+    }, 80);
   }
 
   function schedulePrefetch() {
@@ -404,13 +833,20 @@
     const root = document.getElementById(ROOT_ID);
     if (!root) return;
     const primary = root.querySelector('[data-role="primary"]');
-    const titleNode = primary.querySelector(".ghdn-primary-title");
+    const fullTitleNode = primary.querySelector(".ghdn-primary-title-full");
+    const compactTitleNode = primary.querySelector(".ghdn-primary-title-compact");
     const subtitleNode = primary.querySelector(".ghdn-primary-subtitle");
     const iconNode = primary.querySelector(".ghdn-primary-icon");
-    titleNode.textContent = title;
+    fullTitleNode.textContent = title;
+    compactTitleNode.textContent = strings.downloadCompact;
     subtitleNode.textContent = subtitle || "";
-    subtitleNode.hidden = !subtitle || !settings.showSubtitle || settings.buttonStyle === "compact";
+    subtitleNode.hidden =
+      !subtitle ||
+      !settings.showSubtitle ||
+      settings.buttonStyle === "compact" ||
+      root.dataset.placement === "toolbar";
     iconNode.replaceChildren(createSvgNode(svgIcon(iconName)));
+    scheduleLayoutRefresh();
   }
 
   async function loadRelease() {
@@ -490,7 +926,7 @@
     event.stopPropagation();
     const root = document.getElementById(ROOT_ID);
     if (!root) return;
-    const menu = root.querySelector(".ghdn-menu");
+    const menu = ensureMenu();
     if (!menu.hidden) return setMenuOpen(false);
     try {
       const state = await loadRelease();
@@ -501,10 +937,117 @@
     }
   }
 
+  async function loadBuildInstructions(release) {
+    const repo = parseRepository();
+    if (!repo) throw new Error("Repository not found");
+    const ref = String(release && release.tag_name || "");
+    const key = `${repo.key}:${ref || "default"}`;
+    if (buildInstructionsState && buildInstructionsState.key === key) {
+      return buildInstructionsState.response;
+    }
+    if (buildInstructionsPromise && buildInstructionsPromise.key === key) {
+      return buildInstructionsPromise.promise;
+    }
+
+    const promise = extensionApi.runtime.sendMessage({
+      type: "GHDN_GET_BUILD_INSTRUCTIONS",
+      owner: repo.owner,
+      repo: repo.repo,
+      ref
+    }).then((response) => {
+      buildInstructionsState = { key, response };
+      return response;
+    }).finally(() => {
+      if (buildInstructionsPromise && buildInstructionsPromise.key === key) {
+        buildInstructionsPromise = null;
+      }
+    });
+
+    buildInstructionsPromise = { key, promise };
+    return promise;
+  }
+
+  function createBuildDocumentationControl(release) {
+    const container = createElement("div", "ghdn-build-docs");
+    const heading = createElement("div", "ghdn-build-docs-heading");
+    heading.append(
+      createIcon("source", "ghdn-inline-icon"),
+      createElement("span", "", strings.buildFromSource)
+    );
+
+    const links = createElement("div", "ghdn-build-docs-links");
+    links.append(createBuildStatus(strings.buildLoading, "loading"));
+    container.append(heading, links);
+
+    loadBuildInstructions(release)
+      .then((response) => {
+        renderBuildDocumentationLinks(container, links, response);
+        requestAnimationFrame(positionMenu);
+      })
+      .catch(() => {
+        links.replaceChildren(createBuildStatus(strings.buildError, "error"));
+        requestAnimationFrame(positionMenu);
+      });
+
+    return container;
+  }
+
+  function createBuildStatus(message, type) {
+    const status = createElement("div", `ghdn-build-status ghdn-build-status-${type}`);
+    status.append(
+      createIcon(type === "error" ? "warning" : "info", "ghdn-inline-icon"),
+      createElement("span", "", message)
+    );
+    return status;
+  }
+
+  function renderBuildDocumentationLinks(container, links, response) {
+    links.replaceChildren();
+
+    if (!response || !response.ok) {
+      if (response && response.error === "rate_limited") {
+        const time = response.resetAt
+          ? new Date(response.resetAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          : null;
+        links.append(createBuildStatus(strings.rateLimited(time), "error"));
+      } else {
+        links.append(createBuildStatus(strings.buildError, "error"));
+      }
+      return;
+    }
+
+    const documents = Array.isArray(response.documents) ? response.documents : [];
+    if (!documents.length) {
+      container.hidden = true;
+      return;
+    }
+
+    if (response.usedDefaultBranchFallback) {
+      links.append(createBuildStatus(strings.buildFallbackNotice, "warning"));
+    }
+
+    for (const documentLink of documents) {
+      if (!documentLink || !documentLink.htmlUrl) continue;
+      const link = createElement("a", "ghdn-build-doc-link");
+      link.href = documentLink.htmlUrl;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.append(
+        createIcon("external", "ghdn-inline-icon"),
+        createElement("span", "", documentLink.path || strings.buildFromSource)
+      );
+      links.append(link);
+    }
+
+    if (!links.querySelector(".ghdn-build-doc-link")) {
+      container.hidden = true;
+    }
+  }
+
   function renderMenu(state) {
     const root = document.getElementById(ROOT_ID);
     if (!root) return;
-    const menu = root.querySelector(".ghdn-menu");
+    const menu = ensureMenu();
     menu.replaceChildren();
     const release = state.response.release;
     const ranked = state.response.rankedAssets || [];
@@ -547,9 +1090,11 @@
     if (settings.showSourceCode) {
       const sourceSection = createElement("div", "ghdn-source-section");
       sourceSection.append(createSectionHeading(strings.sourceCode, "source"));
-      if (release.zipball_url) sourceSection.append(createLinkButton(strings.sourceZip, release.zipball_url, "source"));
-      if (release.tarball_url) sourceSection.append(createLinkButton(strings.sourceTar, release.tarball_url, "source"));
-      if (sourceSection.childElementCount > 1) menu.append(sourceSection);
+      const sourceActions = createElement("div", "ghdn-source-actions");
+      if (release.zipball_url) sourceActions.append(createLinkButton(strings.sourceZip, release.zipball_url, "source"));
+      if (release.tarball_url) sourceActions.append(createLinkButton(strings.sourceTar, release.tarball_url, "source"));
+      sourceSection.append(sourceActions, createBuildDocumentationControl(release));
+      menu.append(sourceSection);
     }
 
     const footer = createElement("div", "ghdn-menu-footer");
@@ -596,7 +1141,107 @@
     return heading;
   }
 
+  function currentLanguageCode() {
+    if (settings.language === "ru") return "ru";
+    if (settings.language === "en") return "en";
+    return /^(ru|uk|be|kk)(-|$)/i.test(navigator.language || "") ? "ru" : "en";
+  }
+
+  function installGuideForAsset(asset, platform) {
+    if (!installGuides || !asset || settings.installGuidance === "off") return null;
+    const extension = asset.extension || selector.detectExtension(asset.name);
+    return installGuides.createGuide({
+      assetName: asset.name,
+      extension,
+      platform: assetPlatform(asset) || (platform && platform.os) || "unknown",
+      language: currentLanguageCode()
+    });
+  }
+
+  function createInstallGuideCard(guide, options = {}) {
+    const card = createElement("div", `ghdn-install-guide${options.prompt ? " ghdn-install-guide-prompt" : ""}`);
+    const header = createElement("div", "ghdn-install-guide-header");
+    const heading = createElement("div", "ghdn-install-guide-heading");
+    heading.append(createIcon("info", "ghdn-install-guide-icon"), createElement("strong", "", options.prompt ? strings.installAfterDownload : guide.title));
+    header.append(heading);
+
+    if (options.prompt) {
+      const close = createElement("button", "ghdn-install-guide-close");
+      close.type = "button";
+      close.title = strings.installClose;
+      close.setAttribute("aria-label", strings.installClose);
+      close.textContent = "×";
+      close.addEventListener("click", () => card.remove());
+      header.append(close);
+    }
+
+    card.append(header);
+    if (options.prompt) card.append(createElement("div", "ghdn-install-guide-title", guide.title));
+    if (guide.summary) card.append(createElement("div", "ghdn-install-guide-summary", guide.summary));
+
+    const steps = createElement("div", "ghdn-install-guide-steps");
+    guide.steps.forEach((step, index) => {
+      const item = createElement("div", "ghdn-install-guide-step");
+      const label = createElement("div", "ghdn-install-guide-step-label", `${index + 1}. ${step.label}`);
+      item.append(label);
+      if (step.command) {
+        const commandRow = createElement("div", "ghdn-install-command-row");
+        const code = createElement("code", "ghdn-install-command", step.command);
+        const copy = createElement("button", "ghdn-install-command-copy");
+        copy.type = "button";
+        copy.title = strings.installCopyCommand;
+        copy.setAttribute("aria-label", strings.installCopyCommand);
+        copy.append(createIcon("copy", "ghdn-copy-icon"));
+        copy.addEventListener("click", () => copyText(step.command, strings.installCopied));
+        commandRow.append(code, copy);
+        item.append(commandRow);
+      }
+      steps.append(item);
+    });
+    card.append(steps);
+
+    if (guide.warning) {
+      const warning = createElement("div", "ghdn-install-guide-warning");
+      warning.append(createIcon("warning", "ghdn-inline-icon"), createElement("span", "", guide.warning));
+      card.append(warning);
+    }
+
+    if (guide.copyAll && guide.commands.length > 1) {
+      const copyAll = createElement("button", "ghdn-install-copy-all", strings.installCopyAll);
+      copyAll.type = "button";
+      copyAll.prepend(createIcon("copy", "ghdn-inline-icon"));
+      copyAll.addEventListener("click", () => copyText(installGuides.commandText(guide), strings.installCopied));
+      card.append(copyAll);
+    }
+
+    return card;
+  }
+
+  function ensureNoticeStack() {
+    let stack = document.getElementById(NOTICE_STACK_ID);
+    if (!stack) {
+      stack = createElement("div", "ghdn-notice-stack");
+      stack.id = NOTICE_STACK_ID;
+      document.body.append(stack);
+    }
+    return stack;
+  }
+
+  function showInstallPrompt(guide) {
+    if (!guide) return;
+    let prompt = document.getElementById("ghdn-install-prompt");
+    if (prompt) prompt.remove();
+    prompt = createInstallGuideCard(guide, { prompt: true });
+    prompt.id = "ghdn-install-prompt";
+    ensureNoticeStack().append(prompt);
+    clearTimeout(showInstallPrompt.timer);
+    showInstallPrompt.timer = setTimeout(() => {
+      if (prompt.isConnected) prompt.remove();
+    }, 30000);
+  }
+
   function createAssetRow(asset, recommended, currentPlatform, release) {
+    const entry = createElement("div", "ghdn-asset-entry");
     const row = createElement("div", "ghdn-asset-row");
     const button = createElement("button", "ghdn-asset");
     button.type = "button"; button.setAttribute("role", "menuitem"); button.title = asset.name;
@@ -620,11 +1265,36 @@
     button.append(iconWrap, details, side);
     button.addEventListener("click", () => startDownload(asset.browser_download_url, asset, release, currentPlatform));
 
+    const actions = createElement("div", "ghdn-asset-actions");
+    const guide = installGuideForAsset(asset, currentPlatform);
+    let guidePanel = null;
+    if (guide) {
+      guidePanel = createInstallGuideCard(guide);
+      guidePanel.hidden = true;
+      const guideButton = createElement("button", "ghdn-guide-toggle");
+      guideButton.type = "button";
+      guideButton.title = strings.installHelp;
+      guideButton.setAttribute("aria-label", strings.installHelp);
+      guideButton.setAttribute("aria-expanded", "false");
+      guideButton.append(createIcon("info", "ghdn-guide-icon"));
+      guideButton.addEventListener("click", (event) => {
+        event.stopPropagation();
+        guidePanel.hidden = !guidePanel.hidden;
+        guideButton.setAttribute("aria-expanded", String(!guidePanel.hidden));
+        requestAnimationFrame(positionMenu);
+      });
+      actions.append(guideButton);
+    }
+
     const copyButton = createElement("button", "ghdn-copy-link");
     copyButton.type = "button"; copyButton.title = strings.copyLink; copyButton.setAttribute("aria-label", strings.copyLink);
     copyButton.append(createIcon("copy", "ghdn-copy-icon"));
     copyButton.addEventListener("click", (event) => { event.stopPropagation(); copyText(asset.browser_download_url); });
-    row.append(button, copyButton); return row;
+    actions.append(copyButton);
+    row.append(button, actions);
+    entry.append(row);
+    if (guidePanel) entry.append(guidePanel);
+    return entry;
   }
 
   function createLinkButton(label, url, iconName) {
@@ -648,7 +1318,7 @@
     if (markers.length) return markers[0];
     const extensionOs = {
       ".exe": "windows", ".msi": "windows", ".msix": "windows", ".msixbundle": "windows", ".appx": "windows", ".appxbundle": "windows",
-      ".appimage": "linux", ".flatpakref": "linux", ".deb": "linux", ".rpm": "linux", ".snap": "linux",
+      ".appimage": "linux", ".flatpakref": "linux", ".flatpak": "linux", ".deb": "linux", ".rpm": "linux", ".snap": "linux", ".run": "linux", ".sh": "linux",
       ".dmg": "macos", ".pkg": "macos", ".apk": "android", ".apks": "android", ".aab": "android",
       ".xpi": "browser", ".crx": "browser", ".vsix": "browser"
     };
@@ -668,8 +1338,8 @@
 
   function formatDisplayName(extension) {
     const names = {
-      ".appimage": "AppImage", ".flatpakref": "Flatpak", ".deb": "DEB", ".rpm": "RPM", ".snap": "Snap",
-      ".tar.gz": "TAR.GZ", ".tar.xz": "TAR.XZ", ".tgz": "TGZ", ".zip": "ZIP", ".7z": "7Z",
+      ".appimage": "AppImage", ".flatpakref": "Flatpak Ref", ".flatpak": "Flatpak", ".deb": "DEB", ".rpm": "RPM", ".snap": "Snap", ".run": "RUN", ".sh": "SH",
+      ".tar.gz": "TAR.GZ", ".tar.xz": "TAR.XZ", ".tar.zst": "TAR.ZST", ".tar.bz2": "TAR.BZ2", ".tgz": "TGZ", ".tbz2": "TBZ2", ".zip": "ZIP", ".7z": "7Z",
       ".exe": "EXE", ".msi": "MSI", ".msix": "MSIX", ".msixbundle": "MSIX Bundle", ".appx": "APPX", ".appxbundle": "APPX Bundle",
       ".dmg": "DMG", ".pkg": "PKG", ".apk": "APK", ".apks": "APKS", ".aab": "AAB", ".xpi": "XPI", ".crx": "CRX", ".vsix": "VSIX", ".jar": "JAR"
     };
@@ -700,6 +1370,11 @@
     setMenuOpen(false);
     const anchor = document.createElement("a");
     anchor.href = url; anchor.rel = "noopener noreferrer"; document.body.append(anchor); anchor.click(); anchor.remove();
+
+    if (asset && platform && settings.installGuidance === "beginner") {
+      const guide = installGuideForAsset(asset, platform);
+      if (guide) showInstallPrompt(guide);
+    }
 
     if (!asset || !release || !platform) return;
     const repo = parseRepository();
@@ -757,7 +1432,7 @@
     later.addEventListener("click", () => prompt.remove());
     actions.append(enable, later);
     prompt.append(createIcon("info", "ghdn-watch-icon"), copy, actions);
-    document.body.append(prompt);
+    ensureNoticeStack().append(prompt);
     clearTimeout(showWatchPrompt.timer);
     showWatchPrompt.timer = setTimeout(() => { if (prompt.isConnected) prompt.remove(); }, 12000);
   }
@@ -767,30 +1442,80 @@
     window.open(url, "_blank", "noopener,noreferrer");
   }
 
-  async function copyText(text) {
+  async function copyText(text, successMessage = strings.copied) {
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(text);
       else {
         const area = createElement("textarea"); area.value = text; area.style.position = "fixed"; area.style.opacity = "0";
         document.body.append(area); area.select(); document.execCommand("copy"); area.remove();
       }
-      showToast(strings.copied, "success");
+      showToast(successMessage, "success");
     } catch (_error) { showToast(strings.networkError, "error"); }
+  }
+
+  function positionMenu() {
+    const root = document.getElementById(ROOT_ID);
+    const menu = document.getElementById(MENU_ID);
+    if (!root || !menu || menu.hidden) return;
+
+    const margin = 12;
+    const mobile = window.innerWidth <= TOOLBAR_BREAKPOINT;
+    menu.classList.toggle("ghdn-menu-sheet", mobile);
+    menu.style.top = "";
+    menu.style.right = "";
+    menu.style.bottom = "";
+    menu.style.left = "";
+
+    if (mobile) {
+      menu.style.left = `${margin}px`;
+      menu.style.right = `${margin}px`;
+      menu.style.bottom = `${margin}px`;
+      return;
+    }
+
+    const anchor = root.querySelector(".ghdn-button-group") || root;
+    const anchorRect = anchor.getBoundingClientRect();
+    const menuRect = menu.getBoundingClientRect();
+    const width = Math.min(470, window.innerWidth - margin * 2);
+    const estimatedHeight = Math.min(menuRect.height || 650, window.innerHeight - margin * 2);
+    let left = anchorRect.right - width;
+    left = Math.max(margin, Math.min(left, window.innerWidth - width - margin));
+
+    const below = anchorRect.bottom + 8;
+    const above = anchorRect.top - 8 - estimatedHeight;
+    const top = below + estimatedHeight <= window.innerHeight - margin || above < margin
+      ? Math.min(below, window.innerHeight - estimatedHeight - margin)
+      : above;
+
+    menu.style.width = `${width}px`;
+    menu.style.left = `${Math.round(left)}px`;
+    menu.style.top = `${Math.max(margin, Math.round(top))}px`;
   }
 
   function setMenuOpen(open) {
     const root = document.getElementById(ROOT_ID);
-    if (!root) return;
-    const menu = root.querySelector(".ghdn-menu");
-    const arrow = root.querySelector('[data-role="menu"]');
-    menu.hidden = !open; root.classList.toggle("ghdn-menu-open", open); arrow.setAttribute("aria-expanded", String(open));
+    const menu = ensureMenu();
+    if (!root && open) return;
+    const arrow = root && root.querySelector('[data-role="menu"]');
+    menu.hidden = !open;
+    if (root) root.classList.toggle("ghdn-menu-open", open);
+    if (arrow) arrow.setAttribute("aria-expanded", String(open));
+    if (open) requestAnimationFrame(positionMenu);
   }
 
   function installCloseListeners() {
     if (closeListenerInstalled) return;
     closeListenerInstalled = true;
-    document.addEventListener("click", (event) => { const root = document.getElementById(ROOT_ID); if (root && !root.contains(event.target)) setMenuOpen(false); });
-    document.addEventListener("keydown", (event) => { if (event.key === "Escape") setMenuOpen(false); });
+    document.addEventListener("click", (event) => {
+      const root = document.getElementById(ROOT_ID);
+      const menu = document.getElementById(MENU_ID);
+      const insideRoot = root && root.contains(event.target);
+      const insideMenu = menu && menu.contains(event.target);
+      if (!insideRoot && !insideMenu) setMenuOpen(false);
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    });
   }
 
   function showResponseError(response) {
@@ -804,7 +1529,7 @@
 
   function showToast(message, type) {
     let toast = document.getElementById("ghdn-toast");
-    if (!toast) { toast = createElement("div", "ghdn-toast"); toast.id = "ghdn-toast"; document.body.append(toast); }
+    if (!toast) { toast = createElement("div", "ghdn-toast"); toast.id = "ghdn-toast"; ensureNoticeStack().append(toast); }
     toast.className = `ghdn-toast ghdn-toast-${type}`; toast.textContent = message; toast.hidden = false;
     clearTimeout(showToast.timer); showToast.timer = setTimeout(() => { toast.hidden = true; }, 3500);
   }
@@ -821,14 +1546,20 @@
   if (settingsApi) {
     settingsApi.onChanged((next) => {
       settings = next; strings = createStrings(settings.language); settingsReady = Promise.resolve(settings);
-      activeRepoKey = ""; releaseState = null; loadingPromise = null; detectedPlatformPromise = null;
-      const root = document.getElementById(ROOT_ID); if (root) root.remove(); scheduleMount();
+      activeRepoKey = ""; releaseState = null; buildInstructionsState = null; buildInstructionsPromise = null; loadingPromise = null; detectedPlatformPromise = null;
+      const root = document.getElementById(ROOT_ID); if (root) root.remove();
+      setMenuOpen(false); scheduleMount();
     });
   }
 
   document.addEventListener("turbo:load", scheduleMount);
   document.addEventListener("pjax:end", scheduleMount);
   window.addEventListener("popstate", scheduleMount);
+  window.addEventListener("resize", scheduleLayoutRefresh, { passive: true });
+  window.addEventListener("scroll", () => {
+    const menu = document.getElementById(MENU_ID);
+    if (menu && !menu.hidden) requestAnimationFrame(positionMenu);
+  }, { passive: true, capture: true });
   new MutationObserver(scheduleMount).observe(document.documentElement, { childList: true, subtree: true });
   scheduleMount();
 })();

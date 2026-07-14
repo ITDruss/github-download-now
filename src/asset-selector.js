@@ -23,10 +23,10 @@
   };
 
   const EXTENSIONS = [
-    ".flatpakref", ".appimage", ".tar.bz2", ".tar.gz", ".tar.xz",
+    ".flatpakref", ".flatpak", ".appimage", ".tar.bz2", ".tar.gz", ".tar.xz", ".tar.zst",
     ".msixbundle", ".appxbundle", ".msix", ".appx", ".tgz", ".tbz2",
     ".apk", ".apks", ".aab", ".dmg", ".pkg", ".exe", ".msi", ".deb",
-    ".rpm", ".snap", ".xpi", ".crx", ".vsix", ".jar", ".zip", ".7z",
+    ".rpm", ".snap", ".run", ".sh", ".xpi", ".crx", ".vsix", ".jar", ".zip", ".7z",
     ".rar", ".gz", ".xz"
   ];
 
@@ -36,8 +36,8 @@
       ".appxbundle": 46, ".appx": 45, ".zip": 22, ".7z": 18
     },
     linux: {
-      ".appimage": 54, ".flatpakref": 50, ".deb": 47, ".rpm": 44,
-      ".snap": 41, ".tar.xz": 27, ".tar.gz": 25, ".tgz": 23,
+      ".appimage": 54, ".flatpakref": 50, ".flatpak": 49, ".deb": 47, ".rpm": 44,
+      ".snap": 41, ".tar.xz": 27, ".tar.zst": 26, ".tar.gz": 25, ".tgz": 23, ".run": 18, ".sh": 12,
       ".zip": 17, ".7z": 14
     },
     macos: {
@@ -49,8 +49,8 @@
     unknown: {
       ".xpi": 45, ".crx": 45, ".vsix": 43, ".jar": 40,
       ".exe": 20, ".msi": 20, ".appimage": 20, ".deb": 19,
-      ".rpm": 18, ".dmg": 20, ".pkg": 19, ".apk": 20,
-      ".zip": 14, ".tar.gz": 13, ".tar.xz": 13, ".7z": 11
+      ".rpm": 18, ".flatpak": 18, ".dmg": 20, ".pkg": 19, ".apk": 20,
+      ".zip": 14, ".tar.gz": 13, ".tar.xz": 13, ".tar.zst": 13, ".run": 9, ".sh": 7, ".7z": 11
     }
   };
 
@@ -127,7 +127,7 @@
   function extensionBelongsToOtherOs(extension, os) {
     const groups = {
       windows: new Set([".exe", ".msi", ".msix", ".msixbundle", ".appx", ".appxbundle"]),
-      linux: new Set([".appimage", ".flatpakref", ".deb", ".rpm", ".snap"]),
+      linux: new Set([".appimage", ".flatpakref", ".flatpak", ".deb", ".rpm", ".snap", ".run", ".sh"]),
       macos: new Set([".dmg", ".pkg"]),
       android: new Set([".apk", ".apks", ".aab"])
     };
@@ -143,9 +143,9 @@
       appimage: new Set([".appimage"]),
       deb: new Set([".deb"]),
       rpm: new Set([".rpm"]),
-      flatpak: new Set([".flatpakref"]),
+      flatpak: new Set([".flatpakref", ".flatpak"]),
       snap: new Set([".snap"]),
-      archive: new Set([".tar.xz", ".tar.gz", ".tgz", ".zip", ".7z"]),
+      archive: new Set([".tar.xz", ".tar.zst", ".tar.gz", ".tgz", ".zip", ".7z"]),
       exe: new Set([".exe"]),
       msi: new Set([".msi"]),
       msix: new Set([".msix", ".msixbundle", ".appx", ".appxbundle"]),

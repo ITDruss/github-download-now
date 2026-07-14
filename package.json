@@ -1,10 +1,10 @@
 {
   "name": "github-download-now",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "private": true,
   "description": "A privacy-friendly cross-browser extension that recommends GitHub release assets and watches selected repositories for updates.",
   "scripts": {
-    "test": "node tests/settings.test.js && node tests/tracker.test.js && node tests/background.test.js && node tests/asset-selector.test.js && node tests/manifest.test.js && node --check src/settings.js && node --check src/tracker.js && node --check src/asset-selector.js && node --check src/background.js && node --check src/content.js && node --check src/popup.js && node --check src/options.js",
+    "test": "node tests/settings.test.js && node tests/tracker.test.js && node tests/background.test.js && node tests/build-instructions.test.js && node tests/install-guides.test.js && node tests/asset-selector.test.js && node tests/manifest.test.js && node --check src/settings.js && node --check src/tracker.js && node --check src/build-instructions.js && node --check src/install-guides.js && node --check src/asset-selector.js && node --check src/background.js && node --check src/content.js && node --check src/popup.js && node --check src/options.js",
     "build": "node scripts/build.mjs",
     "package": "npm run build && python3 scripts/package.py",
     "ui-test": "python3 tests/ui_smoke.py",

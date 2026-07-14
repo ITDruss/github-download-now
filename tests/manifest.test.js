@@ -18,6 +18,7 @@ for (const file of ["manifest.chromium.json", "manifest.firefox.json"]) {
   assert.equal(manifest.action.default_popup, "popup.html");
   assert.equal(manifest.options_ui.page, "options.html");
   assert.equal(manifest.content_scripts[0].js[0], "settings.js");
+  assert.ok(manifest.content_scripts[0].js.indexOf("install-guides.js") < manifest.content_scripts[0].js.indexOf("content.js"));
   assert.ok(!manifest.permissions.includes("tabs"));
   assert.ok(!manifest.permissions.includes("cookies"));
   assert.ok(!manifest.permissions.includes("downloads"));
