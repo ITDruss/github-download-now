@@ -54,8 +54,33 @@ global.chrome = {
 global.GHDNSettings = require("../src/settings.js");
 global.GHDNAssetSelector = require("../src/asset-selector.js");
 global.GHDNTracker = require("../src/tracker.js");
+global.GHDNBuildInstructions = require("../src/build-instructions.js");
 
-global.fetch = async () => {
+global.fetch = async (url, options = {}) => {
+  const requestUrl = String(url);
+  if (requestUrl.includes("/contents/BUILDING.md")) {
+    return new Response(
+      "# Build from source\n\nRun the following commands.\n\n```bash\nnpm ci\nnpm run build\n```\n",
+      { status: 200, headers: { "content-type": "text/plain" } }
+    );
+  }
+  if (requestUrl.includes("/contents")) {
+    return new Response(JSON.stringify([
+      {
+        type: "file",
+        name: "BUILDING.md",
+        path: "BUILDING.md",
+        html_url: "https://github.com/example/app/blob/v1.17.0/BUILDING.md"
+      },
+      {
+        type: "file",
+        name: "README.md",
+        path: "README.md",
+        html_url: "https://github.com/example/app/blob/v1.17.0/README.md"
+      }
+    ]), { status: 200, headers: { "content-type": "application/json" } });
+  }
+
   const tag = `v1.${currentRelease}.0`;
   const release = {
     id: currentRelease,
@@ -100,6 +125,17 @@ function message(payload) {
     assetUrl: "https://github.com/example/app/releases/download/v1.17.0/Example.AppImage", assetExtension: ".appimage", assetSize: 1000,
     platform: { os: "linux", arch: "x64", preferredFormat: "appimage" }, releaseChannel: "stable"
   };
+
+  const buildResult = await message({
+    type: "GHDN_GET_BUILD_INSTRUCTIONS",
+    owner: "example",
+    repo: "app",
+    ref: "v1.17.0"
+  });
+  assert.equal(buildResult.ok, true);
+  assert.equal(buildResult.found, true);
+  assert.equal(buildResult.instructions.source.path, "BUILDING.md");
+  assert.ok(buildResult.instructions.commands[0].code.includes("npm run build"));
 
   const recorded = await message({ type: "GHDN_RECORD_DOWNLOAD", download: first });
   assert.equal(recorded.ok, true);

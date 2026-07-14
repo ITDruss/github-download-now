@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented here.
 
+## [0.4.2] - 2026-07-13
+
+### Fixed
+
+- Mounted the download control only into visible GitHub action containers.
+- Added adaptive placement: native toolbar integration, compact toolbar density, full-width in-page fallback and a bottom-right emergency fallback.
+- Portaled the download menu to `document.body` so GitHub containers cannot clip it, with viewport-aware positioning and a mobile bottom-sheet layout.
+- Remounted and repositioned controls after GitHub navigation, container resizing and viewport changes.
+- Added the correct SVG namespace so platform and action icons render reliably in Chromium.
+- Added regression tests for authenticated GitHub layouts, toolbar overflow, mobile flow placement, menu positioning and SVG namespaces.
+- Anchored toolbar placement after GitHub's complete Star control instead of between Fork and Star.
+- Added on-demand build-instruction discovery from explicit repository documentation at the release tag, with safe plain-text command previews and source links.
+- Added regression tests for Star-relative placement and build-instruction extraction.
+
 ## [0.4.1] - 2026-07-13
 
 ### Fixed

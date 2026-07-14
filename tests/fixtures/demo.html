@@ -52,8 +52,8 @@
     <div id="repository-container-header">
       <div class="repo-title"><span>◫</span><a href="#">localsend</a><span>/</span><a href="#"><strong>localsend</strong></a><span class="public">Public</span></div>
       <div class="d-flex">
-        <a class="native-btn" href="/localsend/localsend/stargazers">☆ Star</a>
-        <button class="native-btn">Fork</button>
+        <button class="native-btn" aria-label="Fork repository">Fork</button>
+        <a class="native-btn" aria-label="Star repository" href="/localsend/localsend/stargazers">☆ Star</a>
       </div>
     </div>
     <div class="content">
@@ -107,6 +107,26 @@
         getManifest: () => ({version: "0.3.0"}),
         openOptionsPage: () => {},
         sendMessage: async (_message) => {
+          if (_message.type === "GHDN_GET_BUILD_INSTRUCTIONS") {
+            return {
+              ok: true,
+              found: true,
+              refRequested: "v1.17.0",
+              refUsed: "v1.17.0",
+              usedDefaultBranchFallback: false,
+              instructions: {
+                found: true,
+                title: "Build from source",
+                summary: "Install the dependencies and build the application.",
+                commands: [{language:"bash",code:"flutter pub get\nflutter build linux"}],
+                confidence: "high",
+                source: {
+                  path: "README.md",
+                  htmlUrl: "https://github.com/localsend/localsend/blob/v1.17.0/README.md"
+                }
+              }
+            };
+          }
           const selector = window.GHDNAssetSelector;
           const platform = _message.platform || {os:"linux",arch:"x64",browser:"chromium"};
           const selection = selector.recommendation(fakeResponse.release.assets, platform);

@@ -8,7 +8,9 @@ GitHub Download Now does not sell user data and does not send data to the develo
 
 When release metadata is required, the extension reads the public repository owner and repository name from the current GitHub page and sends those values to the official GitHub REST API at `api.github.com`.
 
-This request is necessary to identify the latest release and its downloadable assets. Background requests are made only for repositories the user explicitly chooses to watch. The extension does not send a general browsing history, unrelated page content or GitHub credentials.
+This request is necessary to identify the latest release and its downloadable assets. When the user explicitly opens the build-instructions panel, the extension may also request public repository file listings and public documentation such as `BUILDING.md`, `INSTALL.md`, `CONTRIBUTING.md` or a relevant README section for the selected release tag. These files are processed locally in the browser and are not sent to the developer.
+
+Background requests are made only for repositories the user explicitly chooses to watch. The extension does not send a general browsing history, unrelated page content or GitHub credentials.
 
 ## Local download history and update tracking
 

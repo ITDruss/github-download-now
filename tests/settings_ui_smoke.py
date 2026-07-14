@@ -10,7 +10,7 @@ MOCK = r'''
 const __settings = {preferredLinux:"deb", primaryAction:"menu", enabled:true};
 window.chrome = {
   runtime: {
-    getManifest: () => ({version:"0.4.1"}),
+    getManifest: () => ({version:"0.4.2"}),
     openOptionsPage: () => { window.__optionsOpened = true; },
     sendMessage: (message, callback) => {
       const response = message.type === "GHDN_GET_DASHBOARD"

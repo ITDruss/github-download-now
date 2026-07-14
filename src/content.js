@@ -5,6 +5,8 @@
   const selector = globalThis.GHDNAssetSelector;
   const settingsApi = globalThis.GHDNSettings;
   const ROOT_ID = "ghdn-root";
+  const MENU_ID = "ghdn-menu";
+  const TOOLBAR_BREAKPOINT = 760;
   const MAX_VISIBLE_ASSETS = 18;
   const RESERVED_ROOTS = new Set([
     "about", "account", "apps", "codespaces", "collections", "contact", "customer-stories",
@@ -17,17 +19,26 @@
   let strings = createStrings(settings.language);
   let activeRepoKey = "";
   let releaseState = null;
+  let buildInstructionsState = null;
+  let buildInstructionsPromise = null;
   let loadingPromise = null;
   let detectedPlatformPromise = null;
   let mountTimer = null;
   let prefetchTimer = null;
   let closeListenerInstalled = false;
+  let layoutFrame = null;
+  let resizeObserver = null;
+  let observedLayoutHost = null;
+  let placementBusy = false;
+  let rejectedToolbarHost = null;
+  let rejectedToolbarWidth = 0;
   let settingsReady = refreshSettings();
 
   function createStrings(language) {
     const russian = language === "ru" || (language !== "en" && /^(ru|uk|be|kk)(-|$)/i.test(navigator.language || ""));
     return russian ? {
       downloadNow: "Скачать сейчас",
+      downloadCompact: "Скачать",
       downloadFormat: (format) => `Скачать ${format}`,
       chooseDownload: "Выбрать файл",
       detecting: "Определяю систему…",
@@ -42,6 +53,17 @@
       moreOnRelease: (count) => `Ещё ${count} файлов на странице релиза`,
       sourceZip: "Исходный код (ZIP)",
       sourceTar: "Исходный код (TAR.GZ)",
+      buildFromSource: "Инструкция по сборке",
+      buildLoading: "Ищу инструкцию по сборке…",
+      buildNotFound: "Явной инструкции по сборке не найдено.",
+      buildError: "Не удалось получить инструкцию по сборке.",
+      buildSource: "Источник",
+      buildCommands: "Команды",
+      buildOpenFull: "Открыть полную инструкцию",
+      buildFallbackNotice: "Инструкция взята из основной ветки: в теге релиза подходящий файл не найден.",
+      buildSafety: "Команды взяты из репозитория проекта. Проверьте их перед запуском.",
+      copyCommand: "Копировать команду",
+      commandCopied: "Команда скопирована",
       noRelease: "У репозитория нет подходящего опубликованного релиза.",
       noAssets: "В релизе нет готовых файлов. Можно скачать исходный код.",
       apiError: "GitHub API временно недоступен.",
@@ -97,6 +119,7 @@
       }
     } : {
       downloadNow: "Download now",
+      downloadCompact: "Download",
       downloadFormat: (format) => `Download ${format}`,
       chooseDownload: "Choose a file",
       detecting: "Detecting your system…",
@@ -111,6 +134,17 @@
       moreOnRelease: (count) => `${count} more files on the release page`,
       sourceZip: "Source code (ZIP)",
       sourceTar: "Source code (TAR.GZ)",
+      buildFromSource: "Build instructions",
+      buildLoading: "Looking for build instructions…",
+      buildNotFound: "No explicit build instructions were found.",
+      buildError: "Could not load build instructions.",
+      buildSource: "Source",
+      buildCommands: "Commands",
+      buildOpenFull: "Open full instructions",
+      buildFallbackNotice: "These instructions come from the default branch because no matching file was found in the release tag.",
+      buildSafety: "Commands are taken from the project repository. Review them before running.",
+      copyCommand: "Copy command",
+      commandCopied: "Command copied",
       noRelease: "This repository has no suitable published release.",
       noAssets: "The release has no uploaded binaries. You can download its source code.",
       apiError: "GitHub API is temporarily unavailable.",
@@ -175,7 +209,7 @@
 
   function parseRepository() {
     const testRepository = globalThis.__GHDN_TEST_REPOSITORY__;
-    if (testRepository && document.querySelector("#repository-container-header")) {
+    if (testRepository) {
       const owner = String(testRepository.owner || "test-owner");
       const repo = String(testRepository.repo || "test-repository");
       return { owner, repo, key: `${owner.toLowerCase()}/${repo.toLowerCase()}`, parts: [owner, repo] };
@@ -186,7 +220,23 @@
     const owner = parts[0];
     const repo = parts[1].replace(/\.git$/i, "");
     if (!/^[A-Za-z0-9_.-]+$/.test(owner) || !/^[A-Za-z0-9_.-]+$/.test(repo)) return null;
-    if (!document.querySelector("#repository-container-header")) return null;
+    const repositoryNwo = document
+      .querySelector('meta[name="octolytics-dimension-repository_nwo"]')
+      ?.getAttribute("content");
+
+    if (
+      repositoryNwo &&
+      repositoryNwo.toLowerCase() !== `${owner}/${repo}`.toLowerCase()
+    ) {
+      return null;
+    }
+
+    if (
+      !repositoryNwo &&
+      !document.querySelector("#repository-container-header")
+    ) {
+      return null;
+    }
     return { owner, repo, key: `${owner.toLowerCase()}/${repo.toLowerCase()}`, parts };
   }
 
@@ -197,16 +247,280 @@
     return true;
   }
 
-  function findMountTarget() {
-    const header = document.querySelector("#repository-container-header");
-    if (!header) return null;
-    const legacyActions = header.querySelector("ul.pagehead-actions");
-    if (legacyActions) return { element: legacyActions, listMode: true, floating: false };
-    const starLink = header.querySelector('a[href$="/stargazers"], a[href*="/stargazers?"]');
-    const actionRow = starLink && starLink.closest("ul, .d-flex, [class*='ButtonGroup']");
-    if (actionRow) return { element: actionRow, listMode: actionRow.tagName === "UL", floating: false };
-    const candidate = header.querySelector(":scope > div") || header;
-    return { element: candidate, listMode: false, floating: true };
+  function isVisibleElement(element) {
+    if (!element || !element.isConnected || element.closest(`#${ROOT_ID}`)) return false;
+
+    const style = getComputedStyle(element);
+    if (
+      style.display === "none" ||
+      style.visibility === "hidden" ||
+      style.visibility === "collapse" ||
+      Number(style.opacity) === 0
+    ) {
+      return false;
+    }
+
+    const rect = element.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
+  }
+
+  function normalizedActionText(element) {
+    return [
+      element.getAttribute("aria-label"),
+      element.getAttribute("title"),
+      element.textContent
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function isStarActionControl(element) {
+    if (!element) return false;
+    const label = normalizedActionText(element);
+    return /(^|\s)Star(?:\s|$)/i.test(label) || /star/i.test(element.getAttribute("aria-label") || "");
+  }
+
+  function collectVisibleActionControls() {
+    const selectors = [
+      'a[href$="/stargazers"]',
+      'a[href*="/stargazers?"]',
+      'a[href$="/forks"]',
+      'a[href*="/forks?"]',
+      'button[aria-label*="Star" i]',
+      'button[aria-label*="Fork" i]',
+      'button[aria-label*="Watch" i]',
+      'summary[aria-label*="Star" i]',
+      'summary[aria-label*="Fork" i]',
+      'summary[aria-label*="Watch" i]',
+      'a[aria-label*="Sponsor" i]'
+    ];
+
+    const controls = new Set();
+    for (const element of document.querySelectorAll(selectors.join(","))) {
+      if (isVisibleElement(element)) controls.add(element);
+    }
+
+    for (const element of document.querySelectorAll("a, button, summary")) {
+      if (!isVisibleElement(element)) continue;
+      const label = normalizedActionText(element);
+      if (/^(Sponsor|Watch|Fork|Star)(?:\s|$)/i.test(label)) controls.add(element);
+    }
+
+    return [...controls];
+  }
+
+  function directChildWithin(container, descendant) {
+    let node = descendant;
+    while (node && node.parentElement !== container) node = node.parentElement;
+    return node && node.parentElement === container ? node : null;
+  }
+
+  function findToolbarTarget() {
+    const controls = collectVisibleActionControls();
+    if (controls.length < 2) return null;
+
+    const candidates = new Map();
+    for (const control of controls) {
+      let node = control.parentElement;
+      let depth = 0;
+      while (node && node !== document.body && depth < 8) {
+        if (isVisibleElement(node)) {
+          const style = getComputedStyle(node);
+          const rect = node.getBoundingClientRect();
+          const layout = style.display;
+          if (
+            ["flex", "inline-flex", "grid", "inline-grid"].includes(layout) &&
+            rect.height >= 24 &&
+            rect.height <= 88 &&
+            rect.width >= 120
+          ) {
+            if (!candidates.has(node)) candidates.set(node, new Set());
+            candidates.get(node).add(control);
+          }
+        }
+        node = node.parentElement;
+        depth += 1;
+      }
+    }
+
+    let starWinner = null;
+    const starControls = controls.filter(isStarActionControl);
+    for (const starControl of starControls) {
+      for (const [element] of candidates) {
+        if (!element.contains(starControl)) continue;
+        const contained = controls.filter((control) => element.contains(control));
+        const topLevelControls = contained
+          .map((control) => directChildWithin(element, control))
+          .filter(Boolean);
+        const uniqueTopLevel = [...new Set(topLevelControls)];
+        if (uniqueTopLevel.length < 2) continue;
+
+        const starGroup = directChildWithin(element, starControl);
+        if (!starGroup) continue;
+        const rects = contained.map((control) => control.getBoundingClientRect());
+        const topSpread = Math.max(...rects.map((rect) => rect.top)) - Math.min(...rects.map((rect) => rect.top));
+        if (topSpread > 18) continue;
+
+        const rect = element.getBoundingClientRect();
+        const score =
+          uniqueTopLevel.length * 30 +
+          contained.length * 10 -
+          rect.height * 0.15 -
+          rect.width * 0.001;
+        if (!starWinner || score > starWinner.score) {
+          starWinner = { element, insertAfter: starGroup, score };
+        }
+      }
+    }
+
+    if (starWinner) {
+      return {
+        mode: "toolbar",
+        element: starWinner.element,
+        insertAfter: starWinner.insertAfter,
+        listMode: starWinner.element.tagName === "UL"
+      };
+    }
+
+    let winner = null;
+    for (const [element, matchedControls] of candidates) {
+      const contained = controls.filter((control) => element.contains(control));
+      if (contained.length < 2) continue;
+
+      const rects = contained.map((control) => control.getBoundingClientRect());
+      const topSpread = Math.max(...rects.map((rect) => rect.top)) - Math.min(...rects.map((rect) => rect.top));
+      if (topSpread > 18) continue;
+
+      const rect = element.getBoundingClientRect();
+      const topLevelControls = contained
+        .map((control) => directChildWithin(element, control))
+        .filter(Boolean);
+      const uniqueTopLevel = [...new Set(topLevelControls)];
+      if (uniqueTopLevel.length < 2) continue;
+
+      const actionWordCount = contained.filter((control) =>
+        /(?:Sponsor|Watch|Fork|Star)/i.test(normalizedActionText(control))
+      ).length;
+      const score =
+        matchedControls.size * 18 +
+        contained.length * 10 +
+        actionWordCount * 8 -
+        rect.height * 0.12 -
+        rect.width * 0.002 -
+        Math.max(0, rect.top - 420) * 0.03;
+
+      if (!winner || score > winner.score) {
+        const rightmost = uniqueTopLevel
+          .slice()
+          .sort((a, b) => a.getBoundingClientRect().right - b.getBoundingClientRect().right)
+          .at(-1);
+        winner = { element, insertAfter: rightmost, score };
+      }
+    }
+
+    if (!winner) return null;
+    return {
+      mode: "toolbar",
+      element: winner.element,
+      insertAfter: winner.insertAfter,
+      listMode: winner.element.tagName === "UL"
+    };
+  }
+
+  function findFlowTarget() {
+    const candidates = [
+      document.querySelector("#repo-content-pjax-container"),
+      document.querySelector("main#js-repo-pjax-container"),
+      document.querySelector("main .Layout-main"),
+      document.querySelector("main")
+    ];
+
+    const element = candidates.find((candidate) => candidate && isVisibleElement(candidate));
+    if (!element) return null;
+    return { mode: "flow", element, prepend: true, listMode: false };
+  }
+
+  function findMountTarget(options = {}) {
+    if (!options.preferFlow && window.innerWidth >= TOOLBAR_BREAKPOINT) {
+      const toolbar = findToolbarTarget();
+      if (toolbar) {
+        const currentWidth = toolbar.element.clientWidth;
+        const stillRejected =
+          rejectedToolbarHost === toolbar.element &&
+          Math.abs(rejectedToolbarWidth - currentWidth) < 4;
+        if (!stillRejected) return toolbar;
+      }
+    }
+
+    const flow = findFlowTarget();
+    if (flow) return flow;
+
+    return {
+      mode: "floating",
+      element: document.body,
+      listMode: false
+    };
+  }
+
+  function insertRoot(root, target) {
+    if (target.insertAfter && target.insertAfter.parentElement === target.element) {
+      target.element.insertBefore(root, target.insertAfter.nextSibling);
+    } else if (target.prepend) {
+      target.element.prepend(root);
+    } else {
+      target.element.append(root);
+    }
+    root.__ghdnLayoutHost = target.element;
+  }
+
+  function observeLayoutHost(element) {
+    if (observedLayoutHost === element) return;
+    if (resizeObserver) resizeObserver.disconnect();
+    observedLayoutHost = element || null;
+    if (!element || typeof ResizeObserver === "undefined") return;
+    resizeObserver = new ResizeObserver(scheduleLayoutRefresh);
+    resizeObserver.observe(element);
+  }
+
+  function toolbarFits(root) {
+    if (!root || !root.isConnected) return false;
+    const host = root.__ghdnLayoutHost || root.parentElement;
+    if (!host || !isVisibleElement(host)) return false;
+
+    const rootRect = root.getBoundingClientRect();
+    if (rootRect.width <= 0 || rootRect.height <= 0) return false;
+    if (rootRect.right > window.innerWidth - 8) return false;
+    if (host.scrollWidth > host.clientWidth + 3) return false;
+
+    const sibling = [...host.children].find((child) => child !== root && isVisibleElement(child));
+    if (sibling) {
+      const siblingRect = sibling.getBoundingClientRect();
+      if (Math.abs(rootRect.top - siblingRect.top) > 10) return false;
+    }
+    return true;
+  }
+
+  function applyToolbarDensity(root) {
+    if (!root || root.dataset.placement !== "toolbar") return true;
+    root.classList.remove("ghdn-density-compact");
+    root.classList.add("ghdn-density-full");
+    if (toolbarFits(root)) return true;
+
+    root.classList.remove("ghdn-density-full");
+    root.classList.add("ghdn-density-compact");
+    return toolbarFits(root);
+  }
+
+  function scheduleLayoutRefresh() {
+    if (layoutFrame) cancelAnimationFrame(layoutFrame);
+    layoutFrame = requestAnimationFrame(() => {
+      layoutFrame = null;
+      refreshPlacement().catch((error) => {
+        console.warn("[GHDN] layout refresh failed", error);
+      });
+    });
   }
 
   function createElement(tag, className, text) {
@@ -216,11 +530,23 @@
     return element;
   }
 
+  const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
+
   function createSvgNode(markup) {
-    const parsed = new DOMParser().parseFromString(markup, "image/svg+xml");
+    const source = markup.replace(
+      /^<svg\b(?![^>]*\bxmlns=)/,
+      `<svg xmlns="${SVG_NAMESPACE}"`
+    );
+    const parsed = new DOMParser().parseFromString(source, "image/svg+xml");
     if (parsed.querySelector("parsererror")) return document.createTextNode("");
     const svg = parsed.documentElement;
-    if (!svg || svg.nodeName.toLowerCase() !== "svg") return document.createTextNode("");
+    if (
+      !svg ||
+      svg.nodeName.toLowerCase() !== "svg" ||
+      svg.namespaceURI !== SVG_NAMESPACE
+    ) {
+      return document.createTextNode("");
+    }
     return document.importNode(svg, true);
   }
 
@@ -252,10 +578,11 @@
     return icon;
   }
 
-  function createRoot(listMode, floating) {
-    const root = createElement(listMode ? "li" : "div", "ghdn-root");
+  function createRoot(target) {
+    const root = createElement(target.listMode ? "li" : "div", "ghdn-root");
     root.id = ROOT_ID;
-    if (floating) root.classList.add("ghdn-floating");
+    root.dataset.placement = target.mode;
+    root.classList.add(`ghdn-placement-${target.mode}`, "ghdn-density-full");
     root.classList.add(`ghdn-style-${settings.buttonStyle}`);
     if (!settings.showSubtitle) root.classList.add("ghdn-hide-subtitle");
 
@@ -265,7 +592,12 @@
     primary.dataset.role = "primary";
     primary.append(createIcon("download", "ghdn-primary-icon"), createElement("span", "ghdn-primary-copy"));
     const copy = primary.querySelector(".ghdn-primary-copy");
-    copy.append(createElement("span", "ghdn-primary-title", strings.downloadNow), createElement("span", "ghdn-primary-subtitle", strings.detecting));
+    const title = createElement("span", "ghdn-primary-title");
+    title.append(
+      createElement("span", "ghdn-primary-title-full", strings.downloadNow),
+      createElement("span", "ghdn-primary-title-compact", strings.downloadCompact)
+    );
+    copy.append(title, createElement("span", "ghdn-primary-subtitle", strings.detecting));
 
     const arrow = createElement("button", "ghdn-arrow");
     arrow.type = "button";
@@ -273,11 +605,8 @@
     arrow.append(createIcon("chevron", "ghdn-arrow-icon"));
     arrow.setAttribute("aria-label", strings.chooseDownload);
     arrow.setAttribute("aria-haspopup", "menu");
+    arrow.setAttribute("aria-controls", MENU_ID);
     arrow.setAttribute("aria-expanded", "false");
-
-    const menu = createElement("div", "ghdn-menu");
-    menu.hidden = true;
-    menu.setAttribute("role", "menu");
 
     primary.addEventListener("click", handlePrimaryClick);
     arrow.addEventListener("click", handleMenuClick);
@@ -285,44 +614,110 @@
     group.addEventListener("mouseleave", cancelPrefetch);
     group.addEventListener("focusin", schedulePrefetch);
     group.append(primary, arrow);
-    root.append(group, menu);
+    root.append(group);
     return root;
   }
 
+  function ensureMenu() {
+    let menu = document.getElementById(MENU_ID);
+    if (menu) return menu;
+    menu = createElement("div", "ghdn-menu");
+    menu.id = MENU_ID;
+    menu.hidden = true;
+    menu.setAttribute("role", "menu");
+    document.body.append(menu);
+    return menu;
+  }
+
+  async function refreshPlacement(options = {}) {
+    if (placementBusy) return;
+    placementBusy = true;
+    try {
+      await settingsReady;
+      const repo = parseRepository();
+      let existing = document.getElementById(ROOT_ID);
+
+      if (!repo || !shouldShow(repo)) {
+        if (existing) existing.remove();
+        setMenuOpen(false);
+        activeRepoKey = "";
+        releaseState = null;
+        buildInstructionsState = null;
+        buildInstructionsPromise = null;
+        loadingPromise = null;
+        detectedPlatformPromise = null;
+        observeLayoutHost(null);
+        return;
+      }
+
+      if (activeRepoKey !== repo.key) {
+        activeRepoKey = repo.key;
+        releaseState = null;
+        buildInstructionsState = null;
+        buildInstructionsPromise = null;
+        loadingPromise = null;
+        detectedPlatformPromise = null;
+        if (existing) existing.remove();
+        existing = null;
+        setMenuOpen(false);
+      }
+
+      const target = findMountTarget(options);
+      if (!target) return;
+      const sameTarget =
+        existing &&
+        existing.dataset.placement === target.mode &&
+        existing.__ghdnLayoutHost === target.element &&
+        existing.isConnected;
+
+      if (!sameTarget) {
+        if (existing) existing.remove();
+        existing = createRoot(target);
+        insertRoot(existing, target);
+        installCloseListeners();
+        getDetectedPlatform().then((platform) => updatePrimaryPresentation(releaseState && releaseState.response, platform));
+      }
+
+      observeLayoutHost(target.element);
+
+      if (target.mode === "toolbar") {
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+        if (!applyToolbarDensity(existing)) {
+          rejectedToolbarHost = target.element;
+          rejectedToolbarWidth = target.element.clientWidth;
+          existing.remove();
+          existing = null;
+          const fallback = findMountTarget({ preferFlow: true });
+          const flowRoot = createRoot(fallback);
+          insertRoot(flowRoot, fallback);
+          observeLayoutHost(fallback.element);
+          getDetectedPlatform().then((platform) => updatePrimaryPresentation(releaseState && releaseState.response, platform));
+        } else {
+          rejectedToolbarHost = null;
+          rejectedToolbarWidth = 0;
+        }
+      } else if (target.mode === "floating") {
+        existing.classList.remove("ghdn-density-full");
+        existing.classList.add("ghdn-density-compact");
+      }
+
+      if (!ensureMenu().hidden) positionMenu();
+    } finally {
+      placementBusy = false;
+    }
+  }
+
   async function mount() {
-    await settingsReady;
-    const repo = parseRepository();
-    const existing = document.getElementById(ROOT_ID);
-
-    if (!repo || !shouldShow(repo)) {
-      if (existing) existing.remove();
-      activeRepoKey = "";
-      releaseState = null;
-      loadingPromise = null;
-      detectedPlatformPromise = null;
-      return;
-    }
-
-    if (activeRepoKey !== repo.key) {
-      activeRepoKey = repo.key;
-      releaseState = null;
-      loadingPromise = null;
-      detectedPlatformPromise = null;
-      if (existing) existing.remove();
-    } else if (existing && existing.isConnected) {
-      return;
-    }
-
-    const target = findMountTarget();
-    if (!target) return;
-    target.element.append(createRoot(target.listMode, target.floating));
-    installCloseListeners();
-    getDetectedPlatform().then((platform) => updatePrimaryPresentation(null, platform));
+    await refreshPlacement();
   }
 
   function scheduleMount() {
     clearTimeout(mountTimer);
-    mountTimer = setTimeout(() => { mount().catch(() => {}); }, 80);
+    mountTimer = setTimeout(() => {
+      mount().catch((error) => {
+        console.warn("[GHDN] mount failed", error);
+      });
+    }, 80);
   }
 
   function schedulePrefetch() {
@@ -404,13 +799,20 @@
     const root = document.getElementById(ROOT_ID);
     if (!root) return;
     const primary = root.querySelector('[data-role="primary"]');
-    const titleNode = primary.querySelector(".ghdn-primary-title");
+    const fullTitleNode = primary.querySelector(".ghdn-primary-title-full");
+    const compactTitleNode = primary.querySelector(".ghdn-primary-title-compact");
     const subtitleNode = primary.querySelector(".ghdn-primary-subtitle");
     const iconNode = primary.querySelector(".ghdn-primary-icon");
-    titleNode.textContent = title;
+    fullTitleNode.textContent = title;
+    compactTitleNode.textContent = strings.downloadCompact;
     subtitleNode.textContent = subtitle || "";
-    subtitleNode.hidden = !subtitle || !settings.showSubtitle || settings.buttonStyle === "compact";
+    subtitleNode.hidden =
+      !subtitle ||
+      !settings.showSubtitle ||
+      settings.buttonStyle === "compact" ||
+      root.dataset.placement === "toolbar";
     iconNode.replaceChildren(createSvgNode(svgIcon(iconName)));
+    scheduleLayoutRefresh();
   }
 
   async function loadRelease() {
@@ -490,7 +892,7 @@
     event.stopPropagation();
     const root = document.getElementById(ROOT_ID);
     if (!root) return;
-    const menu = root.querySelector(".ghdn-menu");
+    const menu = ensureMenu();
     if (!menu.hidden) return setMenuOpen(false);
     try {
       const state = await loadRelease();
@@ -501,10 +903,163 @@
     }
   }
 
+  async function loadBuildInstructions(release) {
+    const repo = parseRepository();
+    if (!repo) throw new Error("Repository not found");
+    const ref = String(release && release.tag_name || "");
+    const key = `${repo.key}:${ref || "default"}`;
+    if (buildInstructionsState && buildInstructionsState.key === key) {
+      return buildInstructionsState.response;
+    }
+    if (buildInstructionsPromise && buildInstructionsPromise.key === key) {
+      return buildInstructionsPromise.promise;
+    }
+
+    const promise = extensionApi.runtime.sendMessage({
+      type: "GHDN_GET_BUILD_INSTRUCTIONS",
+      owner: repo.owner,
+      repo: repo.repo,
+      ref
+    }).then((response) => {
+      buildInstructionsState = { key, response };
+      return response;
+    }).finally(() => {
+      if (buildInstructionsPromise && buildInstructionsPromise.key === key) {
+        buildInstructionsPromise = null;
+      }
+    });
+
+    buildInstructionsPromise = { key, promise };
+    return promise;
+  }
+
+  function createBuildInstructionsControl(release) {
+    const container = createElement("div", "ghdn-build-container");
+    const button = createElement("button", "ghdn-source-link ghdn-build-trigger", strings.buildFromSource);
+    button.type = "button";
+    button.prepend(createIcon("source", "ghdn-inline-icon"));
+    button.setAttribute("aria-expanded", "false");
+
+    const panel = createElement("div", "ghdn-build-panel");
+    panel.hidden = true;
+
+    button.addEventListener("click", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!panel.hidden) {
+        panel.hidden = true;
+        button.setAttribute("aria-expanded", "false");
+        requestAnimationFrame(positionMenu);
+        return;
+      }
+
+      panel.hidden = false;
+      button.setAttribute("aria-expanded", "true");
+      panel.replaceChildren(createBuildStatus(strings.buildLoading, "loading"));
+      requestAnimationFrame(positionMenu);
+
+      try {
+        const response = await loadBuildInstructions(release);
+        renderBuildInstructionsPanel(panel, response);
+      } catch (_error) {
+        panel.replaceChildren(createBuildStatus(strings.buildError, "error"));
+      }
+      requestAnimationFrame(positionMenu);
+    });
+
+    container.append(button, panel);
+    return container;
+  }
+
+  function createBuildStatus(message, type) {
+    const status = createElement("div", `ghdn-build-status ghdn-build-status-${type}`);
+    status.append(createIcon(type === "error" ? "warning" : "info", "ghdn-inline-icon"), createElement("span", "", message));
+    return status;
+  }
+
+  function renderBuildInstructionsPanel(panel, response) {
+    panel.replaceChildren();
+    if (!response || !response.ok) {
+      if (response && response.error === "rate_limited") {
+        const time = response.resetAt
+          ? new Date(response.resetAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          : null;
+        panel.append(createBuildStatus(strings.rateLimited(time), "error"));
+      } else {
+        panel.append(createBuildStatus(strings.buildError, "error"));
+      }
+      return;
+    }
+
+    if (!response.found || !response.instructions) {
+      panel.append(createBuildStatus(strings.buildNotFound, "empty"));
+      if (response.repositoryUrl) {
+        const link = createElement("a", "ghdn-build-source-link", strings.openRelease);
+        link.href = response.repositoryUrl;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.prepend(createIcon("external", "ghdn-inline-icon"));
+        panel.append(link);
+      }
+      return;
+    }
+
+    const instructions = response.instructions;
+    const heading = createElement("div", "ghdn-build-heading", instructions.title || strings.buildFromSource);
+    panel.append(heading);
+
+    if (response.usedDefaultBranchFallback) {
+      panel.append(createBuildStatus(strings.buildFallbackNotice, "warning"));
+    }
+
+    if (instructions.summary) {
+      panel.append(createElement("p", "ghdn-build-summary", instructions.summary));
+    }
+
+    if (Array.isArray(instructions.commands) && instructions.commands.length) {
+      panel.append(createElement("div", "ghdn-build-subheading", strings.buildCommands));
+      for (const block of instructions.commands) {
+        const codeWrap = createElement("div", "ghdn-build-code-wrap");
+        const pre = createElement("pre", "ghdn-build-code");
+        const code = createElement("code", "", block.code || "");
+        if (block.language) code.dataset.language = block.language;
+        pre.append(code);
+
+        const copy = createElement("button", "ghdn-build-copy", strings.copyCommand);
+        copy.type = "button";
+        copy.title = strings.copyCommand;
+        copy.setAttribute("aria-label", strings.copyCommand);
+        copy.replaceChildren(createIcon("copy", "ghdn-inline-icon"));
+        copy.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          copyText(block.code || "", strings.commandCopied);
+        });
+        codeWrap.append(pre, copy);
+        panel.append(codeWrap);
+      }
+    }
+
+    panel.append(createBuildStatus(strings.buildSafety, "warning"));
+
+    const source = instructions.source || {};
+    if (source.htmlUrl) {
+      const sourceLink = createElement("a", "ghdn-build-source-link");
+      sourceLink.href = source.htmlUrl;
+      sourceLink.target = "_blank";
+      sourceLink.rel = "noopener noreferrer";
+      sourceLink.append(
+        createIcon("external", "ghdn-inline-icon"),
+        createElement("span", "", `${strings.buildOpenFull}: ${source.path || strings.buildSource}`)
+      );
+      panel.append(sourceLink);
+    }
+  }
+
   function renderMenu(state) {
     const root = document.getElementById(ROOT_ID);
     if (!root) return;
-    const menu = root.querySelector(".ghdn-menu");
+    const menu = ensureMenu();
     menu.replaceChildren();
     const release = state.response.release;
     const ranked = state.response.rankedAssets || [];
@@ -547,9 +1102,12 @@
     if (settings.showSourceCode) {
       const sourceSection = createElement("div", "ghdn-source-section");
       sourceSection.append(createSectionHeading(strings.sourceCode, "source"));
-      if (release.zipball_url) sourceSection.append(createLinkButton(strings.sourceZip, release.zipball_url, "source"));
-      if (release.tarball_url) sourceSection.append(createLinkButton(strings.sourceTar, release.tarball_url, "source"));
-      if (sourceSection.childElementCount > 1) menu.append(sourceSection);
+      const sourceActions = createElement("div", "ghdn-source-actions");
+      if (release.zipball_url) sourceActions.append(createLinkButton(strings.sourceZip, release.zipball_url, "source"));
+      sourceActions.append(createBuildInstructionsControl(release));
+      if (release.tarball_url) sourceActions.append(createLinkButton(strings.sourceTar, release.tarball_url, "source"));
+      sourceSection.append(sourceActions);
+      menu.append(sourceSection);
     }
 
     const footer = createElement("div", "ghdn-menu-footer");
@@ -767,30 +1325,80 @@
     window.open(url, "_blank", "noopener,noreferrer");
   }
 
-  async function copyText(text) {
+  async function copyText(text, successMessage = strings.copied) {
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(text);
       else {
         const area = createElement("textarea"); area.value = text; area.style.position = "fixed"; area.style.opacity = "0";
         document.body.append(area); area.select(); document.execCommand("copy"); area.remove();
       }
-      showToast(strings.copied, "success");
+      showToast(successMessage, "success");
     } catch (_error) { showToast(strings.networkError, "error"); }
+  }
+
+  function positionMenu() {
+    const root = document.getElementById(ROOT_ID);
+    const menu = document.getElementById(MENU_ID);
+    if (!root || !menu || menu.hidden) return;
+
+    const margin = 12;
+    const mobile = window.innerWidth <= TOOLBAR_BREAKPOINT;
+    menu.classList.toggle("ghdn-menu-sheet", mobile);
+    menu.style.top = "";
+    menu.style.right = "";
+    menu.style.bottom = "";
+    menu.style.left = "";
+
+    if (mobile) {
+      menu.style.left = `${margin}px`;
+      menu.style.right = `${margin}px`;
+      menu.style.bottom = `${margin}px`;
+      return;
+    }
+
+    const anchor = root.querySelector(".ghdn-button-group") || root;
+    const anchorRect = anchor.getBoundingClientRect();
+    const menuRect = menu.getBoundingClientRect();
+    const width = Math.min(470, window.innerWidth - margin * 2);
+    const estimatedHeight = Math.min(menuRect.height || 650, window.innerHeight - margin * 2);
+    let left = anchorRect.right - width;
+    left = Math.max(margin, Math.min(left, window.innerWidth - width - margin));
+
+    const below = anchorRect.bottom + 8;
+    const above = anchorRect.top - 8 - estimatedHeight;
+    const top = below + estimatedHeight <= window.innerHeight - margin || above < margin
+      ? Math.min(below, window.innerHeight - estimatedHeight - margin)
+      : above;
+
+    menu.style.width = `${width}px`;
+    menu.style.left = `${Math.round(left)}px`;
+    menu.style.top = `${Math.max(margin, Math.round(top))}px`;
   }
 
   function setMenuOpen(open) {
     const root = document.getElementById(ROOT_ID);
-    if (!root) return;
-    const menu = root.querySelector(".ghdn-menu");
-    const arrow = root.querySelector('[data-role="menu"]');
-    menu.hidden = !open; root.classList.toggle("ghdn-menu-open", open); arrow.setAttribute("aria-expanded", String(open));
+    const menu = ensureMenu();
+    if (!root && open) return;
+    const arrow = root && root.querySelector('[data-role="menu"]');
+    menu.hidden = !open;
+    if (root) root.classList.toggle("ghdn-menu-open", open);
+    if (arrow) arrow.setAttribute("aria-expanded", String(open));
+    if (open) requestAnimationFrame(positionMenu);
   }
 
   function installCloseListeners() {
     if (closeListenerInstalled) return;
     closeListenerInstalled = true;
-    document.addEventListener("click", (event) => { const root = document.getElementById(ROOT_ID); if (root && !root.contains(event.target)) setMenuOpen(false); });
-    document.addEventListener("keydown", (event) => { if (event.key === "Escape") setMenuOpen(false); });
+    document.addEventListener("click", (event) => {
+      const root = document.getElementById(ROOT_ID);
+      const menu = document.getElementById(MENU_ID);
+      const insideRoot = root && root.contains(event.target);
+      const insideMenu = menu && menu.contains(event.target);
+      if (!insideRoot && !insideMenu) setMenuOpen(false);
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    });
   }
 
   function showResponseError(response) {
@@ -821,14 +1429,20 @@
   if (settingsApi) {
     settingsApi.onChanged((next) => {
       settings = next; strings = createStrings(settings.language); settingsReady = Promise.resolve(settings);
-      activeRepoKey = ""; releaseState = null; loadingPromise = null; detectedPlatformPromise = null;
-      const root = document.getElementById(ROOT_ID); if (root) root.remove(); scheduleMount();
+      activeRepoKey = ""; releaseState = null; buildInstructionsState = null; buildInstructionsPromise = null; loadingPromise = null; detectedPlatformPromise = null;
+      const root = document.getElementById(ROOT_ID); if (root) root.remove();
+      setMenuOpen(false); scheduleMount();
     });
   }
 
   document.addEventListener("turbo:load", scheduleMount);
   document.addEventListener("pjax:end", scheduleMount);
   window.addEventListener("popstate", scheduleMount);
+  window.addEventListener("resize", scheduleLayoutRefresh, { passive: true });
+  window.addEventListener("scroll", () => {
+    const menu = document.getElementById(MENU_ID);
+    if (menu && !menu.hidden) requestAnimationFrame(positionMenu);
+  }, { passive: true, capture: true });
   new MutationObserver(scheduleMount).observe(document.documentElement, { childList: true, subtree: true });
   scheduleMount();
 })();
