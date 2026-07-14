@@ -3,27 +3,57 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Privacy policy for the GitHub Download Now browser extension.">
   <title>GitHub Download Now — Privacy Policy</title>
   <style>
-    body{font:16px/1.6 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:820px;margin:0 auto;padding:32px 20px;color:#1f2328;background:#fff}h1,h2{line-height:1.25}code{background:#f6f8fa;padding:.15em .35em;border-radius:4px}a{color:#0969da}@media(prefers-color-scheme:dark){body{color:#f0f6fc;background:#0d1117}code{background:#161b22}a{color:#58a6ff}}
+    :root{color-scheme:light dark}body{font:16px/1.65 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:860px;margin:0 auto;padding:36px 22px;color:#1f2328;background:#fff}h1,h2{line-height:1.25}h1{margin-bottom:.25em}h2{margin-top:1.8em}code{background:#f6f8fa;padding:.15em .35em;border-radius:4px}a{color:#0969da}ul{padding-left:1.4em}.meta{color:#59636e}@media(prefers-color-scheme:dark){body{color:#f0f6fc;background:#0d1117}.meta{color:#9198a1}code{background:#161b22}a{color:#58a6ff}}
   </style>
 </head>
 <body>
   <h1>GitHub Download Now — Privacy Policy</h1>
-  <p><strong>Effective date:</strong> July 13, 2026</p>
+  <p class="meta"><strong>Effective date:</strong> July 14, 2026</p>
   <p>GitHub Download Now does not sell user data and does not send data to the developer, analytics providers or advertising services.</p>
-  <h2>GitHub API requests</h2>
-  <p>When release metadata is required, the extension sends the public repository owner and repository name to GitHub's official API at <code>api.github.com</code>. Background requests are made only for repositories the user explicitly chooses to watch.</p>
+
+  <h2>Public repositories only</h2>
+  <p>The extension is designed for public GitHub repositories. It does not request GitHub authentication tokens, does not read cookie values and does not intentionally process private repository content. The content script activates only after GitHub provides a positive public-repository marker. It remains inactive on private repositories and fails closed when visibility cannot be established.</p>
+
+  <h2>Public GitHub page data</h2>
+  <p>The extension reads the public repository identifier, release tags and release-asset links available on the current GitHub page. It may anonymously request public pages at <code>github.com</code> for another selected release version. These requests use <code>credentials: omit</code>, so the browser's GitHub session cookies are not attached.</p>
+  <p>Release, source archive and navigation URLs are validated against the expected GitHub origin and repository before they are shown, stored or opened.</p>
+
+  <h2>GitHub REST API</h2>
+  <p>The extension may query the official public API at <code>api.github.com</code> when page data is unavailable, when the user asks to find build documentation, or when checking repositories the user explicitly chose to watch.</p>
+  <p>For build documentation, it may read public directory listings and likely README text for the selected tag. It analyses Markdown headings such as “Building” and links to the original section. It does not execute build commands or send repository content to any service other than GitHub.</p>
+  <p>Update checks are rotated in small batches. Rate-limit metadata is stored locally so checks can pause until GitHub's published reset time.</p>
+
+  <h2>Local installation guidance</h2>
+  <p>Installation and launch guidance is generated locally from the selected filename, extension, detected platform and interface language. It is not sent to an AI service or developer server. Commands are never executed automatically.</p>
+
   <h2>Local storage</h2>
-  <p>Optional download records, watched repositories, pending updates and ETags are stored locally on the current device. The extension does not read the browser's general download history. Preferences may be synchronized by the browser through <code>storage.sync</code>.</p>
-  <h2>Background checks and notifications</h2>
-  <p>Browser alarms check selected repositories according to the user's chosen interval. Disabling the extension or selecting manual-only checks stops scheduled requests. System notifications are optional.</p>
+  <p>Optional download records, watched repositories, pending updates, ETags and scheduling metadata are stored in <code>storage.local</code>. Preferences may be synchronized by the browser through <code>storage.sync</code>. The extension does not read the browser's general download history and writes no local history from private/incognito tabs.</p>
+
+  <h2>Notifications</h2>
+  <p>System notifications are disabled by default and require the optional <code>notifications</code> permission. The toolbar badge does not require notification permission.</p>
+
   <h2>Data not accessed</h2>
-  <p>The extension does not access cookies, GitHub tokens, account profile data, personal communications, the browser's browsing-history database or unrelated websites.</p>
-  <h2>Limited Use</h2>
-  <p>Information received through browser APIs is used only to provide release-download and update-tracking features. It is not used for advertising, profiling, sale to third parties, creditworthiness or unrelated purposes, and is not made available for human review by the developer.</p>
+  <ul>
+    <li>cookie values or GitHub authentication tokens;</li>
+    <li>private repository content by design;</li>
+    <li>account profile data;</li>
+    <li>the browser's browsing-history database or general download history;</li>
+    <li>personal communications or unrelated sensitive information.</li>
+  </ul>
+  <p>The extension observes only the currently open GitHub page required for its user-facing controls. It does not query the browser history API.</p>
+
+  <h2>Third parties and Limited Use</h2>
+  <p>The only network service queried is GitHub, through public pages at <code>github.com</code> and the official API at <code>api.github.com</code>. There is no extension-operated backend, telemetry endpoint, AI service or advertising service.</p>
+  <p>Information received through browser APIs is used only for release downloads, installation guidance and opt-in update tracking. It is not used for advertising, profiling, creditworthiness, sale to third parties or unrelated purposes, and is not made available for human review by the developer.</p>
+
   <h2>User controls</h2>
-  <p>Users can disable the extension, choose manual update checks, remove watches, clear local history, disable notifications or uninstall the extension.</p>
-  <p>For the complete policy, see <a href="PRIVACY.md">PRIVACY.md</a>.</p>
+  <p>Users can disable the extension, select manual-only checks, remove watches, clear local history, hide installation guidance, disable notifications or uninstall the extension.</p>
+
+  <h2>Canonical policy</h2>
+  <p>The complete canonical Markdown policy and change history are available in the public repository:</p>
+  <p><a href="https://github.com/ITDruss/github-download-now/blob/main/PRIVACY.md">Open PRIVACY.md on GitHub</a></p>
 </body>
 </html>

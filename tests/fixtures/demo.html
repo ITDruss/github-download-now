@@ -116,6 +116,7 @@
           <div class="Box-row"><a href="/localsend/localsend/releases/download/${tag}/LocalSend-${version}-windows-x86-64.exe">LocalSend-${version}-windows-x86-64.exe</a><span>75.6 MB</span></div>
           <div class="Box-row"><a href="/localsend/localsend/releases/download/${tag}/LocalSend-${version}-macos-arm64.dmg">LocalSend-${version}-macos-arm64.dmg</a><span>79.2 MB</span></div>
           <div class="Box-row"><a href="/localsend/localsend/releases/download/${tag}/LocalSend-${version}-android-arm64.apk">LocalSend-${version}-android-arm64.apk</a><span>41.8 MB</span></div>
+          <div class="Box-row"><a href="https://evil.example/localsend/localsend/releases/download/${tag}/evil.AppImage">evil.AppImage</a><span>1 MB</span></div>
         `, {status: 200, headers: {"content-type": "text/html"}});
       }
       if (/\/localsend\/localsend\/releases(?:$|[?#])/.test(url)) {
@@ -130,7 +131,7 @@
     Object.defineProperty(window.chrome, "runtime", {
       configurable: true,
       value: {
-        getManifest: () => ({version: "0.3.0"}),
+        getManifest: () => ({version: "1.0.0"}),
         openOptionsPage: () => {},
         sendMessage: async (_message) => {
           window.__ghdnMessages.push(_message);
@@ -143,12 +144,16 @@
               usedDefaultBranchFallback: false,
               documents: [
                 {
-                  path: "CONTRIBUTING.md",
-                  htmlUrl: "https://github.com/localsend/localsend/blob/v1.17.0/CONTRIBUTING.md"
+                  type: "section",
+                  path: "README.md",
+                  title: "Building → Linux",
+                  htmlUrl: "https://github.com/localsend/localsend/blob/v1.17.0/README.md#linux"
                 },
                 {
-                  path: "docs/BUILDING.md",
-                  htmlUrl: "https://github.com/localsend/localsend/blob/v1.17.0/docs/BUILDING.md"
+                  type: "file",
+                  path: "CONTRIBUTING.md",
+                  title: "CONTRIBUTING.md",
+                  htmlUrl: "https://github.com/localsend/localsend/blob/v1.17.0/CONTRIBUTING.md"
                 }
               ]
             };
@@ -166,6 +171,7 @@
     });
   </script>
   <script src="../../src/settings.js"></script>
+  <script src="../../src/url-policy.js"></script>
   <script src="../../src/asset-selector.js"></script>
   <script src="../../src/install-guides.js"></script>
   <script src="../../src/content.js"></script>

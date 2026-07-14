@@ -24,7 +24,7 @@
       interval: "Проверять обновления", manual: "Только вручную", h6: "Каждые 6 часов", h24: "Раз в день", h72: "Раз в 3 дня", h168: "Раз в неделю",
       historyEnabled: "Записывать загрузки через расширение", notifications: "Показывать системные уведомления", badge: "Показывать счётчик на иконке",
       checkNow: "Проверить обновления", clearHistory: "Очистить историю", clearTracking: "Удалить все подписки", checking: "Проверка…", permissionDenied: "Разрешение на уведомления не выдано",
-      checkSummary: (found, failed) => `Найдено: ${found} · Ошибок: ${failed}`, rateLimited: (time) => time ? `Лимит GitHub API исчерпан до ${time}` : "Лимит GitHub API исчерпан"
+      checkSummary: (found, failed, checked, total) => `Найдено: ${found} · Ошибок: ${failed}${total ? ` · Проверено: ${checked} из ${total}` : ""}`, rateLimited: (time) => time ? `Лимит GitHub API исчерпан до ${time}` : "Лимит GitHub API исчерпан"
     },
     en: {
       subtitle: "Configure recommendations, interface and background update checks.", general: "General", language: "Language", showOn: "Where to show the button",
@@ -43,7 +43,7 @@
       interval: "Check for updates", manual: "Manual only", h6: "Every 6 hours", h24: "Once a day", h72: "Every 3 days", h168: "Once a week",
       historyEnabled: "Record downloads made through the extension", notifications: "Show system notifications", badge: "Show toolbar badge",
       checkNow: "Check for updates", clearHistory: "Clear history", clearTracking: "Remove all watches", checking: "Checking…", permissionDenied: "Notification permission was not granted",
-      checkSummary: (found, failed) => `Found: ${found} · Failed: ${failed}`, rateLimited: (time) => time ? `GitHub API limit reached until ${time}` : "GitHub API limit reached"
+      checkSummary: (found, failed, checked, total) => `Found: ${found} · Failed: ${failed}${total ? ` · Checked: ${checked} of ${total}` : ""}`, rateLimited: (time) => time ? `GitHub API limit reached until ${time}` : "GitHub API limit reached"
     }
   };
 
@@ -84,8 +84,8 @@
   function fill() { for (const key of fields) { const node=document.getElementById(key); if (node.type==="checkbox") node.checked=Boolean(settings[key]); else node.value=String(settings[key]); } }
   function collect() { const patch={}; for (const key of fields) { const node=document.getElementById(key); patch[key]=node.type==="checkbox"?node.checked:node.value; } patch.staleReleaseMonths=Number(patch.staleReleaseMonths); return patch; }
   function status(message) { setText("status",message); clearTimeout(status.timer); status.timer=setTimeout(()=>setText("status",""),1800); }
-  function send(message) { if (typeof browser!=="undefined") return extensionApi.runtime.sendMessage(message); return new Promise((resolve,reject)=>extensionApi.runtime.sendMessage(message,(response)=>{const error=extensionApi.runtime.lastError;if(error)reject(new Error(error.message));else resolve(response);})); }
-  async function requestNotifications() { if (!extensionApi.permissions || !extensionApi.permissions.request) return false; if (typeof browser!=="undefined") return extensionApi.permissions.request({permissions:["notifications"]}); return new Promise((resolve)=>extensionApi.permissions.request({permissions:["notifications"]},resolve)); }
+  function send(message) { if (typeof browser!=="undefined") return extensionApi.runtime.sendMessage(message); return new Promise((resolve,reject)=>{ extensionApi.runtime.sendMessage(message,(response)=>{const error=extensionApi.runtime.lastError;if(error)reject(new Error(error.message));else resolve(response);}); }); }
+  async function requestNotifications() { if (!extensionApi.permissions || !extensionApi.permissions.request) return false; if (typeof browser!=="undefined") return extensionApi.permissions.request({permissions:["notifications"]}); return new Promise((resolve)=>{ extensionApi.permissions.request({permissions:["notifications"]},resolve); }); }
   async function save() { settings=await settingsApi.set(collect()); translate(); status(dictionaries[locale()].saved); }
 
   async function init() {
@@ -110,7 +110,7 @@
           status(dictionaries[locale()].rateLimited(time));
         }else{
           const found=result&&Array.isArray(result.detected)?result.detected.length:0;
-          status(dictionaries[locale()].checkSummary(found,errors.length));
+          status(dictionaries[locale()].checkSummary(found, errors.length, Number(result.checked) || 0, Number(result.total) || 0));
         }
       }finally{button.disabled=false;button.textContent=dictionaries[locale()].checkNow;}
     });

@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 from base64 import b64encode
 from playwright.sync_api import sync_playwright
 
@@ -9,13 +10,30 @@ OUTPUTS.mkdir(parents=True, exist_ok=True)
 MOCK = r'''
 <script>
 const __settings = {preferredLinux:"deb", primaryAction:"menu", enabled:true};
+window.__dashboard = {
+  ok: true,
+  history: [],
+  watches: [{
+    key: "localsend/localsend", owner: "localsend", repo: "localsend", currentTag: "v1.17.0",
+    currentAssetName: "LocalSend-1.17.0-linux-x86-64.AppImage",
+    platform: {os: "linux", arch: "x64"}, lastCheckedAt: "2026-07-14T08:35:00Z"
+  }],
+  updates: [{
+    key: "localsend/localsend", owner: "localsend", repo: "localsend",
+    fromTag: "v1.17.0", releaseTag: "v1.18.0", releasePublishedAt: "2026-07-14T08:30:00Z",
+    compatibleAssetFound: true, assetName: "LocalSend-1.18.0-linux-x86-64.AppImage", assetSize: 48234496,
+    assetUrl: "https://github.com/localsend/localsend/releases/download/v1.18.0/LocalSend-1.18.0-linux-x86-64.AppImage",
+    releaseUrl: "https://github.com/localsend/localsend/releases/tag/v1.18.0"
+  }],
+  meta: {lastCheckAt: "2026-07-14T08:35:00Z", lastCheckChecked: 8, lastCheckTotal: 12}
+};
 window.chrome = {
   runtime: {
-    getManifest: () => ({version:"0.4.3"}),
+    getManifest: () => ({version:"1.0.0"}),
     openOptionsPage: () => { window.__optionsOpened = true; },
     sendMessage: (message, callback) => {
       const response = message.type === "GHDN_GET_DASHBOARD"
-        ? {ok:true, history:[], watches:[], updates:[], meta:{}}
+        ? window.__dashboard
         : {ok:true, detected:[]};
       if (callback) callback(response);
     },
@@ -46,7 +64,11 @@ def inline_page(name: str, scripts: list[str], stylesheet: str) -> str:
     return html
 
 with sync_playwright() as p:
-    browser = p.chromium.launch(headless=True, executable_path="/usr/bin/chromium", args=["--no-sandbox"])
+    launch_options = {"headless": True, "args": ["--no-sandbox"]}
+    chromium_path = os.environ.get("GHDN_CHROMIUM_PATH", "").strip()
+    if chromium_path:
+        launch_options["executable_path"] = chromium_path
+    browser = p.chromium.launch(**launch_options)
 
     context = browser.new_context(viewport={"width": 380, "height": 560}, locale="ru-RU")
     page = context.new_page()
@@ -54,19 +76,23 @@ with sync_playwright() as p:
     page.wait_for_function("document.querySelector('#preferredFormat')?.value === 'deb'")
     assert page.locator("#detectedPlatform").text_content().startswith("Linux")
     assert page.locator("#primaryAction").input_value() == "menu"
+    page.wait_for_selector("#updatesList .item")
+    page.screenshot(path=str(OUTPUTS / "popup-updates-ru.png"), full_page=True)
+    page.click('[data-tab="settings"]')
+    page.wait_for_selector('[data-panel="settings"].active')
     page.evaluate("document.querySelector('#preferredFormat').value='appimage'; document.querySelector('#preferredFormat').dispatchEvent(new Event('change',{bubbles:true}));")
     page.wait_for_function("__settings.preferredLinux === 'appimage'")
     page.screenshot(path=str(OUTPUTS / "popup-settings-ru.png"), full_page=True)
     context.close()
 
-    context = browser.new_context(viewport={"width": 1100, "height": 900}, locale="ru-RU")
+    context = browser.new_context(viewport={"width": 1280, "height": 800}, locale="ru-RU")
     page = context.new_page()
     page.set_content(inline_page("options.html", ["settings.js", "options.js"], "options.css"), wait_until="load")
     page.wait_for_function("document.querySelector('#preferredLinux')?.value === 'deb'")
     assert page.locator("#generalTitle").text_content() == "Общие настройки"
     page.evaluate("document.querySelector('#buttonStyle').value='native'; document.querySelector('#buttonStyle').dispatchEvent(new Event('change',{bubbles:true}));")
     page.wait_for_function("__settings.buttonStyle === 'native'")
-    page.screenshot(path=str(OUTPUTS / "options-settings-ru.png"), full_page=True)
+    page.screenshot(path=str(OUTPUTS / "options-settings-ru.png"), full_page=False)
     context.close()
 
     browser.close()

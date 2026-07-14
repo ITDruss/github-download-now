@@ -166,6 +166,13 @@
     return groups[preferred] && groups[preferred].has(extension) ? 38 : 0;
   }
 
+  function isAutoEligible(extension, platformInput) {
+    const preferred = normalizeText(platformInput && platformInput.preferredFormat) || "auto";
+    if (extension === ".aab") return false;
+    if (extension === ".apks") return preferred === "apks";
+    return true;
+  }
+
   function scoreAsset(asset, platformInput) {
     const platform = {
       os: normalizeText(platformInput && platformInput.os) || "unknown",
@@ -177,10 +184,12 @@
     const osMarkers = detectOsMarkers(name);
     const archMarkers = detectArchMarkers(name);
     const reasons = [];
+    const autoEligible = isAutoEligible(extension, platformInput);
 
     if (!name || isAuxiliaryAsset(name)) {
-      return { score: Number.NEGATIVE_INFINITY, extension, reasons: ["auxiliary"] };
+      return { score: Number.NEGATIVE_INFINITY, extension, reasons: ["auxiliary"], autoEligible: false };
     }
+    if (!autoEligible) reasons.push(extension === ".aab" ? "package:developer-only" : "package:manual-install");
 
     let score = 0;
     const neutral = PLATFORM_NEUTRAL_EXTENSIONS.has(extension);
@@ -264,7 +273,7 @@
     const downloads = Math.max(0, Number(asset && asset.download_count) || 0);
     score += Math.min(5, Math.log10(downloads + 1));
 
-    return { score, extension, reasons };
+    return { score, extension, reasons, autoEligible };
   }
 
   function rankAssets(assets, platform) {
@@ -284,8 +293,9 @@
 
   function recommendation(assets, platform) {
     const ranked = rankAssets(assets, platform);
-    const best = ranked[0] || null;
-    const second = ranked[1] || null;
+    const eligible = ranked.filter((asset) => asset.autoEligible !== false);
+    const best = eligible[0] || null;
+    const second = eligible[1] || null;
     const gap = best && second ? best.score - second.score : Number.POSITIVE_INFINITY;
 
     let confidence = "none";
@@ -303,6 +313,7 @@
     detectOsMarkers,
     detectArchMarkers,
     isAuxiliaryAsset,
+    isAutoEligible,
     scoreAsset,
     rankAssets,
     recommendation

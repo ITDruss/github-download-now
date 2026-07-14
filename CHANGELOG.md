@@ -2,6 +2,38 @@
 
 All notable changes to this project are documented here.
 
+## [1.0.0] - 2026-07-14
+
+### Added
+
+- Added strict URL-origin and repository validation for every release asset, source archive, stored download and external navigation action.
+- Added adaptive README section discovery for build documentation, including platform-specific sections such as `Building → Linux`.
+- Added rotating batched update checks with local GitHub API rate-limit state and a lower watch limit of 30 repositories.
+- Added a strict extension Content Security Policy, project validator, source-file build allowlist and reproducible ZIP timestamps.
+- Added full Playwright UI checks to CI, pinned GitHub Actions by immutable commit SHA, Dependabot updates and signed build-provenance attestations.
+- Added public-only repository handling and synchronized privacy documentation for GitHub Pages and store submissions.
+- Added API response-size limits, redirect rejection, malformed-response handling and exact release-tag checks for stored records.
+- Added accessible popup tabs with keyboard navigation and regenerated version-correct publication screenshots.
+- Added a reviewer-oriented `BUILDING.md` with exact, non-minifying and reproducible build instructions.
+
+### Changed
+
+- Promoted the extension to version 1.0.0 for the first store-ready release.
+- GitHub page requests now omit session credentials and interactive downloads prefer validated public page data before REST API fallback.
+- Background observers now run only on supported repository pages instead of monitoring every GitHub page globally, and scroll work is skipped outside active repository pages.
+- Build documentation is ranked by dedicated files and exact README heading anchors without generating or executing commands.
+- UI menus use dialog semantics and improved keyboard focus behavior.
+- Android App Bundles (`.aab`) and split APK sets (`.apks`) are no longer selected automatically unless APKS is explicitly preferred.
+- Build packaging now fails on unknown files inside `src/` rather than silently including them.
+
+### Fixed
+
+- Prevented external sites from imitating GitHub Release URL paths and being presented as trusted downloads.
+- Removed an obsolete duplicate build-document implementation that overrode README section discovery.
+- Prevented corrupted or untrusted stored URLs from being reopened through history, watches, updates or notifications.
+- Added release tag/version consistency checks to prevent mismatched GitHub releases and package filenames.
+- Replaced an environment-specific npm mirror in `package-lock.json` with the public npm registry and added validation to prevent recurrence.
+
 ## [0.4.3] - 2026-07-14
 
 ### Fixed

@@ -4,6 +4,7 @@ if (typeof importScripts === "function") {
   if (!globalThis.GHDNSettings) importScripts("settings.js");
   if (!globalThis.GHDNAssetSelector) importScripts("asset-selector.js");
   if (!globalThis.GHDNTracker) importScripts("tracker.js");
+  if (!globalThis.GHDNUrlPolicy) importScripts("url-policy.js");
   if (!globalThis.GHDNBuildInstructions) importScripts("build-instructions.js");
 }
 
@@ -12,75 +13,157 @@ const settingsApi = globalThis.GHDNSettings;
 const selector = globalThis.GHDNAssetSelector;
 const tracker = globalThis.GHDNTracker;
 const buildInstructions = globalThis.GHDNBuildInstructions;
+const urlPolicy = globalThis.GHDNUrlPolicy;
 const CACHE_TTL_MS = 5 * 60 * 1000;
+const BUILD_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const MAX_CACHE_ENTRIES = 50;
+const UPDATE_BATCH_SIZE = 8;
+const MAX_RELEASE_ASSETS = 500;
+const MAX_API_RESPONSE_CHARS = 8_000_000;
+const MAX_BUILD_DOCUMENT_CHARS = 2_000_000;
 const releaseCache = new Map();
 const buildInstructionsCache = new Map();
-const BUILD_CACHE_TTL_MS = 60 * 60 * 1000;
 const VALID_PART = /^[A-Za-z0-9_.-]{1,100}$/;
 const UPDATE_ALARM = "ghdn-update-check";
 const NOTIFICATION_PREFIX = "ghdn-update:";
 const SUMMARY_NOTIFICATION = "ghdn-updates-summary";
 const INTERVAL_MINUTES = Object.freeze({ "6h": 360, "24h": 1440, "72h": 4320, "168h": 10080 });
 
-function sanitizeAsset(asset) {
+function setLimitedCache(cache, key, value) {
+  if (cache.has(key)) cache.delete(key);
+  cache.set(key, value);
+  while (cache.size > MAX_CACHE_ENTRIES) cache.delete(cache.keys().next().value);
+}
+
+function sanitizeAsset(asset, owner, repo, expectedTag) {
+  if (!asset || typeof asset !== "object") return null;
+  if (asset.state && asset.state !== "uploaded") return null;
+  const trusted = urlPolicy && urlPolicy.releaseAsset(
+    asset.browser_download_url,
+    owner,
+    repo,
+    expectedTag
+  );
+  if (!trusted) return null;
   return {
-    id: asset.id,
-    name: asset.name,
-    size: asset.size,
-    state: asset.state,
-    content_type: asset.content_type,
-    download_count: asset.download_count,
-    browser_download_url: asset.browser_download_url,
-    created_at: asset.created_at,
-    updated_at: asset.updated_at
+    id: Number(asset.id) || null,
+    name: trusted.name.slice(0, 300),
+    size: Math.max(0, Number(asset.size) || 0),
+    state: "uploaded",
+    content_type: String(asset.content_type || "application/octet-stream").slice(0, 200),
+    download_count: Math.max(0, Number(asset.download_count) || 0),
+    browser_download_url: trusted.href,
+    created_at: String(asset.created_at || "").slice(0, 80),
+    updated_at: String(asset.updated_at || "").slice(0, 80)
   };
 }
 
-function sanitizeRelease(release) {
+function sanitizeRelease(release, owner, repo) {
+  if (!release || typeof release !== "object" || !urlPolicy) return null;
+  const tag = validGitRef(release.tag_name);
+  if (tag === null || !tag) return null;
+  const encodedOwner = encodeURIComponent(owner);
+  const encodedRepo = encodeURIComponent(repo);
+  const encodedTag = encodeURIComponent(tag);
+  const releaseUrl = urlPolicy.releaseTag(release.html_url, owner, repo);
+  const trustedReleaseUrl = releaseUrl && releaseUrl.tag === tag
+    ? releaseUrl.href
+    : `https://github.com/${encodedOwner}/${encodedRepo}/releases/tag/${encodedTag}`;
+  const zipUrl = urlPolicy.apiArchive(release.zipball_url, owner, repo);
+  const tarUrl = urlPolicy.apiArchive(release.tarball_url, owner, repo);
   return {
-    id: release.id,
-    tag_name: release.tag_name,
-    name: release.name,
-    html_url: release.html_url,
-    published_at: release.published_at,
-    created_at: release.created_at,
+    id: Number(release.id) || null,
+    tag_name: tag,
+    name: String(release.name || tag).slice(0, 300),
+    html_url: trustedReleaseUrl,
+    published_at: String(release.published_at || "").slice(0, 80),
+    created_at: String(release.created_at || "").slice(0, 80),
     draft: Boolean(release.draft),
     prerelease: Boolean(release.prerelease),
-    assets: Array.isArray(release.assets) ? release.assets.map(sanitizeAsset) : [],
-    zipball_url: release.zipball_url,
-    tarball_url: release.tarball_url
+    assets: Array.isArray(release.assets)
+      ? release.assets.slice(0, MAX_RELEASE_ASSETS).map((asset) => sanitizeAsset(asset, owner, repo, tag)).filter(Boolean)
+      : [],
+    zipball_url: zipUrl ? zipUrl.href : `https://api.github.com/repos/${encodedOwner}/${encodedRepo}/zipball/${encodedTag}`,
+    tarball_url: tarUrl ? tarUrl.href : `https://api.github.com/repos/${encodedOwner}/${encodedRepo}/tarball/${encodedTag}`
   };
+}
+
+function numericHeader(response, name) {
+  const raw = response.headers.get(name);
+  if (raw === null || raw === "") return null;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function rateLimitDetails(response) {
-  const remaining = response.headers.get("x-ratelimit-remaining");
-  const resetRaw = response.headers.get("x-ratelimit-reset");
-  const resetAt = resetRaw ? new Date(Number(resetRaw) * 1000).toISOString() : null;
-  return { remaining, resetAt };
+  const limit = numericHeader(response, "x-ratelimit-limit");
+  const remaining = numericHeader(response, "x-ratelimit-remaining");
+  const used = numericHeader(response, "x-ratelimit-used");
+  const resetRaw = numericHeader(response, "x-ratelimit-reset");
+  const resetAt = Number.isFinite(resetRaw) && resetRaw > 0
+    ? new Date(resetRaw * 1000).toISOString()
+    : null;
+  return {
+    limit,
+    remaining,
+    used,
+    resetAt
+  };
 }
 
 async function fetchJson(url, options = {}) {
+  const trusted = urlPolicy && urlPolicy.apiUrl(url);
+  if (!trusted) return { ok: false, error: "untrusted_url" };
   const headers = {
     "Accept": "application/vnd.github+json",
     "X-GitHub-Api-Version": "2022-11-28"
   };
   if (options.etag) headers["If-None-Match"] = options.etag;
 
-  const response = await fetch(url, { method: "GET", headers });
+  const response = await fetch(trusted.href, {
+    method: "GET",
+    headers,
+    credentials: "omit",
+    redirect: "error",
+    referrerPolicy: "no-referrer"
+  });
+  if (!urlPolicy.apiUrl(response.url || trusted.href)) return { ok: false, error: "untrusted_redirect" };
+  const rateLimit = rateLimitDetails(response);
   if (response.status === 304) {
-    return { ok: true, notModified: true, etag: options.etag || response.headers.get("etag") || "" };
+    return {
+      ok: true,
+      notModified: true,
+      etag: options.etag || response.headers.get("etag") || "",
+      rateLimit
+    };
   }
 
   if (!response.ok) {
-    const limits = rateLimitDetails(response);
-    if (response.status === 404) return { ok: false, error: "no_release", status: 404 };
-    if ((response.status === 403 || response.status === 429) && (limits.remaining === "0" || response.status === 429)) {
-      return { ok: false, error: "rate_limited", status: response.status, resetAt: limits.resetAt };
+    if (response.status === 404) return { ok: false, error: "no_release", status: 404, rateLimit };
+    if ((response.status === 403 || response.status === 429) && (rateLimit.remaining === 0 || response.status === 429)) {
+      return { ok: false, error: "rate_limited", status: response.status, resetAt: rateLimit.resetAt, rateLimit };
     }
-    return { ok: false, error: "github_api_error", status: response.status };
+    return { ok: false, error: "github_api_error", status: response.status, rateLimit };
   }
 
-  return { ok: true, data: await response.json(), etag: response.headers.get("etag") || "" };
+  const contentLength = numericHeader(response, "content-length");
+  if (contentLength !== null && contentLength > MAX_API_RESPONSE_CHARS) {
+    return { ok: false, error: "response_too_large", status: 413, rateLimit };
+  }
+  const text = await response.text();
+  if (text.length > MAX_API_RESPONSE_CHARS) {
+    return { ok: false, error: "response_too_large", status: 413, rateLimit };
+  }
+  try {
+    return {
+      ok: true,
+      data: JSON.parse(text),
+      etag: response.headers.get("etag") || "",
+      rateLimit
+    };
+  } catch (_error) {
+    return { ok: false, error: "invalid_response", status: 502, rateLimit };
+  }
 }
 
 async function getRelease(owner, repo, platform, releaseChannel, options = {}) {
@@ -90,7 +173,7 @@ async function getRelease(owner, repo, platform, releaseChannel, options = {}) {
   const cacheKey = `${owner.toLowerCase()}/${repo.toLowerCase()}:${channel}`;
   const cached = releaseCache.get(cacheKey);
   if (!options.force && cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-    return buildResponse(cached.release, platform, true, cached.etag);
+    return buildResponse(cached.release, platform, true, cached.etag, null);
   }
 
   const encoded = `${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
@@ -104,13 +187,14 @@ async function getRelease(owner, repo, platform, releaseChannel, options = {}) {
   if (channel === "newest") {
     const candidates = Array.isArray(result.data) ? result.data.filter((item) => item && !item.draft) : [];
     if (!candidates.length) return { ok: false, error: "no_release", status: 404 };
-    release = sanitizeRelease(candidates[0]);
+    release = sanitizeRelease(candidates[0], owner, repo);
   } else {
-    release = sanitizeRelease(result.data);
+    release = sanitizeRelease(result.data, owner, repo);
   }
+  if (!release) return { ok: false, error: "invalid_response", status: 502, rateLimit: result.rateLimit || null };
 
-  releaseCache.set(cacheKey, { timestamp: Date.now(), release, etag: result.etag || "" });
-  return buildResponse(release, platform, false, result.etag || "");
+  setLimitedCache(releaseCache, cacheKey, { timestamp: Date.now(), release, etag: result.etag || "" });
+  return buildResponse(release, platform, false, result.etag || "", result.rateLimit);
 }
 
 async function getReleaseByTag(owner, repo, requestedTag, platform, options = {}) {
@@ -124,7 +208,7 @@ async function getReleaseByTag(owner, repo, requestedTag, platform, options = {}
   const cacheKey = `${owner.toLowerCase()}/${repo.toLowerCase()}:tag:${tag}`;
   const cached = releaseCache.get(cacheKey);
   if (!options.force && cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-    return buildResponse(cached.release, platform, true, cached.etag);
+    return buildResponse(cached.release, platform, true, cached.etag, null);
   }
 
   const encoded = `${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
@@ -132,12 +216,13 @@ async function getReleaseByTag(owner, repo, requestedTag, platform, options = {}
   const result = await fetchJson(url, { etag: options.etag });
   if (!result.ok || result.notModified) return result;
 
-  const release = sanitizeRelease(result.data);
-  releaseCache.set(cacheKey, { timestamp: Date.now(), release, etag: result.etag || "" });
-  return buildResponse(release, platform, false, result.etag || "");
+  const release = sanitizeRelease(result.data, owner, repo);
+  if (!release) return { ok: false, error: "invalid_response", status: 502, rateLimit: result.rateLimit || null };
+  setLimitedCache(releaseCache, cacheKey, { timestamp: Date.now(), release, etag: result.etag || "" });
+  return buildResponse(release, platform, false, result.etag || "", result.rateLimit);
 }
 
-function buildResponse(release, platform, fromCache, etag = "") {
+function buildResponse(release, platform, fromCache, etag = "", rateLimit = null) {
   const selection = selector.recommendation(release.assets, platform || {});
   return {
     ok: true,
@@ -149,30 +234,45 @@ function buildResponse(release, platform, fromCache, etag = "") {
       gap: Number.isFinite(selection.gap) ? selection.gap : null
     },
     fromCache,
-    etag
+    etag,
+    rateLimit
   };
 }
 
 
 async function fetchText(url) {
-  const response = await fetch(url, {
+  const trusted = urlPolicy && urlPolicy.apiUrl(url);
+  if (!trusted) return { ok: false, error: "untrusted_url" };
+  const response = await fetch(trusted.href, {
     method: "GET",
+    credentials: "omit",
+    redirect: "error",
+    referrerPolicy: "no-referrer",
     headers: {
       "Accept": "application/vnd.github.raw+json",
       "X-GitHub-Api-Version": "2022-11-28"
     }
   });
+  if (!urlPolicy.apiUrl(response.url || trusted.href)) return { ok: false, error: "untrusted_redirect" };
+  const rateLimit = rateLimitDetails(response);
 
   if (!response.ok) {
-    const limits = rateLimitDetails(response);
-    if (response.status === 404) return { ok: false, error: "not_found", status: 404 };
-    if ((response.status === 403 || response.status === 429) && (limits.remaining === "0" || response.status === 429)) {
-      return { ok: false, error: "rate_limited", status: response.status, resetAt: limits.resetAt };
+    if (response.status === 404) return { ok: false, error: "not_found", status: 404, rateLimit };
+    if ((response.status === 403 || response.status === 429) && (rateLimit.remaining === 0 || response.status === 429)) {
+      return { ok: false, error: "rate_limited", status: response.status, resetAt: rateLimit.resetAt, rateLimit };
     }
-    return { ok: false, error: "github_api_error", status: response.status };
+    return { ok: false, error: "github_api_error", status: response.status, rateLimit };
   }
 
-  return { ok: true, text: await response.text() };
+  const contentLength = Number(response.headers.get("content-length"));
+  if (Number.isFinite(contentLength) && contentLength > MAX_BUILD_DOCUMENT_CHARS) {
+    return { ok: false, error: "document_too_large", status: 413, rateLimit };
+  }
+  const text = await response.text();
+  if (text.length > MAX_BUILD_DOCUMENT_CHARS) {
+    return { ok: false, error: "document_too_large", status: 413, rateLimit };
+  }
+  return { ok: true, text, rateLimit };
 }
 
 function validGitRef(value) {
@@ -194,16 +294,25 @@ function contentsUrl(owner, repo, path = "", ref = "") {
   return `https://api.github.com/repos/${encodedRepository}${suffix}${query}`;
 }
 
-function sanitizeContentEntry(entry) {
+function sanitizeContentEntry(entry, owner, repo) {
   if (!entry || typeof entry !== "object") return null;
   const type = entry.type === "dir" ? "dir" : entry.type === "file" ? "file" : "";
   const path = String(entry.path || entry.name || "").replace(/^\/+|\/+$/g, "");
-  if (!type || !path || path.length > 500) return null;
+  const pathParts = path.split("/");
+  if (
+    !type ||
+    !path ||
+    path.length > 500 ||
+    path.includes("\0") ||
+    path.includes("\\") ||
+    pathParts.some((part) => !part || part === "." || part === "..")
+  ) return null;
+  const htmlUrl = urlPolicy && urlPolicy.repositoryWebUrl(entry.html_url, owner, repo);
   return {
     type,
-    name: String(entry.name || path.split("/").pop() || ""),
+    name: String(entry.name || path.split("/").pop() || "").slice(0, 240),
     path,
-    html_url: /^https:\/\/github\.com\//i.test(String(entry.html_url || "")) ? String(entry.html_url) : ""
+    html_url: htmlUrl ? htmlUrl.href : ""
   };
 }
 
@@ -211,75 +320,96 @@ async function getContentDirectory(owner, repo, path, ref) {
   const result = await fetchJson(contentsUrl(owner, repo, path, ref));
   if (!result.ok) return result;
   const entries = Array.isArray(result.data)
-    ? result.data.map(sanitizeContentEntry).filter(Boolean)
+    ? result.data.map((entry) => sanitizeContentEntry(entry, owner, repo)).filter(Boolean)
     : [];
-  return { ok: true, entries };
+  return { ok: true, entries, rateLimit: result.rateLimit || null };
 }
 
-async function getBuildInstructions(owner, repo, requestedRef = "") {
-  if (!VALID_PART.test(owner) || !VALID_PART.test(repo)) {
-    return { ok: false, error: "invalid_repository" };
-  }
-  if (!buildInstructions) return { ok: false, error: "internal_error" };
+async function getBuildInstructions(owner, repo, requestedRef = "", platformInput = {}) {
+  if (!VALID_PART.test(owner) || !VALID_PART.test(repo)) return { ok: false, error: "invalid_repository" };
+  if (!buildInstructions || !urlPolicy) return { ok: false, error: "internal_error" };
 
   const ref = validGitRef(requestedRef);
   if (ref === null) return { ok: false, error: "invalid_ref" };
-
-  const cacheKey = `${owner.toLowerCase()}/${repo.toLowerCase()}:${ref || "default"}`;
+  const platform = String(platformInput && platformInput.os || "unknown").toLowerCase();
+  const cacheKey = `${owner.toLowerCase()}/${repo.toLowerCase()}:${ref || "default"}:${platform}`;
   const cached = buildInstructionsCache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < BUILD_CACHE_TTL_MS) {
-    return { ...cached.value, fromCache: true };
-  }
+  if (cached && Date.now() - cached.timestamp < BUILD_CACHE_TTL_MS) return { ...cached.value, fromCache: true };
 
   let refUsed = ref;
   let rootResult = await getContentDirectory(owner, repo, "", refUsed);
   let usedDefaultBranchFallback = false;
-
   if (!rootResult.ok && rootResult.status === 404 && refUsed) {
     refUsed = "";
     usedDefaultBranchFallback = true;
     rootResult = await getContentDirectory(owner, repo, "", "");
   }
-
   if (!rootResult.ok) return rootResult;
 
   const entries = [...rootResult.entries];
-  const docsDirectories = rootResult.entries.filter((entry) =>
-    entry.type === "dir" && /^(docs?|documentation)$/i.test(entry.name)
-  );
-
+  const docsDirectories = rootResult.entries.filter((entry) => entry.type === "dir" && /^(docs?|documentation)$/i.test(entry.name));
   for (const directory of docsDirectories.slice(0, 2)) {
     const docsResult = await getContentDirectory(owner, repo, directory.path, refUsed);
     if (!docsResult.ok) {
-      if (docsResult.error === "rate_limited") return docsResult;
+      if (docsResult.error === "rate_limited") break;
       continue;
     }
     entries.push(...docsResult.entries);
   }
 
-  const candidates = buildInstructions.chooseCandidates(entries, 6);
-  const documents = candidates
-    .map((candidate) => ({
-      path: candidate.path,
-      htmlUrl: /^https:\/\/github\.com\//i.test(String(candidate.html_url || ""))
-        ? String(candidate.html_url)
-        : ""
-    }))
-    .filter((candidate) => candidate.path && candidate.htmlUrl);
+  const candidates = buildInstructions.chooseCandidates(entries, 10);
+  const discovered = [];
+  for (const candidate of candidates) {
+    const trusted = urlPolicy.repositoryWebUrl(candidate.html_url, owner, repo);
+    if (!trusted) continue;
+    if (!buildInstructions.isReadme(candidate.path)) {
+      discovered.push({
+        type: "file",
+        path: candidate.path,
+        title: candidate.path,
+        htmlUrl: trusted.href,
+        score: candidate.score
+      });
+      continue;
+    }
 
+    const raw = await fetchText(contentsUrl(owner, repo, candidate.path, refUsed));
+    if (raw.ok) {
+      const sections = buildInstructions.chooseReadmeSections(raw.text, platform, 5);
+      for (const section of sections) {
+        discovered.push({
+          type: "section",
+          path: candidate.path,
+          title: section.context || section.title,
+          htmlUrl: `${trusted.href}#${section.anchor}`,
+          score: section.score + Math.min(20, candidate.score / 5)
+        });
+      }
+    }
+    discovered.push({
+      type: "file",
+      path: candidate.path,
+      title: candidate.path,
+      htmlUrl: trusted.href,
+      score: candidate.score - 12
+    });
+  }
+
+  const documents = buildInstructions.rankDocuments(discovered, 6).map(({ type, path, title, htmlUrl }) => ({ type, path, title, htmlUrl }));
   const repositoryUrl = `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
   const value = {
     ok: true,
     found: documents.length > 0,
     documents,
+    recommended: documents[0] || null,
     repositoryUrl,
+    platform,
     refRequested: ref,
     refUsed: refUsed || "default",
     usedDefaultBranchFallback,
     checked: candidates.map((candidate) => candidate.path)
   };
-
-  buildInstructionsCache.set(cacheKey, { timestamp: Date.now(), value });
+  setLimitedCache(buildInstructionsCache, cacheKey, { timestamp: Date.now(), value });
   return value;
 }
 
@@ -313,6 +443,64 @@ async function localSet(values) {
   return chromeStorageSet(extensionApi.storage.local, values);
 }
 
+function trustedReleasePage(value, owner, repo, expectedTag) {
+  const release = urlPolicy && urlPolicy.releaseTag(value, owner, repo);
+  return release && (!expectedTag || release.tag === expectedTag) ? release : null;
+}
+
+function trustedReleaseAsset(value, owner, repo, expectedTag) {
+  return urlPolicy && urlPolicy.releaseAsset(value, owner, repo, expectedTag || "");
+}
+
+function trustedDownload(entry) {
+  const clean = tracker.sanitizeDownload(entry);
+  if (!clean || !urlPolicy || !clean.releaseTag) return null;
+  const asset = urlPolicy.download(clean.assetUrl, clean.owner, clean.repo);
+  const release = trustedReleasePage(clean.releaseUrl, clean.owner, clean.repo, clean.releaseTag);
+  if (!asset || !release) return null;
+  if (asset.tag && asset.tag !== clean.releaseTag) return null;
+  return { ...clean, assetUrl: asset.href, releaseUrl: release.href };
+}
+
+function trustedWatch(entry) {
+  const clean = tracker.sanitizeWatch(entry);
+  if (!clean || !urlPolicy) return null;
+  const currentAsset = clean.currentAssetUrl
+    ? trustedReleaseAsset(clean.currentAssetUrl, clean.owner, clean.repo, clean.currentTag)
+    : null;
+  if (clean.currentAssetUrl && !currentAsset) return null;
+  return { ...clean, currentAssetUrl: currentAsset ? currentAsset.href : "" };
+}
+
+function trustedUpdate(entry) {
+  const clean = tracker.sanitizeUpdate(entry);
+  if (!clean || !urlPolicy || !clean.releaseTag) return null;
+  const release = trustedReleasePage(clean.releaseUrl, clean.owner, clean.repo, clean.releaseTag);
+  const asset = clean.assetUrl
+    ? trustedReleaseAsset(clean.assetUrl, clean.owner, clean.repo, clean.releaseTag)
+    : null;
+  if (!release || (clean.assetUrl && !asset)) return null;
+  return {
+    ...clean,
+    releaseUrl: release.href,
+    assetUrl: asset ? asset.href : ""
+  };
+}
+
+function normalizedTrackerMeta(value) {
+  const source = value && typeof value === "object" ? value : {};
+  const cursor = Math.max(0, Number(source.watchCursor) || 0);
+  const remaining = Number(source.apiRateLimitRemaining);
+  const limit = Number(source.apiRateLimitLimit);
+  return {
+    ...source,
+    watchCursor: cursor,
+    apiRateLimitRemaining: Number.isFinite(remaining) ? remaining : null,
+    apiRateLimitLimit: Number.isFinite(limit) ? limit : null,
+    apiRateLimitResetAt: typeof source.apiRateLimitResetAt === "string" ? source.apiRateLimitResetAt : null
+  };
+}
+
 async function readTrackerState() {
   const data = await localGet({
     [tracker.HISTORY_KEY]: [],
@@ -321,10 +509,10 @@ async function readTrackerState() {
     [tracker.META_KEY]: {}
   });
   return {
-    history: Array.isArray(data[tracker.HISTORY_KEY]) ? data[tracker.HISTORY_KEY].map(tracker.sanitizeDownload).filter(Boolean) : [],
-    watches: Array.isArray(data[tracker.WATCHES_KEY]) ? data[tracker.WATCHES_KEY].map(tracker.sanitizeWatch).filter(Boolean) : [],
-    updates: Array.isArray(data[tracker.UPDATES_KEY]) ? data[tracker.UPDATES_KEY].map(tracker.sanitizeUpdate).filter(Boolean) : [],
-    meta: data[tracker.META_KEY] && typeof data[tracker.META_KEY] === "object" ? data[tracker.META_KEY] : {}
+    history: Array.isArray(data[tracker.HISTORY_KEY]) ? data[tracker.HISTORY_KEY].map(trustedDownload).filter(Boolean) : [],
+    watches: Array.isArray(data[tracker.WATCHES_KEY]) ? data[tracker.WATCHES_KEY].map(trustedWatch).filter(Boolean) : [],
+    updates: Array.isArray(data[tracker.UPDATES_KEY]) ? data[tracker.UPDATES_KEY].map(trustedUpdate).filter(Boolean) : [],
+    meta: normalizedTrackerMeta(data[tracker.META_KEY])
   };
 }
 
@@ -338,9 +526,9 @@ async function writeTrackerState(patch) {
 }
 
 function downloadFromPayload(payload) {
-  return tracker.sanitizeDownload({
+  return trustedDownload({
     ...payload,
-    downloadedAt: payload.downloadedAt || new Date().toISOString()
+    downloadedAt: payload && payload.downloadedAt || new Date().toISOString()
   });
 }
 
@@ -427,68 +615,107 @@ async function checkAllUpdates(options = {}) {
   if (!settings.enabled) {
     return { ok: true, disabled: true, detected: [], errors: [], watches: state.watches, updates: state.updates, meta: state.meta };
   }
+
+  const now = Date.now();
+  const resetTime = Date.parse(state.meta.apiRateLimitResetAt || "");
+  if (state.meta.apiRateLimitRemaining === 0 && Number.isFinite(resetTime) && resetTime > now) {
+    return {
+      ok: true,
+      rateLimited: true,
+      detected: [],
+      errors: [{ error: "rate_limited", resetAt: state.meta.apiRateLimitResetAt }],
+      watches: state.watches,
+      updates: state.updates,
+      meta: state.meta
+    };
+  }
+
   let watches = state.watches.slice();
   let updates = state.updates.slice();
   const detected = [];
   const errors = [];
+  const total = watches.length;
+  const startCursor = total ? Math.min(state.meta.watchCursor % total, total - 1) : 0;
+  const targetCount = Math.min(UPDATE_BATCH_SIZE, total);
+  let processed = 0;
+  let lastRateLimit = null;
 
-  for (let index = 0; index < watches.length; index += 1) {
+  for (let offset = 0; offset < targetCount; offset += 1) {
+    const index = (startCursor + offset) % total;
     const watch = watches[index];
     let response;
     try {
-      response = await getRelease(watch.owner, watch.repo, watch.platform, watch.releaseChannel, { force: true, etag: watch.etag });
+      response = await getRelease(watch.owner, watch.repo, watch.platform, watch.releaseChannel, {
+        force: true,
+        etag: watch.etag
+      });
     } catch (_error) {
       errors.push({ key: watch.key, error: "network_error" });
+      processed += 1;
       continue;
     }
 
+    processed += 1;
+    if (response.rateLimit) lastRateLimit = response.rateLimit;
     const checkedAt = new Date().toISOString();
+
     if (response.notModified) {
-      watches[index] = tracker.sanitizeWatch({ ...watch, lastCheckedAt: checkedAt });
-      continue;
-    }
-    if (!response.ok) {
+      watches[index] = trustedWatch({ ...watch, lastCheckedAt: checkedAt }) || watch;
+    } else if (!response.ok) {
       errors.push({ key: watch.key, error: response.error, resetAt: response.resetAt || null });
-      watches[index] = tracker.sanitizeWatch({ ...watch, lastCheckedAt: checkedAt });
+      watches[index] = trustedWatch({ ...watch, lastCheckedAt: checkedAt }) || watch;
       if (response.error === "rate_limited") break;
-      continue;
-    }
-
-    const release = response.release;
-    const oldPending = updates.find((item) => item.key === watch.key);
-    const isDifferentFromCurrent = Number(release.id) !== Number(watch.currentReleaseId);
-    const isNewDetection = isDifferentFromCurrent && (!oldPending || Number(oldPending.releaseId) !== Number(release.id));
-
-    watches[index] = tracker.sanitizeWatch({
-      ...watch,
-      lastCheckedReleaseId: release.id,
-      lastCheckedTag: release.tag_name,
-      lastCheckedAt: checkedAt,
-      etag: response.etag || watch.etag || "",
-      lastNotifiedReleaseId: isNewDetection ? release.id : watch.lastNotifiedReleaseId,
-      updatedAt: checkedAt
-    });
-
-    if (isDifferentFromCurrent) {
-      const pending = updateFromRelease(watch, response);
-      updates = tracker.upsertUpdate(updates, pending);
-      if (isNewDetection) detected.push(pending);
     } else {
-      updates = tracker.removeUpdate(updates, watch.key);
+      const release = response.release;
+      const oldPending = updates.find((item) => item.key === watch.key);
+      const isDifferentFromCurrent = Number(release.id) !== Number(watch.currentReleaseId);
+      const isNewDetection = isDifferentFromCurrent && (!oldPending || Number(oldPending.releaseId) !== Number(release.id));
+
+      watches[index] = trustedWatch({
+        ...watch,
+        lastCheckedReleaseId: release.id,
+        lastCheckedTag: release.tag_name,
+        lastCheckedAt: checkedAt,
+        etag: response.etag || watch.etag || "",
+        lastNotifiedReleaseId: isNewDetection ? release.id : watch.lastNotifiedReleaseId,
+        updatedAt: checkedAt
+      }) || watch;
+
+      if (isDifferentFromCurrent) {
+        const pending = trustedUpdate(updateFromRelease(watch, response));
+        if (pending) {
+          updates = tracker.upsertUpdate(updates, pending);
+          if (isNewDetection) detected.push(pending);
+        }
+      } else {
+        updates = tracker.removeUpdate(updates, watch.key);
+      }
     }
+
+    if (lastRateLimit && Number.isFinite(lastRateLimit.remaining) && lastRateLimit.remaining <= 1) break;
   }
 
-  const meta = {
+  const nextCursor = total ? (startCursor + processed) % total : 0;
+  const completedCycle = total === 0 || processed >= total;
+  const meta = normalizedTrackerMeta({
     ...state.meta,
+    watchCursor: nextCursor,
     lastCheckAt: new Date().toISOString(),
     lastCheckSource: options.manual ? "manual" : "alarm",
     lastCheckErrors: errors.length,
-    lastCheckErrorDetails: errors.slice(0, 10)
-  };
+    lastCheckErrorDetails: errors.slice(0, 10),
+    lastCheckChecked: processed,
+    lastCheckTotal: total,
+    lastCheckComplete: completedCycle,
+    apiRateLimitLimit: lastRateLimit && lastRateLimit.limit,
+    apiRateLimitRemaining: lastRateLimit && lastRateLimit.remaining,
+    apiRateLimitResetAt: lastRateLimit && lastRateLimit.resetAt
+  });
+
   await writeTrackerState({ watches, updates, meta });
   await updateBadge(updates, settings);
   if (detected.length) await notifyUpdates(detected, settings);
-  return { ok: true, detected, errors, watches, updates, meta };
+  return { ok: true, detected, errors, watches, updates, meta, checked: processed, total };
 }
 
 async function dismissUpdate(key) {
@@ -516,7 +743,7 @@ async function downloadUpdate(key) {
   const watch = state.watches.find((item) => item.key === key);
   if (!update || !watch || !update.assetUrl) return { ok: false, error: "asset_not_found" };
 
-  const download = tracker.sanitizeDownload({
+  const download = trustedDownload({
     owner: update.owner,
     repo: update.repo,
     releaseId: update.releaseId,
@@ -535,13 +762,16 @@ async function downloadUpdate(key) {
     downloadedAt: new Date().toISOString()
   });
 
+  if (!download) return { ok: false, error: "untrusted_url" };
   const settings = await settingsApi.get();
   const history = settings.historyEnabled ? tracker.addHistory(state.history, download) : state.history;
   const watches = tracker.upsertWatch(state.watches, tracker.watchFromDownload(download, watch));
   const updates = tracker.removeUpdate(state.updates, key);
   await writeTrackerState({ history, watches, updates });
   await updateBadge(updates, settings);
-  await openTab(update.assetUrl);
+  const trustedAsset = urlPolicy.download(update.assetUrl, update.owner, update.repo);
+  if (!trustedAsset) return { ok: false, error: "untrusted_url" };
+  await openTab(trustedAsset.href);
   return { ok: true };
 }
 
@@ -571,13 +801,13 @@ async function clearTracking() {
 async function hasNotificationPermission() {
   if (!extensionApi.permissions || !extensionApi.permissions.contains) return false;
   if (typeof browser !== "undefined") return extensionApi.permissions.contains({ permissions: ["notifications"] });
-  return new Promise((resolve) => extensionApi.permissions.contains({ permissions: ["notifications"] }, resolve));
+  return new Promise((resolve) => { extensionApi.permissions.contains({ permissions: ["notifications"] }, resolve); });
 }
 
 async function createNotification(id, options) {
   if (!extensionApi.notifications || !extensionApi.notifications.create) return;
   if (typeof browser !== "undefined") await extensionApi.notifications.create(id, options);
-  else await new Promise((resolve) => extensionApi.notifications.create(id, options, resolve));
+  else await new Promise((resolve) => { extensionApi.notifications.create(id, options, resolve); });
 }
 
 async function notifyUpdates(updates, settings) {
@@ -629,28 +859,30 @@ async function openOptionsPage() {
   const url = extensionApi.runtime.getURL("options.html");
   if (extensionApi.tabs && extensionApi.tabs.create) {
     if (typeof browser !== "undefined") await extensionApi.tabs.create({ url });
-    else await new Promise((resolve) => extensionApi.tabs.create({ url }, resolve));
+    else await new Promise((resolve) => { extensionApi.tabs.create({ url }, resolve); });
     return { ok: true, fallback: true };
   }
   return { ok: false, error: "options_unavailable" };
 }
 
-async function openTab(url) {
-  if (!url || !/^https?:\/\//i.test(url)) return;
-  if (typeof browser !== "undefined") await extensionApi.tabs.create({ url });
-  else await new Promise((resolve) => extensionApi.tabs.create({ url }, resolve));
+async function openTab(value) {
+  const trusted = urlPolicy && urlPolicy.repositoryWebUrl(value);
+  if (!trusted) return { ok: false, error: "untrusted_url" };
+  if (typeof browser !== "undefined") await extensionApi.tabs.create({ url: trusted.href });
+  else await new Promise((resolve) => { extensionApi.tabs.create({ url: trusted.href }, resolve); });
+  return { ok: true };
 }
 
 async function getAlarm(name) {
   if (!extensionApi.alarms || !extensionApi.alarms.get) return null;
   if (typeof browser !== "undefined") return extensionApi.alarms.get(name);
-  return new Promise((resolve) => extensionApi.alarms.get(name, resolve));
+  return new Promise((resolve) => { extensionApi.alarms.get(name, resolve); });
 }
 
 async function clearAlarm(name) {
   if (!extensionApi.alarms || !extensionApi.alarms.clear) return false;
   if (typeof browser !== "undefined") return extensionApi.alarms.clear(name);
-  return new Promise((resolve) => extensionApi.alarms.clear(name, resolve));
+  return new Promise((resolve) => { extensionApi.alarms.clear(name, resolve); });
 }
 
 async function createAlarm(name, alarmInfo) {
@@ -690,7 +922,7 @@ extensionApi.runtime.onMessage.addListener((message, sender, sendResponse) => {
       operation = getReleaseByTag(message.owner, message.repo, message.tag, message.platform);
       break;
     case "GHDN_GET_BUILD_INSTRUCTIONS":
-      operation = getBuildInstructions(message.owner, message.repo, message.ref);
+      operation = getBuildInstructions(message.owner, message.repo, message.ref, message.platform);
       break;
     case "GHDN_RECORD_DOWNLOAD":
       operation = recordDownload(message.download, sender);
@@ -714,7 +946,7 @@ extensionApi.runtime.onMessage.addListener((message, sender, sendResponse) => {
       operation = downloadUpdate(message.key);
       break;
     case "GHDN_OPEN_URL":
-      operation = openTab(message.url).then(() => ({ ok: true }));
+      operation = openTab(message.url);
       break;
     case "GHDN_OPEN_OPTIONS":
       operation = openOptionsPage();
