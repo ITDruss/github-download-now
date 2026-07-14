@@ -12,6 +12,7 @@
       all: "На всех страницах репозитория", mainReleases: "На главной и в Releases", main: "Только на главной",
       buttonStyle: "Стиль кнопки", accent: "Зелёная акцентная", native: "Нативная GitHub", compact: "Компактная",
       primaryAction: "Нажатие основной кнопки", download: "Скачать рекомендацию", menu: "Всегда открыть меню", release: "Открыть страницу Releases",
+      installGuidance: "Подсказки по установке", guidanceBeginner: "Показывать после загрузки и в меню", guidanceCompact: "Только по запросу в меню", guidanceOff: "Не показывать",
       enabled: "Расширение включено", subtitleToggle: "Показывать ОС и архитектуру", otherPlatforms: "Показывать другие платформы",
       sourceCode: "Показывать исходный код", reasons: "Объяснять рекомендацию", system: "Система и архитектура",
       systemNote: "Оставьте автоопределение, если расширение правильно распознаёт ваше устройство.", os: "Операционная система", arch: "Архитектура",
@@ -30,6 +31,7 @@
       all: "All repository pages", mainReleases: "Repository home and Releases", main: "Repository home only",
       buttonStyle: "Button style", accent: "Green accent", native: "Native GitHub", compact: "Compact",
       primaryAction: "Main button action", download: "Download recommendation", menu: "Always open menu", release: "Open Releases page",
+      installGuidance: "Installation guidance", guidanceBeginner: "Show after download and in the menu", guidanceCompact: "Only on request in the menu", guidanceOff: "Do not show",
       enabled: "Extension enabled", subtitleToggle: "Show OS and architecture", otherPlatforms: "Show other platforms",
       sourceCode: "Show source code", reasons: "Explain recommendations", system: "System and architecture",
       systemNote: "Keep automatic detection unless the extension identifies your device incorrectly.", os: "Operating system", arch: "Architecture",
@@ -45,7 +47,7 @@
     }
   };
 
-  const fields = ["enabled","language","osOverride","archOverride","preferredLinux","preferredWindows","preferredMacos","preferredAndroid","primaryAction","buttonStyle","showSubtitle","showOtherPlatforms","showSourceCode","showRecommendationReason","releaseChannel","staleReleaseMonths","showOn","historyEnabled","afterDownload","updateCheckInterval","notificationsEnabled","badgeEnabled"];
+  const fields = ["enabled","language","osOverride","archOverride","preferredLinux","preferredWindows","preferredMacos","preferredAndroid","primaryAction","installGuidance","buttonStyle","showSubtitle","showOtherPlatforms","showSourceCode","showRecommendationReason","releaseChannel","staleReleaseMonths","showOn","historyEnabled","afterDownload","updateCheckInterval","notificationsEnabled","badgeEnabled"];
 
   function locale() {
     if (settings && settings.language === "ru") return "ru";
@@ -60,7 +62,7 @@
     const t = dictionaries[locale()];
     document.documentElement.lang = locale(); document.title = `GitHub Download Now — ${locale()==="ru"?"Настройки":"Settings"}`;
     const labels = {
-      subtitle:t.subtitle,generalTitle:t.general,languageLabel:t.language,showOnLabel:t.showOn,buttonStyleLabel:t.buttonStyle,primaryActionLabel:t.primaryAction,
+      subtitle:t.subtitle,generalTitle:t.general,languageLabel:t.language,showOnLabel:t.showOn,buttonStyleLabel:t.buttonStyle,primaryActionLabel:t.primaryAction,installGuidanceLabel:t.installGuidance,
       enabledLabel:t.enabled,showSubtitleLabel:t.subtitleToggle,showOtherPlatformsLabel:t.otherPlatforms,showSourceCodeLabel:t.sourceCode,showRecommendationReasonLabel:t.reasons,
       systemTitle:t.system,systemNote:t.systemNote,osOverrideLabel:t.os,archOverrideLabel:t.arch,formatsTitle:t.formats,releasesTitle:t.releases,releaseChannelLabel:t.channel,staleReleaseLabel:t.stale,
       updatesSettingsTitle:t.updatesTitle,updatesSettingsNote:t.updatesNote,afterDownloadLabel:t.afterDownload,updateCheckIntervalLabel:t.interval,historyEnabledLabel:t.historyEnabled,
@@ -70,6 +72,7 @@
     optionText("showOn","all",t.all); optionText("showOn","main_releases",t.mainReleases); optionText("showOn","main",t.main);
     optionText("buttonStyle","accent",t.accent); optionText("buttonStyle","native",t.native); optionText("buttonStyle","compact",t.compact);
     optionText("primaryAction","download",t.download); optionText("primaryAction","menu",t.menu); optionText("primaryAction","release",t.release);
+    optionText("installGuidance","beginner",t.guidanceBeginner); optionText("installGuidance","compact",t.guidanceCompact); optionText("installGuidance","off",t.guidanceOff);
     optionText("releaseChannel","stable",t.stable); optionText("releaseChannel","newest",t.newest); optionText("language","auto",t.browserLanguage);
     for (const id of ["osOverride","archOverride","preferredLinux","preferredWindows","preferredMacos","preferredAndroid"]) optionText(id,"auto",t.auto);
     optionText("preferredLinux","archive",t.archive); optionText("staleReleaseMonths","0",t.never);

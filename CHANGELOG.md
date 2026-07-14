@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here.
 
-## [0.4.2] - 2026-07-13
+## [0.4.2] - 2026-07-14
 
 ### Fixed
 
@@ -15,6 +15,10 @@ All notable changes to this project are documented here.
 - Anchored toolbar placement after GitHub's complete Star control instead of between Fork and Star.
 - Added on-demand discovery of likely build-documentation files at the release tag, shown as direct GitHub links without parsing or displaying commands.
 - Added regression tests for row-reverse Star placement, intact Fork/Star groups, secondary-page fallbacks and build-documentation discovery.
+- Added deterministic, localized installation and launch guidance for AppImage, DEB, RPM, Flatpak, Snap, Windows installers, macOS packages, Android packages, archives, JAR, VSIX and trusted executable scripts.
+- Added per-asset help controls, copyable commands and an optional post-download guidance card without requesting browser download-history permission.
+- Added a setting for beginner guidance, compact on-demand guidance or disabling installation help.
+- Stacked installation guidance, update-watching prompts and short status messages so they no longer overlap.
 
 ## [0.4.1] - 2026-07-13
 

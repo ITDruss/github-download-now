@@ -12,7 +12,8 @@ const settingsApi = require("../src/settings.js");
     buttonStyle: "invalid",
     afterDownload: "always",
     updateCheckInterval: "6h",
-    historyEnabled: false
+    historyEnabled: false,
+    installGuidance: "compact"
   });
   assert.equal(normalized.enabled, false);
   assert.equal(normalized.preferredLinux, "deb");
@@ -22,6 +23,7 @@ const settingsApi = require("../src/settings.js");
   assert.equal(normalized.afterDownload, "always");
   assert.equal(normalized.updateCheckInterval, "6h");
   assert.equal(normalized.historyEnabled, false);
+  assert.equal(normalized.installGuidance, "compact");
 }
 
 {

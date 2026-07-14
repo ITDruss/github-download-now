@@ -474,10 +474,7 @@
 }
 
 .ghdn-toast {
-  position: fixed;
-  right: 20px;
-  bottom: 20px;
-  max-width: min(440px, calc(100vw - 40px));
+  width: 100%;
   padding: 12px 14px;
   border: 1px solid var(--borderColor-default, var(--color-border-default, #d0d7de));
   border-radius: 8px;
@@ -563,6 +560,11 @@
 .ghdn-hide-subtitle .ghdn-primary-subtitle { display: none !important; }
 .ghdn-style-compact .ghdn-primary-title { max-width: 150px; }
 
+.ghdn-asset-entry {
+  display: grid;
+  gap: 4px;
+}
+
 .ghdn-asset-row {
   position: relative;
   display: flex;
@@ -572,13 +574,21 @@
 
 .ghdn-asset-row .ghdn-asset {
   flex: 1 1 auto;
-  padding-right: 42px;
+  padding-right: 78px;
 }
 
-.ghdn-copy-link {
+.ghdn-asset-actions {
   position: absolute;
   top: 50%;
-  right: 8px;
+  right: 7px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  transform: translateY(-50%);
+}
+
+.ghdn-copy-link,
+.ghdn-guide-toggle {
   display: inline-flex;
   width: 30px;
   height: 30px;
@@ -591,15 +601,41 @@
   color: var(--fgColor-muted, #656d76);
   cursor: pointer;
   opacity: 0;
-  transform: translateY(-50%);
 }
 
 .ghdn-asset-row:hover .ghdn-copy-link,
-.ghdn-copy-link:focus-visible { opacity: 1; }
-.ghdn-copy-link:hover { background: var(--control-transparent-bgColor-hover, rgba(208,215,222,.32)); color: var(--fgColor-default, #1f2328); }
-.ghdn-copy-link:focus-visible { outline: 2px solid var(--focus-outlineColor, #54aeff); outline-offset: -2px; }
-.ghdn-copy-icon { display: inline-flex; width: 15px; height: 15px; }
-.ghdn-copy-icon svg { width: 100%; height: 100%; }
+.ghdn-asset-row:hover .ghdn-guide-toggle,
+.ghdn-copy-link:focus-visible,
+.ghdn-guide-toggle:focus-visible,
+.ghdn-guide-toggle[aria-expanded="true"] {
+  opacity: 1;
+}
+
+.ghdn-copy-link:hover,
+.ghdn-guide-toggle:hover,
+.ghdn-guide-toggle[aria-expanded="true"] {
+  background: var(--control-transparent-bgColor-hover, rgba(208,215,222,.32));
+  color: var(--fgColor-default, #1f2328);
+}
+
+.ghdn-copy-link:focus-visible,
+.ghdn-guide-toggle:focus-visible {
+  outline: 2px solid var(--focus-outlineColor, #54aeff);
+  outline-offset: -2px;
+}
+
+.ghdn-copy-icon,
+.ghdn-guide-icon {
+  display: inline-flex;
+  width: 15px;
+  height: 15px;
+}
+
+.ghdn-copy-icon svg,
+.ghdn-guide-icon svg {
+  width: 100%;
+  height: 100%;
+}
 
 .ghdn-stale-warning {
   display: grid;
@@ -674,15 +710,26 @@
 
 @media (max-width: 520px) {
   .ghdn-menu-footer { grid-template-columns: 1fr; }
-  .ghdn-copy-link { opacity: 1; }
+  .ghdn-copy-link, .ghdn-guide-toggle { opacity: 1; }
+}
+
+.ghdn-notice-stack {
+  position: fixed;
+  right: max(22px, env(safe-area-inset-right));
+  bottom: max(22px, env(safe-area-inset-bottom));
+  z-index: 2147483647;
+  display: grid;
+  gap: 10px;
+  width: min(440px, calc(100vw - 28px));
+  pointer-events: none;
+}
+
+.ghdn-notice-stack > * {
+  pointer-events: auto;
 }
 
 .ghdn-watch-prompt {
-  position: fixed;
-  right: 22px;
-  bottom: 22px;
-  z-index: 2147483647;
-  width: min(430px, calc(100vw - 28px));
+  width: 100%;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
@@ -705,8 +752,164 @@
 .ghdn-watch-enable:hover { background: #1a7f37; }
 .ghdn-watch-later { color: var(--fgColor-default, #1f2328); background: var(--button-default-bgColor-rest, #f6f8fa); }
 @media (max-width: 600px) {
-  .ghdn-watch-prompt { right: 14px; bottom: 14px; grid-template-columns: auto 1fr; }
+  .ghdn-notice-stack { right: 14px; bottom: 14px; width: calc(100vw - 28px); }
+  .ghdn-watch-prompt { grid-template-columns: auto 1fr; }
   .ghdn-watch-actions { grid-column: 1 / -1; justify-content: flex-end; }
+}
+
+/* Deterministic installation and launch guidance */
+.ghdn-install-guide {
+  margin: 0 4px 6px;
+  padding: 10px;
+  border: 1px solid var(--borderColor-muted, var(--color-border-muted, #d8dee4));
+  border-radius: 9px;
+  background: var(--bgColor-muted, var(--color-canvas-subtle, #f6f8fa));
+  color: var(--fgColor-default, #1f2328);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.ghdn-install-guide[hidden] {
+  display: none !important;
+}
+
+.ghdn-install-guide-prompt {
+  width: 100%;
+  margin: 0;
+  padding: 13px;
+  background: var(--bgColor-default, #fff);
+  box-shadow: 0 10px 34px rgba(31,35,40,.2);
+  font: 13px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+
+.ghdn-install-guide-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ghdn-install-guide-heading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.ghdn-install-guide-icon {
+  display: inline-flex;
+  width: 17px;
+  height: 17px;
+  flex: none;
+  color: var(--fgColor-accent, #0969da);
+}
+
+.ghdn-install-guide-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.ghdn-install-guide-close {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fgColor-muted, #656d76);
+  font: 22px/1 sans-serif;
+  cursor: pointer;
+}
+
+.ghdn-install-guide-close:hover {
+  background: var(--control-transparent-bgColor-hover, rgba(208,215,222,.32));
+  color: var(--fgColor-default, #1f2328);
+}
+
+.ghdn-install-guide-title {
+  margin-top: 5px;
+  font-weight: 700;
+}
+
+.ghdn-install-guide-summary {
+  margin-top: 5px;
+  color: var(--fgColor-muted, #656d76);
+}
+
+.ghdn-install-guide-steps {
+  display: grid;
+  gap: 8px;
+  margin-top: 9px;
+}
+
+.ghdn-install-guide-step-label {
+  margin-bottom: 4px;
+  color: var(--fgColor-default, #1f2328);
+}
+
+.ghdn-install-command-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 30px;
+  align-items: stretch;
+  overflow: hidden;
+  border: 1px solid var(--borderColor-muted, #d8dee4);
+  border-radius: 7px;
+  background: var(--bgColor-inset, #0d1117);
+}
+
+.ghdn-install-command {
+  min-width: 0;
+  overflow-x: auto;
+  padding: 7px 8px;
+  color: #f0f6fc;
+  font: 11px/1.45 ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;
+  white-space: pre;
+  scrollbar-width: thin;
+}
+
+.ghdn-install-command-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-left: 1px solid rgba(240,246,252,.18);
+  background: rgba(240,246,252,.08);
+  color: #f0f6fc;
+  cursor: pointer;
+}
+
+.ghdn-install-command-copy:hover {
+  background: rgba(240,246,252,.16);
+}
+
+.ghdn-install-guide-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin-top: 9px;
+  padding: 7px 8px;
+  border-radius: 7px;
+  background: var(--bgColor-attention-muted, rgba(212,167,44,.12));
+  color: var(--fgColor-attention, #9a6700);
+}
+
+.ghdn-install-copy-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 9px;
+  padding: 6px 9px;
+  border: 1px solid var(--borderColor-default, #d0d7de);
+  border-radius: 6px;
+  background: var(--button-default-bgColor-rest, #f6f8fa);
+  color: var(--fgColor-default, #1f2328);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ghdn-install-copy-all:hover {
+  background: var(--button-default-bgColor-hover, #f3f4f6);
 }
 
 /* Source archives and build documentation */

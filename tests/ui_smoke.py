@@ -19,6 +19,10 @@ html = html.replace(
     f'<script>{(ROOT / "src" / "asset-selector.js").read_text(encoding="utf-8")}</script>'
 )
 html = html.replace(
+    '<script src="../../src/install-guides.js"></script>',
+    f'<script>{(ROOT / "src" / "install-guides.js").read_text(encoding="utf-8")}</script>'
+)
+html = html.replace(
     '<script src="../../src/content.js"></script>',
     f'<script>{(ROOT / "src" / "content.js").read_text(encoding="utf-8")}</script>'
 )
@@ -54,6 +58,13 @@ with sync_playwright() as p:
         assert page.locator("#ghdn-menu").evaluate("node => node.parentElement === document.body")
         assert page.locator("#ghdn-menu").evaluate("node => getComputedStyle(node).position === 'fixed'")
         assert page.locator(".ghdn-source-actions").count() == 1
+        assert page.locator(".ghdn-guide-toggle").count() >= 5
+        page.locator(".ghdn-guide-toggle").first.click()
+        page.wait_for_selector(".ghdn-install-guide:not([hidden])")
+        guide_commands = page.locator(".ghdn-install-guide:not([hidden]) .ghdn-install-command")
+        assert guide_commands.count() == 2
+        assert guide_commands.nth(0).text_content().startswith("chmod +x --")
+        assert "AppImage" in guide_commands.nth(1).text_content()
         page.wait_for_selector(".ghdn-build-doc-link")
         docs = page.locator(".ghdn-build-doc-link")
         assert docs.count() == 2
@@ -202,6 +213,21 @@ with sync_playwright() as p:
     assert page.locator("#ghdn-root").evaluate("node => node.parentElement === document.body")
     floating_box = page.locator("#ghdn-root").bounding_box()
     assert floating_box and floating_box["x"] > 900 and floating_box["y"] > 600
+    context.close()
+
+    # Beginner mode shows deterministic post-download guidance without download-history permission.
+    context = browser.new_context(viewport={"width": 1280, "height": 800}, locale="ru-RU", device_scale_factor=1)
+    page = context.new_page()
+    page.set_content(html, wait_until="load")
+    page.wait_for_selector("#ghdn-root")
+    page.evaluate("HTMLAnchorElement.prototype.click = function(){ window.__ghdnDownloaded = this.href; }")
+    page.hover(".ghdn-button-group")
+    page.wait_for_function("document.querySelector('.ghdn-primary-title-full')?.textContent.includes('AppImage')")
+    page.click(".ghdn-primary")
+    page.wait_for_selector("#ghdn-install-prompt")
+    assert page.locator("#ghdn-install-prompt .ghdn-install-command").count() == 2
+    assert page.evaluate("window.__ghdnDownloaded === 'https://example.test/appimage'")
+    assert page.locator("#ghdn-install-prompt").evaluate("node => node.parentElement.id === 'ghdn-notice-stack'")
     context.close()
 
     # Preferred format still changes recommendation and menu badge.

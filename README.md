@@ -14,6 +14,8 @@ It adds a clear download control to GitHub repositories, detects the current ope
 - Keeps suitable alternatives available in a structured menu.
 - Avoids checksums, signatures, SBOMs, debug symbols and source archives during automatic selection.
 - Finds likely build-documentation files for the selected release tag and links to the original GitHub files without interpreting or executing their contents.
+- Shows local, deterministic installation and launch guidance for common release formats, including copyable commands that use the exact downloaded filename.
+- Lets users choose beginner guidance after downloads, compact on-demand help, or no installation guidance.
 - Provides configurable package preferences and manual OS/architecture overrides.
 - Warns about stale releases and explains why an asset was recommended.
 - Keeps an optional local history of downloads started through the extension.

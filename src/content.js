@@ -4,8 +4,10 @@
   const extensionApi = typeof browser !== "undefined" ? browser : chrome;
   const selector = globalThis.GHDNAssetSelector;
   const settingsApi = globalThis.GHDNSettings;
+  const installGuides = globalThis.GHDNInstallGuides;
   const ROOT_ID = "ghdn-root";
   const MENU_ID = "ghdn-menu";
+  const NOTICE_STACK_ID = "ghdn-notice-stack";
   const TOOLBAR_BREAKPOINT = 760;
   const MAX_VISIBLE_ASSETS = 18;
   const RESERVED_ROOTS = new Set([
@@ -58,6 +60,12 @@
       buildNotFound: "Документы по сборке не найдены.",
       buildError: "Не удалось получить документы по сборке.",
       buildFallbackNotice: "Ссылки ведут на основную ветку: документация для тега релиза недоступна.",
+      installHelp: "Как установить или запустить",
+      installAfterDownload: "Файл скачивается — что делать дальше",
+      installCopyCommand: "Копировать команду",
+      installCopyAll: "Копировать все команды",
+      installCopied: "Команда скопирована",
+      installClose: "Закрыть",
       noRelease: "У репозитория нет подходящего опубликованного релиза.",
       noAssets: "В релизе нет готовых файлов. Можно скачать исходный код.",
       apiError: "GitHub API временно недоступен.",
@@ -89,11 +97,15 @@
       formatHints: {
         ".appimage": "Универсальный запуск без установки",
         ".flatpakref": "Установка через Flatpak",
+        ".flatpak": "Локальный пакет Flatpak",
         ".deb": "Пакет для Debian, Ubuntu и производных",
         ".rpm": "Пакет для Fedora, RHEL и производных",
         ".snap": "Пакет Snap",
+        ".run": "Исполняемый установщик Linux",
+        ".sh": "Shell-скрипт — проверьте перед запуском",
         ".tar.gz": "Архив для ручной установки",
         ".tar.xz": "Архив для ручной установки",
+        ".tar.zst": "Архив для ручной установки",
         ".tgz": "Архив для ручной установки",
         ".exe": "Приложение или установщик Windows",
         ".msi": "Установочный пакет Windows",
@@ -133,6 +145,12 @@
       buildNotFound: "No build documentation was found.",
       buildError: "Could not load build documentation.",
       buildFallbackNotice: "Links point to the default branch because documentation for the release tag is unavailable.",
+      installHelp: "How to install or run",
+      installAfterDownload: "The file is downloading — what to do next",
+      installCopyCommand: "Copy command",
+      installCopyAll: "Copy all commands",
+      installCopied: "Command copied",
+      installClose: "Close",
       noRelease: "This repository has no suitable published release.",
       noAssets: "The release has no uploaded binaries. You can download its source code.",
       apiError: "GitHub API is temporarily unavailable.",
@@ -164,11 +182,15 @@
       formatHints: {
         ".appimage": "Portable Linux app without installation",
         ".flatpakref": "Install with Flatpak",
+        ".flatpak": "Local Flatpak bundle",
         ".deb": "Package for Debian, Ubuntu and derivatives",
         ".rpm": "Package for Fedora, RHEL and derivatives",
         ".snap": "Snap package",
+        ".run": "Executable Linux installer",
+        ".sh": "Shell script — review before running",
         ".tar.gz": "Archive for manual installation",
         ".tar.xz": "Archive for manual installation",
+        ".tar.zst": "Archive for manual installation",
         ".tgz": "Archive for manual installation",
         ".exe": "Windows application or installer",
         ".msi": "Windows installer package",
@@ -1119,7 +1141,107 @@
     return heading;
   }
 
+  function currentLanguageCode() {
+    if (settings.language === "ru") return "ru";
+    if (settings.language === "en") return "en";
+    return /^(ru|uk|be|kk)(-|$)/i.test(navigator.language || "") ? "ru" : "en";
+  }
+
+  function installGuideForAsset(asset, platform) {
+    if (!installGuides || !asset || settings.installGuidance === "off") return null;
+    const extension = asset.extension || selector.detectExtension(asset.name);
+    return installGuides.createGuide({
+      assetName: asset.name,
+      extension,
+      platform: assetPlatform(asset) || (platform && platform.os) || "unknown",
+      language: currentLanguageCode()
+    });
+  }
+
+  function createInstallGuideCard(guide, options = {}) {
+    const card = createElement("div", `ghdn-install-guide${options.prompt ? " ghdn-install-guide-prompt" : ""}`);
+    const header = createElement("div", "ghdn-install-guide-header");
+    const heading = createElement("div", "ghdn-install-guide-heading");
+    heading.append(createIcon("info", "ghdn-install-guide-icon"), createElement("strong", "", options.prompt ? strings.installAfterDownload : guide.title));
+    header.append(heading);
+
+    if (options.prompt) {
+      const close = createElement("button", "ghdn-install-guide-close");
+      close.type = "button";
+      close.title = strings.installClose;
+      close.setAttribute("aria-label", strings.installClose);
+      close.textContent = "×";
+      close.addEventListener("click", () => card.remove());
+      header.append(close);
+    }
+
+    card.append(header);
+    if (options.prompt) card.append(createElement("div", "ghdn-install-guide-title", guide.title));
+    if (guide.summary) card.append(createElement("div", "ghdn-install-guide-summary", guide.summary));
+
+    const steps = createElement("div", "ghdn-install-guide-steps");
+    guide.steps.forEach((step, index) => {
+      const item = createElement("div", "ghdn-install-guide-step");
+      const label = createElement("div", "ghdn-install-guide-step-label", `${index + 1}. ${step.label}`);
+      item.append(label);
+      if (step.command) {
+        const commandRow = createElement("div", "ghdn-install-command-row");
+        const code = createElement("code", "ghdn-install-command", step.command);
+        const copy = createElement("button", "ghdn-install-command-copy");
+        copy.type = "button";
+        copy.title = strings.installCopyCommand;
+        copy.setAttribute("aria-label", strings.installCopyCommand);
+        copy.append(createIcon("copy", "ghdn-copy-icon"));
+        copy.addEventListener("click", () => copyText(step.command, strings.installCopied));
+        commandRow.append(code, copy);
+        item.append(commandRow);
+      }
+      steps.append(item);
+    });
+    card.append(steps);
+
+    if (guide.warning) {
+      const warning = createElement("div", "ghdn-install-guide-warning");
+      warning.append(createIcon("warning", "ghdn-inline-icon"), createElement("span", "", guide.warning));
+      card.append(warning);
+    }
+
+    if (guide.copyAll && guide.commands.length > 1) {
+      const copyAll = createElement("button", "ghdn-install-copy-all", strings.installCopyAll);
+      copyAll.type = "button";
+      copyAll.prepend(createIcon("copy", "ghdn-inline-icon"));
+      copyAll.addEventListener("click", () => copyText(installGuides.commandText(guide), strings.installCopied));
+      card.append(copyAll);
+    }
+
+    return card;
+  }
+
+  function ensureNoticeStack() {
+    let stack = document.getElementById(NOTICE_STACK_ID);
+    if (!stack) {
+      stack = createElement("div", "ghdn-notice-stack");
+      stack.id = NOTICE_STACK_ID;
+      document.body.append(stack);
+    }
+    return stack;
+  }
+
+  function showInstallPrompt(guide) {
+    if (!guide) return;
+    let prompt = document.getElementById("ghdn-install-prompt");
+    if (prompt) prompt.remove();
+    prompt = createInstallGuideCard(guide, { prompt: true });
+    prompt.id = "ghdn-install-prompt";
+    ensureNoticeStack().append(prompt);
+    clearTimeout(showInstallPrompt.timer);
+    showInstallPrompt.timer = setTimeout(() => {
+      if (prompt.isConnected) prompt.remove();
+    }, 30000);
+  }
+
   function createAssetRow(asset, recommended, currentPlatform, release) {
+    const entry = createElement("div", "ghdn-asset-entry");
     const row = createElement("div", "ghdn-asset-row");
     const button = createElement("button", "ghdn-asset");
     button.type = "button"; button.setAttribute("role", "menuitem"); button.title = asset.name;
@@ -1143,11 +1265,36 @@
     button.append(iconWrap, details, side);
     button.addEventListener("click", () => startDownload(asset.browser_download_url, asset, release, currentPlatform));
 
+    const actions = createElement("div", "ghdn-asset-actions");
+    const guide = installGuideForAsset(asset, currentPlatform);
+    let guidePanel = null;
+    if (guide) {
+      guidePanel = createInstallGuideCard(guide);
+      guidePanel.hidden = true;
+      const guideButton = createElement("button", "ghdn-guide-toggle");
+      guideButton.type = "button";
+      guideButton.title = strings.installHelp;
+      guideButton.setAttribute("aria-label", strings.installHelp);
+      guideButton.setAttribute("aria-expanded", "false");
+      guideButton.append(createIcon("info", "ghdn-guide-icon"));
+      guideButton.addEventListener("click", (event) => {
+        event.stopPropagation();
+        guidePanel.hidden = !guidePanel.hidden;
+        guideButton.setAttribute("aria-expanded", String(!guidePanel.hidden));
+        requestAnimationFrame(positionMenu);
+      });
+      actions.append(guideButton);
+    }
+
     const copyButton = createElement("button", "ghdn-copy-link");
     copyButton.type = "button"; copyButton.title = strings.copyLink; copyButton.setAttribute("aria-label", strings.copyLink);
     copyButton.append(createIcon("copy", "ghdn-copy-icon"));
     copyButton.addEventListener("click", (event) => { event.stopPropagation(); copyText(asset.browser_download_url); });
-    row.append(button, copyButton); return row;
+    actions.append(copyButton);
+    row.append(button, actions);
+    entry.append(row);
+    if (guidePanel) entry.append(guidePanel);
+    return entry;
   }
 
   function createLinkButton(label, url, iconName) {
@@ -1171,7 +1318,7 @@
     if (markers.length) return markers[0];
     const extensionOs = {
       ".exe": "windows", ".msi": "windows", ".msix": "windows", ".msixbundle": "windows", ".appx": "windows", ".appxbundle": "windows",
-      ".appimage": "linux", ".flatpakref": "linux", ".deb": "linux", ".rpm": "linux", ".snap": "linux",
+      ".appimage": "linux", ".flatpakref": "linux", ".flatpak": "linux", ".deb": "linux", ".rpm": "linux", ".snap": "linux", ".run": "linux", ".sh": "linux",
       ".dmg": "macos", ".pkg": "macos", ".apk": "android", ".apks": "android", ".aab": "android",
       ".xpi": "browser", ".crx": "browser", ".vsix": "browser"
     };
@@ -1191,8 +1338,8 @@
 
   function formatDisplayName(extension) {
     const names = {
-      ".appimage": "AppImage", ".flatpakref": "Flatpak", ".deb": "DEB", ".rpm": "RPM", ".snap": "Snap",
-      ".tar.gz": "TAR.GZ", ".tar.xz": "TAR.XZ", ".tgz": "TGZ", ".zip": "ZIP", ".7z": "7Z",
+      ".appimage": "AppImage", ".flatpakref": "Flatpak Ref", ".flatpak": "Flatpak", ".deb": "DEB", ".rpm": "RPM", ".snap": "Snap", ".run": "RUN", ".sh": "SH",
+      ".tar.gz": "TAR.GZ", ".tar.xz": "TAR.XZ", ".tar.zst": "TAR.ZST", ".tar.bz2": "TAR.BZ2", ".tgz": "TGZ", ".tbz2": "TBZ2", ".zip": "ZIP", ".7z": "7Z",
       ".exe": "EXE", ".msi": "MSI", ".msix": "MSIX", ".msixbundle": "MSIX Bundle", ".appx": "APPX", ".appxbundle": "APPX Bundle",
       ".dmg": "DMG", ".pkg": "PKG", ".apk": "APK", ".apks": "APKS", ".aab": "AAB", ".xpi": "XPI", ".crx": "CRX", ".vsix": "VSIX", ".jar": "JAR"
     };
@@ -1223,6 +1370,11 @@
     setMenuOpen(false);
     const anchor = document.createElement("a");
     anchor.href = url; anchor.rel = "noopener noreferrer"; document.body.append(anchor); anchor.click(); anchor.remove();
+
+    if (asset && platform && settings.installGuidance === "beginner") {
+      const guide = installGuideForAsset(asset, platform);
+      if (guide) showInstallPrompt(guide);
+    }
 
     if (!asset || !release || !platform) return;
     const repo = parseRepository();
@@ -1280,7 +1432,7 @@
     later.addEventListener("click", () => prompt.remove());
     actions.append(enable, later);
     prompt.append(createIcon("info", "ghdn-watch-icon"), copy, actions);
-    document.body.append(prompt);
+    ensureNoticeStack().append(prompt);
     clearTimeout(showWatchPrompt.timer);
     showWatchPrompt.timer = setTimeout(() => { if (prompt.isConnected) prompt.remove(); }, 12000);
   }
@@ -1377,7 +1529,7 @@
 
   function showToast(message, type) {
     let toast = document.getElementById("ghdn-toast");
-    if (!toast) { toast = createElement("div", "ghdn-toast"); toast.id = "ghdn-toast"; document.body.append(toast); }
+    if (!toast) { toast = createElement("div", "ghdn-toast"); toast.id = "ghdn-toast"; ensureNoticeStack().append(toast); }
     toast.className = `ghdn-toast ghdn-toast-${type}`; toast.textContent = message; toast.hidden = false;
     clearTimeout(showToast.timer); showToast.timer = setTimeout(() => { toast.hidden = true; }, 3500);
   }
