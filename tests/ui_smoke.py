@@ -31,15 +31,18 @@ cases = [
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=True, executable_path="/usr/bin/chromium", args=["--no-sandbox"])
 
-    # Wide desktop: integrate into the visible GitHub-like actions toolbar.
+    # Wide desktop: integrate after the complete Star control.
     for locale, badge, heading, output in cases:
         context = browser.new_context(viewport={"width": 1280, "height": 800}, locale=locale, device_scale_factor=1)
         page = context.new_page()
         page.set_content(html, wait_until="load")
         page.wait_for_selector("#ghdn-root")
-        assert page.locator("#ghdn-root").get_attribute("data-placement") == "toolbar"
-        assert page.locator("#ghdn-root").evaluate("node => node.parentElement.classList.contains('d-flex')")
-        assert page.locator("#ghdn-root").evaluate("node => /Star/i.test(node.previousElementSibling?.textContent || '')")
+        root = page.locator("#ghdn-root")
+        assert root.get_attribute("data-placement") == "toolbar"
+        assert root.evaluate("node => node.parentElement.classList.contains('d-flex')")
+        assert root.evaluate("node => /Star/i.test(node.previousElementSibling?.textContent || '')")
+        assert root.evaluate("node => !node.closest('.native-btn')")
+
         page.hover(".ghdn-button-group")
         page.wait_for_function("document.querySelector('.ghdn-primary-title-full')?.textContent.includes('AppImage')")
         page.click("[data-role='menu']")
@@ -51,10 +54,12 @@ with sync_playwright() as p:
         assert page.locator("#ghdn-menu").evaluate("node => node.parentElement === document.body")
         assert page.locator("#ghdn-menu").evaluate("node => getComputedStyle(node).position === 'fixed'")
         assert page.locator(".ghdn-source-actions").count() == 1
-        page.click(".ghdn-build-trigger")
-        page.wait_for_selector(".ghdn-build-panel:not([hidden])")
-        page.wait_for_function("document.querySelector('.ghdn-build-code')?.textContent.includes('flutter build linux')")
-        assert "README.md" in page.locator(".ghdn-build-source-link").text_content()
+        page.wait_for_selector(".ghdn-build-doc-link")
+        docs = page.locator(".ghdn-build-doc-link")
+        assert docs.count() == 2
+        assert docs.nth(0).text_content().strip() == "CONTRIBUTING.md"
+        assert docs.nth(0).get_attribute("href").endswith("/CONTRIBUTING.md")
+        assert page.locator(".ghdn-build-code").count() == 0
 
         namespaces = page.locator("#ghdn-root svg, #ghdn-menu svg").evaluate_all(
             "nodes => nodes.map(node => node.namespaceURI)"
@@ -63,7 +68,40 @@ with sync_playwright() as p:
         page.screenshot(path=str(output), full_page=False)
         context.close()
 
-    # Hidden legacy header: use a visible in-flow full-width control instead of a floating top-right button.
+    # GitHub row-reverse toolbar: visual placement is to the right of Star,
+    # while Fork and Star split groups remain untouched.
+    context = browser.new_context(viewport={"width": 1400, "height": 800}, locale="en-US", device_scale_factor=1)
+    page = context.new_page()
+    reverse_actions = '''<div class="d-flex reverse-actions" style="flex-direction:row-reverse">
+        <div class="action-group star-group"><button class="native-btn" aria-label="Star repository">Star</button><button class="native-btn" aria-label="Star options">▼</button></div>
+        <div class="action-group fork-group"><button class="native-btn" aria-label="Fork repository">Fork</button><button class="native-btn" aria-label="Fork options">▼</button></div>
+        <button class="native-btn" aria-label="Watch repository">Watch</button>
+        <a class="native-btn" aria-label="Sponsor repository">Sponsor</a>
+      </div>'''
+    reverse_html = html.replace(
+        '''<div class="d-flex">
+        <button class="native-btn" aria-label="Fork repository">Fork</button>
+        <a class="native-btn" aria-label="Star repository" href="/localsend/localsend/stargazers">☆ Star</a>
+      </div>''',
+        reverse_actions
+    ).replace(
+        ".native-btn { display:inline-flex;",
+        ".action-group { display:inline-flex; } .native-btn { display:inline-flex;"
+    )
+    page.set_content(reverse_html, wait_until="load")
+    page.wait_for_selector("#ghdn-root")
+    root = page.locator("#ghdn-root")
+    assert root.get_attribute("data-placement") == "toolbar"
+    assert root.evaluate("node => node.parentElement.classList.contains('reverse-actions')")
+    assert page.locator(".star-group > *").count() == 2
+    assert page.locator(".fork-group > *").count() == 2
+    assert root.evaluate("node => !node.closest('.star-group, .fork-group')")
+    root_box = root.bounding_box()
+    star_box = page.locator(".star-group").bounding_box()
+    assert root_box and star_box and root_box["x"] > star_box["x"]
+    context.close()
+
+    # Hidden legacy header on the main repository page: visible in-flow control.
     context = browser.new_context(viewport={"width": 1280, "height": 800}, locale="en-US", device_scale_factor=1)
     page = context.new_page()
     hidden_header_html = html.replace(
@@ -76,6 +114,22 @@ with sync_playwright() as p:
     assert rect and rect["width"] > 0 and rect["height"] > 0
     assert page.locator("#ghdn-root").get_attribute("data-placement") == "flow"
     assert not page.locator("#ghdn-root").evaluate("node => node.parentElement === document.body")
+    context.close()
+
+    # Pull request and other secondary repository pages must never get a full-width bar.
+    context = browser.new_context(viewport={"width": 1280, "height": 800}, locale="en-US", device_scale_factor=1)
+    page = context.new_page()
+    pull_html = hidden_header_html.replace(
+        'window.__GHDN_TEST_REPOSITORY__ = {owner: "localsend", repo: "localsend"};',
+        'window.__GHDN_TEST_REPOSITORY__ = {owner: "localsend", repo: "localsend", parts: ["localsend", "localsend", "pull", "1"]};'
+    )
+    page.set_content(pull_html, wait_until="load")
+    page.wait_for_selector("#ghdn-root")
+    root = page.locator("#ghdn-root")
+    assert root.get_attribute("data-placement") == "floating"
+    assert root.evaluate("node => node.parentElement === document.body")
+    pull_box = root.bounding_box()
+    assert pull_box and pull_box["width"] < 300 and pull_box["x"] > 900 and pull_box["y"] > 600
     context.close()
 
     # Modern GitHub-like layout: hidden legacy header plus a separate visible actions toolbar.
@@ -92,7 +146,7 @@ with sync_playwright() as p:
     assert page.locator("#ghdn-root").evaluate("node => /Star/i.test(node.previousElementSibling?.textContent || '')")
     context.close()
 
-    # Constrained toolbar: first use compact density, then fall back to flow if it still cannot fit.
+    # Constrained toolbar: compact density, then flow fallback on main repo only.
     context = browser.new_context(viewport={"width": 1280, "height": 800}, locale="ru-RU", device_scale_factor=1)
     page = context.new_page()
     compact_html = html.replace(
@@ -125,7 +179,7 @@ with sync_playwright() as p:
     assert page.locator("#ghdn-root").get_attribute("data-placement") == "flow"
     context.close()
 
-    # Narrow viewport: full-width in-flow button and bottom-sheet menu.
+    # Narrow main page: full-width in-flow button and bottom-sheet menu.
     context = browser.new_context(viewport={"width": 480, "height": 720}, locale="ru-RU", device_scale_factor=1)
     page = context.new_page()
     page.set_content(hidden_header_html, wait_until="load")
@@ -150,7 +204,7 @@ with sync_playwright() as p:
     assert floating_box and floating_box["x"] > 900 and floating_box["y"] > 600
     context.close()
 
-    # Preferred format still changes the recommendation and menu badge.
+    # Preferred format still changes recommendation and menu badge.
     context = browser.new_context(viewport={"width": 1280, "height": 800}, locale="ru-RU", device_scale_factor=1)
     page = context.new_page()
     deb_html = html.replace("const storedSettings = {};", 'const storedSettings = {preferredLinux:"deb"};')

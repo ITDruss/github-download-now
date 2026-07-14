@@ -13,7 +13,7 @@ It adds a clear download control to GitHub repositories, detects the current ope
 - Recommends common installers and packages for each supported platform, including EXE and MSI, DMG and PKG, AppImage, DEB and RPM, and APK.
 - Keeps suitable alternatives available in a structured menu.
 - Avoids checksums, signatures, SBOMs, debug symbols and source archives during automatic selection.
-- Finds explicit build instructions on demand from release-tag documentation and shows the original commands with a source link.
+- Finds likely build-documentation files for the selected release tag and links to the original GitHub files without interpreting or executing their contents.
 - Provides configurable package preferences and manual OS/architecture overrides.
 - Warns about stale releases and explains why an asset was recommended.
 - Keeps an optional local history of downloads started through the extension.

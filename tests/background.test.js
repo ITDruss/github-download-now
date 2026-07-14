@@ -58,11 +58,21 @@ global.GHDNBuildInstructions = require("../src/build-instructions.js");
 
 global.fetch = async (url, options = {}) => {
   const requestUrl = String(url);
-  if (requestUrl.includes("/contents/BUILDING.md")) {
-    return new Response(
-      "# Build from source\n\nRun the following commands.\n\n```bash\nnpm ci\nnpm run build\n```\n",
-      { status: 200, headers: { "content-type": "text/plain" } }
-    );
+  if (requestUrl.includes("/contents/docs")) {
+    return new Response(JSON.stringify([
+      {
+        type: "file",
+        name: "INSTALL.md",
+        path: "docs/INSTALL.md",
+        html_url: "https://github.com/example/app/blob/v1.17.0/docs/INSTALL.md"
+      },
+      {
+        type: "file",
+        name: "README.md",
+        path: "docs/README.md",
+        html_url: "https://github.com/example/app/blob/v1.17.0/docs/README.md"
+      }
+    ]), { status: 200, headers: { "content-type": "application/json" } });
   }
   if (requestUrl.includes("/contents")) {
     return new Response(JSON.stringify([
@@ -77,7 +87,8 @@ global.fetch = async (url, options = {}) => {
         name: "README.md",
         path: "README.md",
         html_url: "https://github.com/example/app/blob/v1.17.0/README.md"
-      }
+      },
+      { type: "dir", name: "docs", path: "docs" }
     ]), { status: 200, headers: { "content-type": "application/json" } });
   }
 
@@ -134,8 +145,15 @@ function message(payload) {
   });
   assert.equal(buildResult.ok, true);
   assert.equal(buildResult.found, true);
-  assert.equal(buildResult.instructions.source.path, "BUILDING.md");
-  assert.ok(buildResult.instructions.commands[0].code.includes("npm run build"));
+  assert.deepEqual(
+    buildResult.documents.map((document) => document.path),
+    ["BUILDING.md", "docs/INSTALL.md"]
+  );
+  assert.equal(
+    buildResult.documents[0].htmlUrl,
+    "https://github.com/example/app/blob/v1.17.0/BUILDING.md"
+  );
+  assert.equal("instructions" in buildResult, false);
 
   const recorded = await message({ type: "GHDN_RECORD_DOWNLOAD", download: first });
   assert.equal(recorded.ok, true);

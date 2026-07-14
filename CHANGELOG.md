@@ -13,8 +13,8 @@ All notable changes to this project are documented here.
 - Added the correct SVG namespace so platform and action icons render reliably in Chromium.
 - Added regression tests for authenticated GitHub layouts, toolbar overflow, mobile flow placement, menu positioning and SVG namespaces.
 - Anchored toolbar placement after GitHub's complete Star control instead of between Fork and Star.
-- Added on-demand build-instruction discovery from explicit repository documentation at the release tag, with safe plain-text command previews and source links.
-- Added regression tests for Star-relative placement and build-instruction extraction.
+- Added on-demand discovery of likely build-documentation files at the release tag, shown as direct GitHub links without parsing or displaying commands.
+- Added regression tests for row-reverse Star placement, intact Fork/Star groups, secondary-page fallbacks and build-documentation discovery.
 
 ## [0.4.1] - 2026-07-13
 

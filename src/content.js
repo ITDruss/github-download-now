@@ -53,17 +53,11 @@
       moreOnRelease: (count) => `Ещё ${count} файлов на странице релиза`,
       sourceZip: "Исходный код (ZIP)",
       sourceTar: "Исходный код (TAR.GZ)",
-      buildFromSource: "Инструкция по сборке",
-      buildLoading: "Ищу инструкцию по сборке…",
-      buildNotFound: "Явной инструкции по сборке не найдено.",
-      buildError: "Не удалось получить инструкцию по сборке.",
-      buildSource: "Источник",
-      buildCommands: "Команды",
-      buildOpenFull: "Открыть полную инструкцию",
-      buildFallbackNotice: "Инструкция взята из основной ветки: в теге релиза подходящий файл не найден.",
-      buildSafety: "Команды взяты из репозитория проекта. Проверьте их перед запуском.",
-      copyCommand: "Копировать команду",
-      commandCopied: "Команда скопирована",
+      buildFromSource: "Документация по сборке",
+      buildLoading: "Ищу документы по сборке…",
+      buildNotFound: "Документы по сборке не найдены.",
+      buildError: "Не удалось получить документы по сборке.",
+      buildFallbackNotice: "Ссылки ведут на основную ветку: документация для тега релиза недоступна.",
       noRelease: "У репозитория нет подходящего опубликованного релиза.",
       noAssets: "В релизе нет готовых файлов. Можно скачать исходный код.",
       apiError: "GitHub API временно недоступен.",
@@ -134,17 +128,11 @@
       moreOnRelease: (count) => `${count} more files on the release page`,
       sourceZip: "Source code (ZIP)",
       sourceTar: "Source code (TAR.GZ)",
-      buildFromSource: "Build instructions",
-      buildLoading: "Looking for build instructions…",
-      buildNotFound: "No explicit build instructions were found.",
-      buildError: "Could not load build instructions.",
-      buildSource: "Source",
-      buildCommands: "Commands",
-      buildOpenFull: "Open full instructions",
-      buildFallbackNotice: "These instructions come from the default branch because no matching file was found in the release tag.",
-      buildSafety: "Commands are taken from the project repository. Review them before running.",
-      copyCommand: "Copy command",
-      commandCopied: "Command copied",
+      buildFromSource: "Build documentation",
+      buildLoading: "Looking for build documentation…",
+      buildNotFound: "No build documentation was found.",
+      buildError: "Could not load build documentation.",
+      buildFallbackNotice: "Links point to the default branch because documentation for the release tag is unavailable.",
       noRelease: "This repository has no suitable published release.",
       noAssets: "The release has no uploaded binaries. You can download its source code.",
       apiError: "GitHub API is temporarily unavailable.",
@@ -212,7 +200,10 @@
     if (testRepository) {
       const owner = String(testRepository.owner || "test-owner");
       const repo = String(testRepository.repo || "test-repository");
-      return { owner, repo, key: `${owner.toLowerCase()}/${repo.toLowerCase()}`, parts: [owner, repo] };
+      const parts = Array.isArray(testRepository.parts) && testRepository.parts.length >= 2
+        ? testRepository.parts.map((part) => String(part))
+        : [owner, repo];
+      return { owner, repo, key: `${owner.toLowerCase()}/${repo.toLowerCase()}`, parts };
     }
 
     const parts = location.pathname.split("/").filter(Boolean);
@@ -276,10 +267,29 @@
       .trim();
   }
 
-  function isStarActionControl(element) {
-    if (!element) return false;
+  function actionKind(element) {
+    if (!element) return "";
     const label = normalizedActionText(element);
-    return /(^|\s)Star(?:\s|$)/i.test(label) || /star/i.test(element.getAttribute("aria-label") || "");
+    const aria = element.getAttribute("aria-label") || "";
+    const href = element.getAttribute("href") || "";
+
+    if (/\/stargazers(?:[/?#]|$)/i.test(href) || /(^|\s)Star(?:\s|$)/i.test(label) || /star/i.test(aria)) {
+      return "star";
+    }
+    if (/\/forks(?:[/?#]|$)/i.test(href) || /(^|\s)Fork(?:\s|$)/i.test(label) || /fork/i.test(aria)) {
+      return "fork";
+    }
+    if (/(^|\s)Watch(?:\s|$)/i.test(label) || /watch/i.test(aria)) {
+      return "watch";
+    }
+    if (/(^|\s)Sponsor(?:\s|$)/i.test(label) || /sponsor/i.test(aria)) {
+      return "sponsor";
+    }
+    return "";
+  }
+
+  function isStarActionControl(element) {
+    return actionKind(element) === "star";
   }
 
   function collectVisibleActionControls() {
@@ -299,13 +309,12 @@
 
     const controls = new Set();
     for (const element of document.querySelectorAll(selectors.join(","))) {
-      if (isVisibleElement(element)) controls.add(element);
+      if (isVisibleElement(element) && actionKind(element)) controls.add(element);
     }
 
     for (const element of document.querySelectorAll("a, button, summary")) {
       if (!isVisibleElement(element)) continue;
-      const label = normalizedActionText(element);
-      if (/^(Sponsor|Watch|Fork|Star)(?:\s|$)/i.test(label)) controls.add(element);
+      if (actionKind(element)) controls.add(element);
     }
 
     return [...controls];
@@ -317,119 +326,118 @@
     return node && node.parentElement === container ? node : null;
   }
 
+  function actionKindsWithin(container, controls) {
+    return new Set(
+      controls
+        .filter((control) => container.contains(control))
+        .map(actionKind)
+        .filter(Boolean)
+    );
+  }
+
+  function findCompleteActionGroup(control, controls) {
+    const kind = actionKind(control);
+    if (!kind) return null;
+
+    let node = control;
+    let best = control;
+    let depth = 0;
+
+    while (node.parentElement && node.parentElement !== document.body && depth < 8) {
+      const parent = node.parentElement;
+      if (!isVisibleElement(parent)) break;
+
+      const rect = parent.getBoundingClientRect();
+      if (rect.height < 20 || rect.height > 88) break;
+
+      const kinds = actionKindsWithin(parent, controls);
+      if (kinds.size !== 1 || !kinds.has(kind)) break;
+
+      best = parent;
+      node = parent;
+      depth += 1;
+    }
+
+    return best;
+  }
+
+  function findToolbarForActionGroup(group, controls) {
+    let node = group && group.parentElement;
+    let depth = 0;
+
+    while (node && node !== document.body && depth < 6) {
+      if (isVisibleElement(node)) {
+        const style = getComputedStyle(node);
+        const rect = node.getBoundingClientRect();
+        const layout = style.display;
+        const groupChild = directChildWithin(node, group);
+        const kinds = actionKindsWithin(node, controls);
+
+        if (
+          groupChild &&
+          kinds.size >= 2 &&
+          ["flex", "inline-flex", "grid", "inline-grid"].includes(layout) &&
+          rect.height >= 24 &&
+          rect.height <= 88 &&
+          rect.width >= 120
+        ) {
+          return { element: node, group: groupChild, depth };
+        }
+      }
+
+      node = node.parentElement;
+      depth += 1;
+    }
+
+    return null;
+  }
+
   function findToolbarTarget() {
     const controls = collectVisibleActionControls();
     if (controls.length < 2) return null;
 
-    const candidates = new Map();
-    for (const control of controls) {
-      let node = control.parentElement;
-      let depth = 0;
-      while (node && node !== document.body && depth < 8) {
-        if (isVisibleElement(node)) {
-          const style = getComputedStyle(node);
-          const rect = node.getBoundingClientRect();
-          const layout = style.display;
-          if (
-            ["flex", "inline-flex", "grid", "inline-grid"].includes(layout) &&
-            rect.height >= 24 &&
-            rect.height <= 88 &&
-            rect.width >= 120
-          ) {
-            if (!candidates.has(node)) candidates.set(node, new Set());
-            candidates.get(node).add(control);
-          }
-        }
-        node = node.parentElement;
-        depth += 1;
-      }
-    }
+    const seenGroups = new Set();
+    const candidates = [];
 
-    let starWinner = null;
-    const starControls = controls.filter(isStarActionControl);
-    for (const starControl of starControls) {
-      for (const [element] of candidates) {
-        if (!element.contains(starControl)) continue;
-        const contained = controls.filter((control) => element.contains(control));
-        const topLevelControls = contained
-          .map((control) => directChildWithin(element, control))
-          .filter(Boolean);
-        const uniqueTopLevel = [...new Set(topLevelControls)];
-        if (uniqueTopLevel.length < 2) continue;
+    for (const starControl of controls.filter(isStarActionControl)) {
+      const completeGroup = findCompleteActionGroup(starControl, controls);
+      if (!completeGroup || seenGroups.has(completeGroup)) continue;
+      seenGroups.add(completeGroup);
 
-        const starGroup = directChildWithin(element, starControl);
-        if (!starGroup) continue;
-        const rects = contained.map((control) => control.getBoundingClientRect());
-        const topSpread = Math.max(...rects.map((rect) => rect.top)) - Math.min(...rects.map((rect) => rect.top));
-        if (topSpread > 18) continue;
+      const toolbar = findToolbarForActionGroup(completeGroup, controls);
+      if (!toolbar) continue;
 
-        const rect = element.getBoundingClientRect();
-        const score =
-          uniqueTopLevel.length * 30 +
-          contained.length * 10 -
-          rect.height * 0.15 -
-          rect.width * 0.001;
-        if (!starWinner || score > starWinner.score) {
-          starWinner = { element, insertAfter: starGroup, score };
-        }
-      }
-    }
+      const hostRect = toolbar.element.getBoundingClientRect();
+      const groupRect = toolbar.group.getBoundingClientRect();
+      const flexDirection = getComputedStyle(toolbar.element).flexDirection || "row";
 
-    if (starWinner) {
-      return {
+      candidates.push({
         mode: "toolbar",
-        element: starWinner.element,
-        insertAfter: starWinner.insertAfter,
-        listMode: starWinner.element.tagName === "UL"
-      };
+        element: toolbar.element,
+        insertBefore: /-reverse$/.test(flexDirection),
+        anchor: toolbar.group,
+        listMode: toolbar.element.tagName === "UL",
+        score:
+          toolbar.depth * -40 -
+          hostRect.height * 0.2 -
+          hostRect.width * 0.001 +
+          groupRect.right * 0.0001
+      });
     }
 
-    let winner = null;
-    for (const [element, matchedControls] of candidates) {
-      const contained = controls.filter((control) => element.contains(control));
-      if (contained.length < 2) continue;
-
-      const rects = contained.map((control) => control.getBoundingClientRect());
-      const topSpread = Math.max(...rects.map((rect) => rect.top)) - Math.min(...rects.map((rect) => rect.top));
-      if (topSpread > 18) continue;
-
-      const rect = element.getBoundingClientRect();
-      const topLevelControls = contained
-        .map((control) => directChildWithin(element, control))
-        .filter(Boolean);
-      const uniqueTopLevel = [...new Set(topLevelControls)];
-      if (uniqueTopLevel.length < 2) continue;
-
-      const actionWordCount = contained.filter((control) =>
-        /(?:Sponsor|Watch|Fork|Star)/i.test(normalizedActionText(control))
-      ).length;
-      const score =
-        matchedControls.size * 18 +
-        contained.length * 10 +
-        actionWordCount * 8 -
-        rect.height * 0.12 -
-        rect.width * 0.002 -
-        Math.max(0, rect.top - 420) * 0.03;
-
-      if (!winner || score > winner.score) {
-        const rightmost = uniqueTopLevel
-          .slice()
-          .sort((a, b) => a.getBoundingClientRect().right - b.getBoundingClientRect().right)
-          .at(-1);
-        winner = { element, insertAfter: rightmost, score };
-      }
-    }
-
-    if (!winner) return null;
-    return {
-      mode: "toolbar",
-      element: winner.element,
-      insertAfter: winner.insertAfter,
-      listMode: winner.element.tagName === "UL"
-    };
+    if (!candidates.length) return null;
+    return candidates.sort((a, b) => b.score - a.score)[0];
   }
 
-  function findFlowTarget() {
+  function isFlowEligibleRoute(repo) {
+    if (!repo || repo.parts.length === 2) return true;
+    const section = String(repo.parts[2] || "").toLowerCase();
+    return section === "releases" || section === "tags";
+  }
+
+  function findFlowTarget(repo) {
+    if (!isFlowEligibleRoute(repo)) return null;
+
     const candidates = [
       document.querySelector("#repo-content-pjax-container"),
       document.querySelector("main#js-repo-pjax-container"),
@@ -442,7 +450,7 @@
     return { mode: "flow", element, prepend: true, listMode: false };
   }
 
-  function findMountTarget(options = {}) {
+  function findMountTarget(repo, options = {}) {
     if (!options.preferFlow && window.innerWidth >= TOOLBAR_BREAKPOINT) {
       const toolbar = findToolbarTarget();
       if (toolbar) {
@@ -454,7 +462,7 @@
       }
     }
 
-    const flow = findFlowTarget();
+    const flow = findFlowTarget(repo);
     if (flow) return flow;
 
     return {
@@ -465,8 +473,12 @@
   }
 
   function insertRoot(root, target) {
-    if (target.insertAfter && target.insertAfter.parentElement === target.element) {
-      target.element.insertBefore(root, target.insertAfter.nextSibling);
+    if (target.anchor && target.anchor.parentElement === target.element) {
+      if (target.insertBefore) {
+        target.element.insertBefore(root, target.anchor);
+      } else {
+        target.element.insertBefore(root, target.anchor.nextSibling);
+      }
     } else if (target.prepend) {
       target.element.prepend(root);
     } else {
@@ -662,7 +674,7 @@
         setMenuOpen(false);
       }
 
-      const target = findMountTarget(options);
+      const target = findMountTarget(repo, options);
       if (!target) return;
       const sameTarget =
         existing &&
@@ -687,7 +699,7 @@
           rejectedToolbarWidth = target.element.clientWidth;
           existing.remove();
           existing = null;
-          const fallback = findMountTarget({ preferFlow: true });
+          const fallback = findMountTarget(repo, { preferFlow: true });
           const flowRoot = createRoot(fallback);
           insertRoot(flowRoot, fallback);
           observeLayoutHost(fallback.element);
@@ -933,126 +945,80 @@
     return promise;
   }
 
-  function createBuildInstructionsControl(release) {
-    const container = createElement("div", "ghdn-build-container");
-    const button = createElement("button", "ghdn-source-link ghdn-build-trigger", strings.buildFromSource);
-    button.type = "button";
-    button.prepend(createIcon("source", "ghdn-inline-icon"));
-    button.setAttribute("aria-expanded", "false");
+  function createBuildDocumentationControl(release) {
+    const container = createElement("div", "ghdn-build-docs");
+    const heading = createElement("div", "ghdn-build-docs-heading");
+    heading.append(
+      createIcon("source", "ghdn-inline-icon"),
+      createElement("span", "", strings.buildFromSource)
+    );
 
-    const panel = createElement("div", "ghdn-build-panel");
-    panel.hidden = true;
+    const links = createElement("div", "ghdn-build-docs-links");
+    links.append(createBuildStatus(strings.buildLoading, "loading"));
+    container.append(heading, links);
 
-    button.addEventListener("click", async (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      if (!panel.hidden) {
-        panel.hidden = true;
-        button.setAttribute("aria-expanded", "false");
+    loadBuildInstructions(release)
+      .then((response) => {
+        renderBuildDocumentationLinks(container, links, response);
         requestAnimationFrame(positionMenu);
-        return;
-      }
+      })
+      .catch(() => {
+        links.replaceChildren(createBuildStatus(strings.buildError, "error"));
+        requestAnimationFrame(positionMenu);
+      });
 
-      panel.hidden = false;
-      button.setAttribute("aria-expanded", "true");
-      panel.replaceChildren(createBuildStatus(strings.buildLoading, "loading"));
-      requestAnimationFrame(positionMenu);
-
-      try {
-        const response = await loadBuildInstructions(release);
-        renderBuildInstructionsPanel(panel, response);
-      } catch (_error) {
-        panel.replaceChildren(createBuildStatus(strings.buildError, "error"));
-      }
-      requestAnimationFrame(positionMenu);
-    });
-
-    container.append(button, panel);
     return container;
   }
 
   function createBuildStatus(message, type) {
     const status = createElement("div", `ghdn-build-status ghdn-build-status-${type}`);
-    status.append(createIcon(type === "error" ? "warning" : "info", "ghdn-inline-icon"), createElement("span", "", message));
+    status.append(
+      createIcon(type === "error" ? "warning" : "info", "ghdn-inline-icon"),
+      createElement("span", "", message)
+    );
     return status;
   }
 
-  function renderBuildInstructionsPanel(panel, response) {
-    panel.replaceChildren();
+  function renderBuildDocumentationLinks(container, links, response) {
+    links.replaceChildren();
+
     if (!response || !response.ok) {
       if (response && response.error === "rate_limited") {
         const time = response.resetAt
           ? new Date(response.resetAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
           : null;
-        panel.append(createBuildStatus(strings.rateLimited(time), "error"));
+        links.append(createBuildStatus(strings.rateLimited(time), "error"));
       } else {
-        panel.append(createBuildStatus(strings.buildError, "error"));
+        links.append(createBuildStatus(strings.buildError, "error"));
       }
       return;
     }
 
-    if (!response.found || !response.instructions) {
-      panel.append(createBuildStatus(strings.buildNotFound, "empty"));
-      if (response.repositoryUrl) {
-        const link = createElement("a", "ghdn-build-source-link", strings.openRelease);
-        link.href = response.repositoryUrl;
-        link.target = "_blank";
-        link.rel = "noopener noreferrer";
-        link.prepend(createIcon("external", "ghdn-inline-icon"));
-        panel.append(link);
-      }
+    const documents = Array.isArray(response.documents) ? response.documents : [];
+    if (!documents.length) {
+      container.hidden = true;
       return;
     }
-
-    const instructions = response.instructions;
-    const heading = createElement("div", "ghdn-build-heading", instructions.title || strings.buildFromSource);
-    panel.append(heading);
 
     if (response.usedDefaultBranchFallback) {
-      panel.append(createBuildStatus(strings.buildFallbackNotice, "warning"));
+      links.append(createBuildStatus(strings.buildFallbackNotice, "warning"));
     }
 
-    if (instructions.summary) {
-      panel.append(createElement("p", "ghdn-build-summary", instructions.summary));
-    }
-
-    if (Array.isArray(instructions.commands) && instructions.commands.length) {
-      panel.append(createElement("div", "ghdn-build-subheading", strings.buildCommands));
-      for (const block of instructions.commands) {
-        const codeWrap = createElement("div", "ghdn-build-code-wrap");
-        const pre = createElement("pre", "ghdn-build-code");
-        const code = createElement("code", "", block.code || "");
-        if (block.language) code.dataset.language = block.language;
-        pre.append(code);
-
-        const copy = createElement("button", "ghdn-build-copy", strings.copyCommand);
-        copy.type = "button";
-        copy.title = strings.copyCommand;
-        copy.setAttribute("aria-label", strings.copyCommand);
-        copy.replaceChildren(createIcon("copy", "ghdn-inline-icon"));
-        copy.addEventListener("click", (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          copyText(block.code || "", strings.commandCopied);
-        });
-        codeWrap.append(pre, copy);
-        panel.append(codeWrap);
-      }
-    }
-
-    panel.append(createBuildStatus(strings.buildSafety, "warning"));
-
-    const source = instructions.source || {};
-    if (source.htmlUrl) {
-      const sourceLink = createElement("a", "ghdn-build-source-link");
-      sourceLink.href = source.htmlUrl;
-      sourceLink.target = "_blank";
-      sourceLink.rel = "noopener noreferrer";
-      sourceLink.append(
+    for (const documentLink of documents) {
+      if (!documentLink || !documentLink.htmlUrl) continue;
+      const link = createElement("a", "ghdn-build-doc-link");
+      link.href = documentLink.htmlUrl;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.append(
         createIcon("external", "ghdn-inline-icon"),
-        createElement("span", "", `${strings.buildOpenFull}: ${source.path || strings.buildSource}`)
+        createElement("span", "", documentLink.path || strings.buildFromSource)
       );
-      panel.append(sourceLink);
+      links.append(link);
+    }
+
+    if (!links.querySelector(".ghdn-build-doc-link")) {
+      container.hidden = true;
     }
   }
 
@@ -1104,9 +1070,8 @@
       sourceSection.append(createSectionHeading(strings.sourceCode, "source"));
       const sourceActions = createElement("div", "ghdn-source-actions");
       if (release.zipball_url) sourceActions.append(createLinkButton(strings.sourceZip, release.zipball_url, "source"));
-      sourceActions.append(createBuildInstructionsControl(release));
       if (release.tarball_url) sourceActions.append(createLinkButton(strings.sourceTar, release.tarball_url, "source"));
-      sourceSection.append(sourceActions);
+      sourceSection.append(sourceActions, createBuildDocumentationControl(release));
       menu.append(sourceSection);
     }
 

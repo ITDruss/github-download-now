@@ -114,17 +114,16 @@
               refRequested: "v1.17.0",
               refUsed: "v1.17.0",
               usedDefaultBranchFallback: false,
-              instructions: {
-                found: true,
-                title: "Build from source",
-                summary: "Install the dependencies and build the application.",
-                commands: [{language:"bash",code:"flutter pub get\nflutter build linux"}],
-                confidence: "high",
-                source: {
-                  path: "README.md",
-                  htmlUrl: "https://github.com/localsend/localsend/blob/v1.17.0/README.md"
+              documents: [
+                {
+                  path: "CONTRIBUTING.md",
+                  htmlUrl: "https://github.com/localsend/localsend/blob/v1.17.0/CONTRIBUTING.md"
+                },
+                {
+                  path: "docs/BUILDING.md",
+                  htmlUrl: "https://github.com/localsend/localsend/blob/v1.17.0/docs/BUILDING.md"
                 }
-              }
+              ]
             };
           }
           const selector = window.GHDNAssetSelector;

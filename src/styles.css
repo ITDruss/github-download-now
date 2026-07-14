@@ -709,7 +709,7 @@
   .ghdn-watch-actions { grid-column: 1 / -1; justify-content: flex-end; }
 }
 
-/* Source and build instructions */
+/* Source archives and build documentation */
 .ghdn-source-actions {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -717,70 +717,42 @@
   padding: 0 2px 3px;
 }
 
-.ghdn-source-actions > .ghdn-source-link,
-.ghdn-source-actions > .ghdn-build-container > .ghdn-source-link {
+.ghdn-source-actions > .ghdn-source-link {
   min-width: 0;
 }
 
-.ghdn-build-container {
-  display: contents;
-}
-
-button.ghdn-source-link {
-  width: 100%;
-  border: 0;
-  background: transparent;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.ghdn-build-trigger[aria-expanded="true"] {
-  background: var(--control-transparent-bgColor-hover, var(--color-action-list-item-default-hover-bg, rgba(208, 215, 222, 0.32)));
-}
-
-.ghdn-build-panel {
-  grid-column: 1 / -1;
-  min-width: 0;
-  margin: 2px 4px 5px;
-  padding: 10px;
+.ghdn-build-docs {
+  margin: 4px 4px 6px;
+  padding: 9px;
   border: 1px solid var(--borderColor-muted, var(--color-border-muted, #d8dee4));
   border-radius: 9px;
   background: var(--bgColor-muted, var(--color-canvas-subtle, #f6f8fa));
 }
 
-.ghdn-build-panel[hidden] {
+.ghdn-build-docs[hidden] {
   display: none !important;
 }
 
-.ghdn-build-heading {
-  margin-bottom: 7px;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.ghdn-build-subheading {
-  margin: 10px 0 5px;
-  color: var(--fgColor-muted, var(--color-fg-muted, #656d76));
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
-
-.ghdn-build-summary {
-  margin: 0 0 8px;
-  color: var(--fgColor-muted, var(--color-fg-muted, #656d76));
+.ghdn-build-docs-heading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 6px;
+  color: var(--fgColor-default, var(--color-fg-default, #1f2328));
   font-size: 12px;
-  line-height: 1.45;
-  white-space: pre-wrap;
+  font-weight: 700;
+}
+
+.ghdn-build-docs-links {
+  display: grid;
+  gap: 3px;
 }
 
 .ghdn-build-status {
   display: flex;
   align-items: flex-start;
   gap: 7px;
-  margin: 5px 0;
+  margin: 3px 0;
   color: var(--fgColor-muted, var(--color-fg-muted, #656d76));
   font-size: 12px;
   line-height: 1.4;
@@ -794,68 +766,30 @@ button.ghdn-source-link {
   color: var(--fgColor-danger, #cf222e);
 }
 
-.ghdn-build-code-wrap {
-  position: relative;
-  margin-top: 6px;
-}
-
-.ghdn-build-code {
-  max-height: 190px;
-  margin: 0;
-  padding: 10px 38px 10px 11px;
-  overflow: auto;
-  border: 1px solid var(--borderColor-muted, var(--color-border-muted, #d8dee4));
-  border-radius: 7px;
-  background: var(--bgColor-default, var(--color-canvas-default, #ffffff));
-  color: var(--fgColor-default, var(--color-fg-default, #1f2328));
-  font: 11.5px/1.45 ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
-  white-space: pre;
-}
-
-.ghdn-build-copy {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  display: inline-flex;
-  width: 28px;
-  height: 28px;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--borderColor-muted, var(--color-border-muted, #d8dee4));
-  border-radius: 6px;
-  background: var(--bgColor-default, var(--color-canvas-default, #ffffff));
-  color: var(--fgColor-muted, var(--color-fg-muted, #656d76));
-  cursor: pointer;
-}
-
-.ghdn-build-copy:hover {
-  background: var(--control-transparent-bgColor-hover, var(--color-action-list-item-default-hover-bg, rgba(208, 215, 222, 0.32)));
-}
-
-.ghdn-build-source-link {
+.ghdn-build-doc-link {
   display: flex;
   align-items: center;
   gap: 7px;
   min-width: 0;
-  margin-top: 8px;
+  padding: 6px 7px;
+  border-radius: 7px;
   color: var(--fgColor-accent, var(--color-accent-fg, #0969da));
   font-size: 12px;
   text-decoration: none;
 }
 
-.ghdn-build-source-link span {
+.ghdn-build-doc-link span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.ghdn-build-source-link:hover {
+.ghdn-build-doc-link:hover {
+  background: var(--control-transparent-bgColor-hover, var(--color-action-list-item-default-hover-bg, rgba(208, 215, 222, 0.32)));
   text-decoration: underline;
 }
 
-.ghdn-build-trigger:focus-visible,
-.ghdn-build-copy:focus-visible,
-.ghdn-build-source-link:focus-visible {
+.ghdn-build-doc-link:focus-visible {
   outline: 2px solid var(--focus-outlineColor, #54aeff);
   outline-offset: 1px;
 }
@@ -863,9 +797,5 @@ button.ghdn-source-link {
 @media (max-width: 520px) {
   .ghdn-source-actions {
     grid-template-columns: 1fr;
-  }
-
-  .ghdn-build-panel {
-    grid-column: 1;
   }
 }

@@ -192,16 +192,6 @@ async function getContentDirectory(owner, repo, path, ref) {
   return { ok: true, entries };
 }
 
-async function readInstructionCandidate(owner, repo, candidate, ref) {
-  const result = await fetchText(contentsUrl(owner, repo, candidate.path, ref));
-  if (!result.ok) return result;
-  const extracted = buildInstructions.extractFromMarkdown(result.text, {
-    path: candidate.path,
-    htmlUrl: candidate.html_url
-  });
-  return { ok: true, extracted };
-}
-
 async function getBuildInstructions(owner, repo, requestedRef = "") {
   if (!VALID_PART.test(owner) || !VALID_PART.test(repo)) {
     return { ok: false, error: "invalid_repository" };
@@ -210,6 +200,7 @@ async function getBuildInstructions(owner, repo, requestedRef = "") {
 
   const ref = validGitRef(requestedRef);
   if (ref === null) return { ok: false, error: "invalid_ref" };
+
   const cacheKey = `${owner.toLowerCase()}/${repo.toLowerCase()}:${ref || "default"}`;
   const cached = buildInstructionsCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < BUILD_CACHE_TTL_MS) {
@@ -219,80 +210,51 @@ async function getBuildInstructions(owner, repo, requestedRef = "") {
   let refUsed = ref;
   let rootResult = await getContentDirectory(owner, repo, "", refUsed);
   let usedDefaultBranchFallback = false;
+
   if (!rootResult.ok && rootResult.status === 404 && refUsed) {
     refUsed = "";
     usedDefaultBranchFallback = true;
     rootResult = await getContentDirectory(owner, repo, "", "");
   }
+
   if (!rootResult.ok) return rootResult;
 
-  const checked = [];
-  const rootCandidates = buildInstructions.chooseCandidates(rootResult.entries, 2);
-  for (const candidate of rootCandidates) {
-    checked.push(candidate.path);
-    const result = await readInstructionCandidate(owner, repo, candidate, refUsed);
-    if (!result.ok) {
-      if (result.error === "rate_limited") return result;
-      continue;
-    }
-    if (result.extracted && result.extracted.found) {
-      const value = {
-        ok: true,
-        found: true,
-        instructions: result.extracted,
-        refRequested: ref,
-        refUsed: refUsed || "default",
-        usedDefaultBranchFallback,
-        checked
-      };
-      buildInstructionsCache.set(cacheKey, { timestamp: Date.now(), value });
-      return value;
-    }
-  }
-
-  const docsDirectory = rootResult.entries.find((entry) =>
+  const entries = [...rootResult.entries];
+  const docsDirectories = rootResult.entries.filter((entry) =>
     entry.type === "dir" && /^(docs?|documentation)$/i.test(entry.name)
   );
-  if (docsDirectory) {
-    const docsResult = await getContentDirectory(owner, repo, docsDirectory.path, refUsed);
-    if (docsResult.ok) {
-      const docsCandidates = buildInstructions.chooseCandidates(docsResult.entries, 1);
-      for (const candidate of docsCandidates) {
-        checked.push(candidate.path);
-        const result = await readInstructionCandidate(owner, repo, candidate, refUsed);
-        if (!result.ok) {
-          if (result.error === "rate_limited") return result;
-          continue;
-        }
-        if (result.extracted && result.extracted.found) {
-          const value = {
-            ok: true,
-            found: true,
-            instructions: result.extracted,
-            refRequested: ref,
-            refUsed: refUsed || "default",
-            usedDefaultBranchFallback,
-            checked
-          };
-          buildInstructionsCache.set(cacheKey, { timestamp: Date.now(), value });
-          return value;
-        }
-      }
-    } else if (docsResult.error === "rate_limited") {
-      return docsResult;
+
+  for (const directory of docsDirectories.slice(0, 2)) {
+    const docsResult = await getContentDirectory(owner, repo, directory.path, refUsed);
+    if (!docsResult.ok) {
+      if (docsResult.error === "rate_limited") return docsResult;
+      continue;
     }
+    entries.push(...docsResult.entries);
   }
+
+  const candidates = buildInstructions.chooseCandidates(entries, 6);
+  const documents = candidates
+    .map((candidate) => ({
+      path: candidate.path,
+      htmlUrl: /^https:\/\/github\.com\//i.test(String(candidate.html_url || ""))
+        ? String(candidate.html_url)
+        : ""
+    }))
+    .filter((candidate) => candidate.path && candidate.htmlUrl);
 
   const repositoryUrl = `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
   const value = {
     ok: true,
-    found: false,
+    found: documents.length > 0,
+    documents,
     repositoryUrl,
     refRequested: ref,
     refUsed: refUsed || "default",
     usedDefaultBranchFallback,
-    checked
+    checked: candidates.map((candidate) => candidate.path)
   };
+
   buildInstructionsCache.set(cacheKey, { timestamp: Date.now(), value });
   return value;
 }
