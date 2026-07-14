@@ -58,4 +58,11 @@ const ranked = build.rankDocuments([
 ]);
 assert.equal(ranked[0].title, "Building → Linux");
 
+assert.equal(build.githubAnchor("<span>Building</span>"), "building");
+assert.equal(build.githubAnchor("<<span>Building</span>"), "building");
+assert.equal(
+  build.githubAnchor("<span><em>Build Linux</em></span>"),
+  "build-linux"
+);
+
 console.log("build documentation discovery tests: OK");

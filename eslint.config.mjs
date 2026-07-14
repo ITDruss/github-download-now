@@ -60,7 +60,7 @@ const commonRules = {
 export default [
   {
     ignores: [
-      "node_modules/**",
+      "node_modules/**", ".venv-ui/**", ".venv/**",
       "dist/**",
       "test-results/**",
       "assets/**",

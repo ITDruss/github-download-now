@@ -79,11 +79,29 @@
     return [...dedicated, ...readmes].slice(0, Math.max(1, Number(limit) || 8));
   }
 
+  function stripHtmlTags(value) {
+    let output = "";
+    let insideTag = false;
+
+    for (const character of String(value || "")) {
+      if (character === "<") {
+        insideTag = true;
+        continue;
+      }
+      if (character === ">") {
+        insideTag = false;
+        continue;
+      }
+      if (!insideTag) output += character;
+    }
+
+    return output;
+  }
+
   function githubAnchor(text) {
-    return String(text || "")
+    return stripHtmlTags(text)
       .trim()
       .toLowerCase()
-      .replace(/<[^>]+>/g, "")
       .replace(/[\u0000-\u001f\u007f]/g, "")
       .replace(/[^\p{L}\p{N}\s_-]/gu, "")
       .replace(/\s+/g, "-")
