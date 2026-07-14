@@ -500,6 +500,7 @@
 
   function findReleaseTitleGroup(section, preferredTag = "") {
     if (!section) return null;
+
     const links = [...section.querySelectorAll('a[href*="/releases/tag/"]')]
       .filter((link) => isVisibleElement(link))
       .map((link) => ({ link, tag: releaseTagFromLink(link) }))
@@ -508,45 +509,22 @@
     const selected = links.find((entry) => !preferredTag || entry.tag === preferredTag) || links[0];
     if (!selected) return null;
 
-    const latestCandidates = [...section.querySelectorAll("a, span")]
-      .filter((element) => {
-        if (!isVisibleElement(element) || element.contains(selected.link)) return false;
-        const text = String(element.textContent || "").replace(/\s+/g, " ").trim();
-        return /^(Latest|Pre-release|Draft)$/i.test(text);
-      });
+    // GitHub's Releases header contains a wide flex row whose right side holds
+    // the Compare control. Mounting into that row can push our button far away
+    // from the version. Anchor to the smallest visible text wrapper instead.
+    const wrapper = selected.link.closest("span, h1, h2, h3") || selected.link.parentElement;
+    if (!wrapper || !section.contains(wrapper) || wrapper === section) return null;
 
-    let node = selected.link.parentElement;
-    let host = null;
-    let depth = 0;
-    while (node && node !== section && depth < 8) {
-      const style = getComputedStyle(node);
-      const rect = node.getBoundingClientRect();
-      const containsCompare = [...node.querySelectorAll("button, summary")]
-        .some((element) => /compare/i.test(normalizedActionText(element)));
-      if (
-        !containsCompare &&
-        isVisibleElement(node) &&
-        ["flex", "inline-flex"].includes(style.display) &&
-        rect.height >= 20 && rect.height <= 72
-      ) {
-        host = node;
-        break;
-      }
-      node = node.parentElement;
-      depth += 1;
-    }
+    const containsCompare = [...wrapper.querySelectorAll("button, summary")]
+      .some((element) => /compare/i.test(normalizedActionText(element)));
+    if (containsCompare) return null;
 
-    host = host || selected.link.parentElement;
-    if (!host) return null;
-
-    let anchor = directChildContaining(host, selected.link) || selected.link;
-    for (const candidate of latestCandidates) {
-      if (!host.contains(candidate)) continue;
-      const direct = directChildContaining(host, candidate);
-      if (direct) anchor = direct;
-    }
-
-    return { element: host, anchor, insertBefore: false, tag: selected.tag };
+    return {
+      element: wrapper,
+      anchor: selected.link,
+      insertBefore: false,
+      tag: selected.tag
+    };
   }
 
   function findReleaseTarget(repo) {
@@ -766,7 +744,7 @@
     root.classList.add(`ghdn-style-${settings.buttonStyle}`);
     if (!settings.showSubtitle) root.classList.add("ghdn-hide-subtitle");
 
-    const group = createElement("div", "ghdn-button-group");
+    const group = createElement(target.mode === "release" ? "span" : "div", "ghdn-button-group");
     const primary = createElement("button", "ghdn-primary");
     primary.type = "button";
     primary.dataset.role = "primary";

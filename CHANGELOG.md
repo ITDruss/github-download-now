@@ -11,6 +11,7 @@ All notable changes to this project are documented here.
 - Added route and layout regression coverage for Releases pages while preserving the existing repository toolbar and emergency fallback modes.
 - UI smoke tests now write generated screenshots to the ignored `test-results/` directory instead of modifying publication assets.
 - Positioned the compact release control directly beside the version and remount it for the release currently in view.
+- Anchored the Releases control inside the version text wrapper so wide GitHub flex rows cannot push it toward Compare.
 - Fixed opening extension settings from the injected GitHub menu in Chromium.
 - Read public release assets and version tags from GitHub pages before falling back to the REST API, greatly reducing quota usage.
 - Settings UI smoke tests now also write screenshots to the ignored `test-results/` directory.

@@ -1061,9 +1061,12 @@
   flex: none;
   margin: 0 0 0 10px;
   vertical-align: middle;
+  white-space: nowrap;
 }
 
 #ghdn-root.ghdn-placement-release .ghdn-button-group {
+  display: inline-flex;
+  vertical-align: middle;
   box-shadow: none;
 }
 

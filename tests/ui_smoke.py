@@ -151,22 +151,28 @@ with sync_playwright() as p:
     page = context.new_page()
     release_markup = """
     <section id="release-v1.17.0" data-release-anchor="release-v1.17.0" style="margin:24px 0;border:1px solid #d0d7de;border-radius:8px;padding:20px">
-      <div class="release-heading-row" style="display:flex;align-items:center;justify-content:space-between;gap:16px">
-        <div class="release-title-line" style="display:flex;align-items:center;gap:8px;min-height:36px">
-          <span><a href="/localsend/localsend/releases/tag/v1.17.0" style="font-size:28px;font-weight:700;text-decoration:none">v1.17.0</a></span>
-          <span class="latest-badge" style="border:1px solid #1a7f37;border-radius:999px;padding:2px 7px;color:#1a7f37">Latest</span>
+      <h2 class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden">v1.17.0</h2>
+      <div class="release-heading-row" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+        <div class="release-heading-main" style="display:flex;flex:1;align-items:center;min-width:0">
+          <span class="release-version-text" style="display:inline;font-size:28px;font-weight:700">
+            <a href="/localsend/localsend/releases/tag/v1.17.0" style="text-decoration:none">v1.17.0</a>
+          </span>
+          <span class="latest-badge" style="margin-left:8px;border:1px solid #1a7f37;border-radius:999px;padding:2px 7px;color:#1a7f37">Latest</span>
         </div>
-        <button class="native-btn">Compare</button>
+        <div class="release-heading-actions"><button class="native-btn">Compare</button></div>
       </div>
       <p>Selected release summary.</p>
     </section>
     <div style="height:720px"></div>
     <section id="release-v1.16.1" data-release-anchor="release-v1.16.1" style="margin:24px 0;border:1px solid #d0d7de;border-radius:8px;padding:20px">
-      <div class="release-heading-row" style="display:flex;align-items:center;justify-content:space-between;gap:16px">
-        <div class="release-title-line old-release-title" style="display:flex;align-items:center;gap:8px;min-height:36px">
-          <span><a href="/localsend/localsend/releases/tag/v1.16.1" style="font-size:28px;font-weight:700;text-decoration:none">v1.16.1</a></span>
+      <h2 class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden">v1.16.1</h2>
+      <div class="release-heading-row" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+        <div class="release-heading-main" style="display:flex;flex:1;align-items:center;min-width:0">
+          <span class="release-version-text old-release-title" style="display:inline;font-size:28px;font-weight:700">
+            <a href="/localsend/localsend/releases/tag/v1.16.1" style="text-decoration:none">v1.16.1</a>
+          </span>
         </div>
-        <button class="native-btn">Compare</button>
+        <div class="release-heading-actions"><button class="native-btn">Compare</button></div>
       </div>
       <p>Older release summary.</p>
     </section>
@@ -184,11 +190,14 @@ with sync_playwright() as p:
     root = page.locator("#ghdn-root")
     assert root.get_attribute("data-placement") == "release"
     assert root.get_attribute("data-release-tag") == "v1.17.0"
-    assert root.evaluate("node => node.parentElement.classList.contains('release-title-line')")
+    assert root.evaluate("node => node.parentElement.classList.contains('release-version-text')")
+    assert root.evaluate("""node => node.previousElementSibling?.matches('a[href*="/releases/tag/"]')""")
     release_box = root.bounding_box()
-    title_box = page.locator('.release-title-line > span').first.bounding_box()
-    assert release_box and title_box and release_box["width"] < 260
-    assert release_box["x"] > title_box["x"]
+    title_box = page.locator('.release-version-text > a').first.bounding_box()
+    compare_box = page.locator('.release-heading-actions .native-btn').first.bounding_box()
+    assert release_box and title_box and compare_box and release_box["width"] < 260
+    assert 0 <= release_box["x"] - (title_box["x"] + title_box["width"]) <= 16
+    assert release_box["x"] + release_box["width"] < compare_box["x"] - 24
     assert not root.evaluate("node => node.parentElement === document.body")
     page.hover("#ghdn-root .ghdn-button-group")
     page.wait_for_function("document.querySelector('.ghdn-primary-title-full')?.textContent.includes('AppImage')")
@@ -205,6 +214,7 @@ with sync_playwright() as p:
     page.locator('[id="release-v1.16.1"]').scroll_into_view_if_needed()
     page.wait_for_function("document.querySelector('#ghdn-root')?.dataset.releaseTag === 'v1.16.1'")
     assert page.locator("#ghdn-root").evaluate("node => node.parentElement.classList.contains('old-release-title')")
+    assert page.locator("#ghdn-root").evaluate("node => node.previousElementSibling?.textContent.trim() === 'v1.16.1'")
     page.screenshot(path=str(OUTPUTS / "releases-compact-button-ru.png"), full_page=False)
     context.close()
 
