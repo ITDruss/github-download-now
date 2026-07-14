@@ -101,12 +101,39 @@
         onChanged: { addListener: () => {}, removeListener: () => {} }
       }
     });
+    window.__ghdnMessages = [];
+    window.__ghdnPageFetches = [];
+    window.fetch = async (input) => {
+      const url = String(input || "");
+      window.__ghdnPageFetches.push(url);
+      if (url.includes("/releases/expanded_assets/")) {
+        const tag = decodeURIComponent(url.split("/").pop() || "v1.17.0");
+        const version = tag.replace(/^v/, "");
+        return new Response(`
+          <div class="Box-row"><a href="/localsend/localsend/releases/download/${tag}/LocalSend-${version}-linux-x86-64.AppImage">LocalSend-${version}-linux-x86-64.AppImage</a><span>96.3 MB</span></div>
+          <div class="Box-row"><a href="/localsend/localsend/releases/download/${tag}/LocalSend-${version}-linux-x86-64.deb">LocalSend-${version}-linux-x86-64.deb</a><span>71.4 MB</span></div>
+          <div class="Box-row"><a href="/localsend/localsend/releases/download/${tag}/LocalSend-${version}-linux-x86-64.tar.gz">LocalSend-${version}-linux-x86-64.tar.gz</a><span>68.4 MB</span></div>
+          <div class="Box-row"><a href="/localsend/localsend/releases/download/${tag}/LocalSend-${version}-windows-x86-64.exe">LocalSend-${version}-windows-x86-64.exe</a><span>75.6 MB</span></div>
+          <div class="Box-row"><a href="/localsend/localsend/releases/download/${tag}/LocalSend-${version}-macos-arm64.dmg">LocalSend-${version}-macos-arm64.dmg</a><span>79.2 MB</span></div>
+          <div class="Box-row"><a href="/localsend/localsend/releases/download/${tag}/LocalSend-${version}-android-arm64.apk">LocalSend-${version}-android-arm64.apk</a><span>41.8 MB</span></div>
+        `, {status: 200, headers: {"content-type": "text/html"}});
+      }
+      if (/\/localsend\/localsend\/releases(?:$|[?#])/.test(url)) {
+        return new Response(`
+          <a href="/localsend/localsend/releases/tag/v1.17.0">v1.17.0</a>
+          <a href="/localsend/localsend/releases/tag/v1.16.1">v1.16.1</a>
+          <a href="/localsend/localsend/releases/tag/v1.16.0">v1.16.0</a>
+        `, {status: 200, headers: {"content-type": "text/html"}});
+      }
+      return new Response("Not found", {status: 404});
+    };
     Object.defineProperty(window.chrome, "runtime", {
       configurable: true,
       value: {
         getManifest: () => ({version: "0.3.0"}),
         openOptionsPage: () => {},
         sendMessage: async (_message) => {
+          window.__ghdnMessages.push(_message);
           if (_message.type === "GHDN_GET_BUILD_INSTRUCTIONS") {
             return {
               ok: true,

@@ -10,6 +10,7 @@ const openedTabs = [];
 let badgeText = "";
 let currentRelease = 17;
 let alarmInfo = null;
+let optionsOpened = 0;
 
 function area(store) {
   return {
@@ -23,6 +24,7 @@ global.chrome = {
   runtime: {
     lastError: null,
     getURL: (value) => `chrome-extension://test/${value}`,
+    openOptionsPage: () => { optionsOpened += 1; return Promise.resolve(); },
     onMessage: { addListener(fn) { listeners.message = fn; } },
     onInstalled: { addListener(fn) { listeners.installed = fn; } },
     onStartup: { addListener(fn) { listeners.startup = fn; } }
@@ -92,9 +94,11 @@ global.fetch = async (url, options = {}) => {
     ]), { status: 200, headers: { "content-type": "application/json" } });
   }
 
-  const tag = `v1.${currentRelease}.0`;
+  const tagMatch = requestUrl.match(/\/releases\/tags\/([^?#]+)/);
+  const tag = tagMatch ? decodeURIComponent(tagMatch[1]) : `v1.${currentRelease}.0`;
+  const releaseNumber = Number((tag.match(/(\d+)(?!.*\d)/) || [])[1]) || currentRelease;
   const release = {
-    id: currentRelease,
+    id: releaseNumber,
     tag_name: tag,
     name: `Release ${tag}`,
     html_url: `https://github.com/example/app/releases/tag/${tag}`,
@@ -103,7 +107,7 @@ global.fetch = async (url, options = {}) => {
     draft: false,
     prerelease: false,
     assets: [{
-      id: currentRelease * 10,
+      id: releaseNumber * 10,
       name: `Example-${tag}-linux-x86_64.AppImage`,
       size: 1000,
       state: "uploaded",
@@ -116,7 +120,7 @@ global.fetch = async (url, options = {}) => {
     zipball_url: "https://api.github.com/source.zip",
     tarball_url: "https://api.github.com/source.tar.gz"
   };
-  return new Response(JSON.stringify(release), { status: 200, headers: { "content-type": "application/json", "etag": `\"${currentRelease}\"` } });
+  return new Response(JSON.stringify(release), { status: 200, headers: { "content-type": "application/json", "etag": `\"${tag}\"` } });
 };
 
 require(path.join("..", "src", "background.js"));
@@ -154,6 +158,21 @@ function message(payload) {
     "https://github.com/example/app/blob/v1.17.0/BUILDING.md"
   );
   assert.equal("instructions" in buildResult, false);
+
+  const taggedRelease = await message({
+    type: "GHDN_GET_RELEASE_BY_TAG",
+    owner: "example",
+    repo: "app",
+    tag: "v1.16.0",
+    platform: { os: "linux", arch: "x64", preferredFormat: "appimage" }
+  });
+  assert.equal(taggedRelease.ok, true);
+  assert.equal(taggedRelease.release.tag_name, "v1.16.0");
+  assert.match(taggedRelease.recommendation.best.name, /v1\.16\.0/);
+
+  const optionsResult = await message({ type: "GHDN_OPEN_OPTIONS" });
+  assert.equal(optionsResult.ok, true);
+  assert.equal(optionsOpened, 1);
 
   const recorded = await message({ type: "GHDN_RECORD_DOWNLOAD", download: first });
   assert.equal(recorded.ok, true);

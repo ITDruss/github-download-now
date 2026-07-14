@@ -35,6 +35,10 @@
   let rejectedToolbarHost = null;
   let rejectedToolbarWidth = 0;
   let settingsReady = refreshSettings();
+  let selectedReleaseTag = "";
+  let releaseScrollFrame = null;
+  const pageReleaseCache = new Map();
+  const releaseTagsCache = new Map();
 
   function createStrings(language) {
     const russian = language === "ru" || (language !== "en" && /^(ru|uk|be|kk)(-|$)/i.test(navigator.language || ""));
@@ -60,6 +64,10 @@
       buildNotFound: "Документы по сборке не найдены.",
       buildError: "Не удалось получить документы по сборке.",
       buildFallbackNotice: "Ссылки ведут на основную ветку: документация для тега релиза недоступна.",
+      versionLabel: "Версия",
+      selectVersion: "Выбрать версию релиза",
+      latestVersion: "последняя",
+      buildLoadAction: "Показать документы по сборке",
       installHelp: "Как установить или запустить",
       installAfterDownload: "Файл скачивается — что делать дальше",
       installCopyCommand: "Копировать команду",
@@ -145,6 +153,10 @@
       buildNotFound: "No build documentation was found.",
       buildError: "Could not load build documentation.",
       buildFallbackNotice: "Links point to the default branch because documentation for the release tag is unavailable.",
+      versionLabel: "Version",
+      selectVersion: "Choose a release version",
+      latestVersion: "latest",
+      buildLoadAction: "Show build documentation",
       installHelp: "How to install or run",
       installAfterDownload: "The file is downloading — what to do next",
       installCopyCommand: "Copy command",
@@ -451,10 +463,140 @@
     return candidates.sort((a, b) => b.score - a.score)[0];
   }
 
+  function isReleasesRoute(repo) {
+    return Boolean(repo && String(repo.parts[2] || "").toLowerCase() === "releases");
+  }
+
+  function decodeReleaseTag(value) {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    try {
+      return decodeURIComponent(raw);
+    } catch (_error) {
+      return raw;
+    }
+  }
+
+  function releaseTagFromLink(link) {
+    if (!link) return "";
+    const href = String(link.getAttribute("href") || "");
+    const match = href.match(/\/releases\/tag\/([^?#]+)/i);
+    return match ? decodeReleaseTag(match[1]) : "";
+  }
+
+  function directChildContaining(parent, descendant) {
+    if (!parent || !descendant) return null;
+    let node = descendant;
+    while (node && node.parentElement !== parent) node = node.parentElement;
+    return node && node.parentElement === parent ? node : null;
+  }
+
+  function releaseTagForSection(section) {
+    if (!section) return "";
+    const link = [...section.querySelectorAll('a[href*="/releases/tag/"]')]
+      .find((candidate) => isVisibleElement(candidate) && releaseTagFromLink(candidate));
+    return link ? releaseTagFromLink(link) : "";
+  }
+
+  function findReleaseTitleGroup(section, preferredTag = "") {
+    if (!section) return null;
+    const links = [...section.querySelectorAll('a[href*="/releases/tag/"]')]
+      .filter((link) => isVisibleElement(link))
+      .map((link) => ({ link, tag: releaseTagFromLink(link) }))
+      .filter((entry) => entry.tag);
+
+    const selected = links.find((entry) => !preferredTag || entry.tag === preferredTag) || links[0];
+    if (!selected) return null;
+
+    const latestCandidates = [...section.querySelectorAll("a, span")]
+      .filter((element) => {
+        if (!isVisibleElement(element) || element.contains(selected.link)) return false;
+        const text = String(element.textContent || "").replace(/\s+/g, " ").trim();
+        return /^(Latest|Pre-release|Draft)$/i.test(text);
+      });
+
+    let node = selected.link.parentElement;
+    let host = null;
+    let depth = 0;
+    while (node && node !== section && depth < 8) {
+      const style = getComputedStyle(node);
+      const rect = node.getBoundingClientRect();
+      const containsCompare = [...node.querySelectorAll("button, summary")]
+        .some((element) => /compare/i.test(normalizedActionText(element)));
+      if (
+        !containsCompare &&
+        isVisibleElement(node) &&
+        ["flex", "inline-flex"].includes(style.display) &&
+        rect.height >= 20 && rect.height <= 72
+      ) {
+        host = node;
+        break;
+      }
+      node = node.parentElement;
+      depth += 1;
+    }
+
+    host = host || selected.link.parentElement;
+    if (!host) return null;
+
+    let anchor = directChildContaining(host, selected.link) || selected.link;
+    for (const candidate of latestCandidates) {
+      if (!host.contains(candidate)) continue;
+      const direct = directChildContaining(host, candidate);
+      if (direct) anchor = direct;
+    }
+
+    return { element: host, anchor, insertBefore: false, tag: selected.tag };
+  }
+
+  function findReleaseTarget(repo) {
+    if (!isReleasesRoute(repo)) return null;
+
+    const explicitTag = String(repo.parts[3] || "").toLowerCase() === "tag"
+      ? decodeReleaseTag(repo.parts.slice(4).join("/"))
+      : "";
+    const sections = [
+      ...document.querySelectorAll('section[data-release-anchor], section[id^="release-"]')
+    ].filter(isVisibleElement);
+
+    const candidates = [];
+    for (const section of sections) {
+      const tag = releaseTagForSection(section);
+      if (!tag || (explicitTag && tag !== explicitTag)) continue;
+      const title = findReleaseTitleGroup(section, tag);
+      if (!title) continue;
+      const rect = section.getBoundingClientRect();
+      const viewportAnchor = Math.min(180, window.innerHeight * 0.25);
+      const visible = rect.bottom > 80 && rect.top < window.innerHeight - 40;
+      candidates.push({
+        mode: "release",
+        element: title.element,
+        anchor: title.anchor,
+        insertBefore: false,
+        releaseTag: title.tag,
+        listMode: false,
+        score: explicitTag ? 100000 : (visible ? 10000 : 0) - Math.abs(rect.top - viewportAnchor)
+      });
+    }
+
+    if (candidates.length) return candidates.sort((a, b) => b.score - a.score)[0];
+
+    const main = document.querySelector("main");
+    if (!main || !isVisibleElement(main)) return null;
+    const title = findReleaseTitleGroup(main, explicitTag);
+    if (!title) return null;
+    return {
+      mode: "release",
+      element: title.element,
+      anchor: title.anchor,
+      insertBefore: false,
+      releaseTag: title.tag,
+      listMode: false
+    };
+  }
+
   function isFlowEligibleRoute(repo) {
-    if (!repo || repo.parts.length === 2) return true;
-    const section = String(repo.parts[2] || "").toLowerCase();
-    return section === "releases" || section === "tags";
+    return Boolean(repo && repo.parts.length === 2);
   }
 
   function findFlowTarget(repo) {
@@ -473,6 +615,8 @@
   }
 
   function findMountTarget(repo, options = {}) {
+    if (isReleasesRoute(repo)) return findReleaseTarget(repo);
+
     if (!options.preferFlow && window.innerWidth >= TOOLBAR_BREAKPOINT) {
       const toolbar = findToolbarTarget();
       if (toolbar) {
@@ -613,9 +757,11 @@
   }
 
   function createRoot(target) {
-    const root = createElement(target.listMode ? "li" : "div", "ghdn-root");
+    const rootTag = target.listMode ? "li" : target.mode === "release" ? "span" : "div";
+    const root = createElement(rootTag, "ghdn-root");
     root.id = ROOT_ID;
     root.dataset.placement = target.mode;
+    if (target.releaseTag) root.dataset.releaseTag = target.releaseTag;
     root.classList.add(`ghdn-placement-${target.mode}`, "ghdn-density-full");
     root.classList.add(`ghdn-style-${settings.buttonStyle}`);
     if (!settings.showSubtitle) root.classList.add("ghdn-hide-subtitle");
@@ -684,8 +830,18 @@
         return;
       }
 
-      if (activeRepoKey !== repo.key) {
-        activeRepoKey = repo.key;
+      const target = findMountTarget(repo, options);
+      if (!target) {
+        if (existing) existing.remove();
+        setMenuOpen(false);
+        observeLayoutHost(null);
+        return;
+      }
+
+      const contextKey = `${repo.key}:${target.releaseTag || "latest"}`;
+      if (activeRepoKey !== contextKey) {
+        activeRepoKey = contextKey;
+        selectedReleaseTag = target.releaseTag || "";
         releaseState = null;
         buildInstructionsState = null;
         buildInstructionsPromise = null;
@@ -696,11 +852,10 @@
         setMenuOpen(false);
       }
 
-      const target = findMountTarget(repo, options);
-      if (!target) return;
       const sameTarget =
         existing &&
         existing.dataset.placement === target.mode &&
+        String(existing.dataset.releaseTag || "") === String(target.releaseTag || "") &&
         existing.__ghdnLayoutHost === target.element &&
         existing.isConnected;
 
@@ -844,9 +999,203 @@
       !subtitle ||
       !settings.showSubtitle ||
       settings.buttonStyle === "compact" ||
-      root.dataset.placement === "toolbar";
+      root.dataset.placement === "toolbar" ||
+      root.dataset.placement === "release";
     iconNode.replaceChildren(createSvgNode(svgIcon(iconName)));
     scheduleLayoutRefresh();
+  }
+
+  function encodeGitHubPath(value) {
+    return String(value || "").split("/").map((part) => encodeURIComponent(part)).join("/");
+  }
+
+  function assetContentType(name) {
+    const lower = String(name || "").toLowerCase();
+    if (lower.endsWith(".apk")) return "application/vnd.android.package-archive";
+    if (lower.endsWith(".zip")) return "application/zip";
+    if (lower.endsWith(".json")) return "application/json";
+    return "application/octet-stream";
+  }
+
+  function parseHumanSize(text) {
+    const matches = [...String(text || "").matchAll(/(\d+(?:[.,]\d+)?)\s*(B|KB|KiB|MB|MiB|GB|GiB)\b/gi)];
+    if (!matches.length) return 0;
+    const match = matches[matches.length - 1];
+    const amount = Number(String(match[1]).replace(",", ".")) || 0;
+    const unit = match[2].toLowerCase();
+    const factors = { b: 1, kb: 1000, kib: 1024, mb: 1000 ** 2, mib: 1024 ** 2, gb: 1000 ** 3, gib: 1024 ** 3 };
+    return Math.round(amount * (factors[unit] || 1));
+  }
+
+  function stableAssetId(url, index) {
+    let hash = 2166136261;
+    const value = String(url || "");
+    for (let i = 0; i < value.length; i += 1) {
+      hash ^= value.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    return Math.abs(hash || index + 1);
+  }
+
+  function releaseAssetsFromDocument(doc, repo, tag) {
+    if (!doc) return [];
+    const prefix = `/${repo.owner}/${repo.repo}/releases/download/`;
+    const assets = [];
+    const seen = new Set();
+    for (const link of doc.querySelectorAll('a[href*="/releases/download/"]')) {
+      let url;
+      try { url = new URL(link.getAttribute("href") || "", location.origin === "null" ? "https://github.com" : location.origin); } catch (_error) { continue; }
+      if (!url.pathname.startsWith(prefix)) continue;
+      const name = decodeReleaseTag(url.pathname.split("/").pop() || "");
+      if (!name || seen.has(url.href)) continue;
+      seen.add(url.href);
+      let container = link;
+      for (let depth = 0; depth < 4 && container.parentElement; depth += 1) {
+        container = container.parentElement;
+        if (/\b(B|KB|KiB|MB|MiB|GB|GiB)\b/i.test(container.textContent || "")) break;
+      }
+      assets.push({
+        id: stableAssetId(url.href, assets.length),
+        name,
+        size: parseHumanSize(container.textContent || ""),
+        state: "uploaded",
+        content_type: assetContentType(name),
+        download_count: 0,
+        browser_download_url: url.href,
+        created_at: "",
+        updated_at: ""
+      });
+    }
+    return assets;
+  }
+
+  function releaseSectionByTag(tag) {
+    if (!tag) return null;
+    return [...document.querySelectorAll('section[data-release-anchor], section[id^="release-"]')]
+      .find((section) => releaseTagForSection(section) === tag) || null;
+  }
+
+  function releaseNameFromSection(section, tag) {
+    if (!section) return tag;
+    const heading = [...section.querySelectorAll("h1, h2, h3")]
+      .find((element) => String(element.textContent || "").includes(tag));
+    return String(heading && heading.textContent || tag).replace(/\s+/g, " ").trim() || tag;
+  }
+
+  function releaseDateFromSection(section) {
+    const time = section && section.querySelector("relative-time[datetime], time[datetime]");
+    return time ? String(time.getAttribute("datetime") || "") : "";
+  }
+
+  function releaseResponseFromPage(repo, tag, assets, platform, section = null) {
+    const encodedTag = encodeGitHubPath(tag);
+    const release = {
+      id: stableAssetId(`${repo.key}:${tag}`, 0),
+      tag_name: tag,
+      name: releaseNameFromSection(section, tag),
+      html_url: `https://github.com/${repo.owner}/${repo.repo}/releases/tag/${encodedTag}`,
+      published_at: releaseDateFromSection(section),
+      created_at: releaseDateFromSection(section),
+      draft: false,
+      prerelease: Boolean(section && /pre-release/i.test(section.textContent || "")),
+      assets,
+      zipball_url: `https://github.com/${repo.owner}/${repo.repo}/archive/refs/tags/${encodedTag}.zip`,
+      tarball_url: `https://github.com/${repo.owner}/${repo.repo}/archive/refs/tags/${encodedTag}.tar.gz`
+    };
+    const selection = selector.recommendation(assets, platform || {});
+    return {
+      ok: true,
+      release,
+      rankedAssets: selection.ranked,
+      recommendation: { best: selection.best, confidence: selection.confidence, gap: Number.isFinite(selection.gap) ? selection.gap : null },
+      fromPage: true
+    };
+  }
+
+  function collectReleaseTags(doc, repo) {
+    const tags = [];
+    const seen = new Set();
+    const prefix = `/${repo.owner}/${repo.repo}/releases/tag/`;
+    for (const link of doc.querySelectorAll('a[href*="/releases/tag/"]')) {
+      let url;
+      try { url = new URL(link.getAttribute("href") || "", location.origin === "null" ? "https://github.com" : location.origin); } catch (_error) { continue; }
+      if (!url.pathname.startsWith(prefix)) continue;
+      const tag = decodeReleaseTag(url.pathname.slice(prefix.length));
+      if (!tag || seen.has(tag)) continue;
+      seen.add(tag);
+      tags.push(tag);
+      if (tags.length >= 20) break;
+    }
+    return tags;
+  }
+
+  async function fetchGitHubDocument(path) {
+    const response = await fetch(path, { method: "GET", credentials: "include" });
+    if (!response.ok) throw new Error(`GitHub page request failed: ${response.status}`);
+    return new DOMParser().parseFromString(await response.text(), "text/html");
+  }
+
+  async function getReleaseTags(repo) {
+    const cached = releaseTagsCache.get(repo.key);
+    if (cached && Date.now() - cached.timestamp < 10 * 60 * 1000) return cached.tags;
+    let tags = collectReleaseTags(document, repo);
+    if (tags.length < 5) {
+      try {
+        const doc = await fetchGitHubDocument(`/${repo.owner}/${repo.repo}/releases`);
+        tags = collectReleaseTags(doc, repo);
+      } catch (_error) {}
+    }
+    releaseTagsCache.set(repo.key, { timestamp: Date.now(), tags });
+    return tags;
+  }
+
+  function latestReleaseTagFromPage(repo) {
+    const prefix = `/${repo.owner}/${repo.repo}/releases/tag/`;
+    const links = [...document.querySelectorAll('a[href*="/releases/tag/"]')]
+      .filter((link) => {
+        try {
+          const url = new URL(link.getAttribute("href") || "", location.origin === "null" ? "https://github.com" : location.origin);
+          return url.pathname.startsWith(prefix);
+        } catch (_error) {
+          return false;
+        }
+      });
+    const preferred = links.find((link) => {
+      const context = String(link.closest("aside, section, div")?.textContent || "");
+      return /latest|releases?/i.test(context);
+    }) || links[0];
+    return preferred ? releaseTagFromLink(preferred) : "";
+  }
+
+  async function loadReleaseFromPage(repo, requestedTag, platform) {
+    let tag = String(requestedTag || "");
+    if (!tag) tag = latestReleaseTagFromPage(repo);
+    if (!tag) {
+      const tags = await getReleaseTags(repo);
+      tag = tags[0] || "";
+    }
+    if (!tag) throw new Error("Release tag not found in GitHub page");
+
+    const key = `${repo.key}:${tag}`;
+    let release = pageReleaseCache.get(key);
+    if (!release) {
+      const section = releaseSectionByTag(tag);
+      let assets = releaseAssetsFromDocument(section || document, repo, tag);
+      if (!assets.length) {
+        const doc = await fetchGitHubDocument(`/${repo.owner}/${repo.repo}/releases/expanded_assets/${encodeGitHubPath(tag)}`);
+        assets = releaseAssetsFromDocument(doc, repo, tag);
+      }
+      release = releaseResponseFromPage(repo, tag, assets, platform, section).release;
+      pageReleaseCache.set(key, release);
+    }
+    const selection = selector.recommendation(release.assets, platform || {});
+    return {
+      ok: true,
+      release,
+      rankedAssets: selection.ranked,
+      recommendation: { best: selection.best, confidence: selection.confidence, gap: Number.isFinite(selection.gap) ? selection.gap : null },
+      fromPage: true
+    };
   }
 
   async function loadRelease() {
@@ -858,13 +1207,26 @@
 
     loadingPromise = (async () => {
       const platform = await getDetectedPlatform();
-      const response = await extensionApi.runtime.sendMessage({
-        type: "GHDN_GET_LATEST_RELEASE",
-        owner: repo.owner,
-        repo: repo.repo,
-        platform,
-        releaseChannel: settings.releaseChannel
-      });
+      const root = document.getElementById(ROOT_ID);
+      const releaseTag = String(selectedReleaseTag || (root && root.dataset.releaseTag) || "");
+      let response;
+      try {
+        response = await loadReleaseFromPage(repo, releaseTag, platform);
+      } catch (_pageError) {
+        response = await extensionApi.runtime.sendMessage(releaseTag ? {
+          type: "GHDN_GET_RELEASE_BY_TAG",
+          owner: repo.owner,
+          repo: repo.repo,
+          tag: releaseTag,
+          platform
+        } : {
+          type: "GHDN_GET_LATEST_RELEASE",
+          owner: repo.owner,
+          repo: repo.repo,
+          platform,
+          releaseChannel: settings.releaseChannel
+        });
+      }
       releaseState = { response, platform };
       updatePrimaryPresentation(response, platform);
       return releaseState;
@@ -968,28 +1330,32 @@
   }
 
   function createBuildDocumentationControl(release) {
-    const container = createElement("div", "ghdn-build-docs");
-    const heading = createElement("div", "ghdn-build-docs-heading");
-    heading.append(
+    const details = createElement("details", "ghdn-build-docs");
+    const summary = createElement("summary", "ghdn-build-docs-heading");
+    summary.append(
       createIcon("source", "ghdn-inline-icon"),
-      createElement("span", "", strings.buildFromSource)
+      createElement("span", "", strings.buildLoadAction)
     );
-
     const links = createElement("div", "ghdn-build-docs-links");
-    links.append(createBuildStatus(strings.buildLoading, "loading"));
-    container.append(heading, links);
+    details.append(summary, links);
 
-    loadBuildInstructions(release)
-      .then((response) => {
-        renderBuildDocumentationLinks(container, links, response);
-        requestAnimationFrame(positionMenu);
-      })
-      .catch(() => {
-        links.replaceChildren(createBuildStatus(strings.buildError, "error"));
-        requestAnimationFrame(positionMenu);
-      });
+    let loaded = false;
+    details.addEventListener("toggle", () => {
+      if (!details.open || loaded) return;
+      loaded = true;
+      links.replaceChildren(createBuildStatus(strings.buildLoading, "loading"));
+      loadBuildInstructions(release)
+        .then((response) => {
+          renderBuildDocumentationLinks(details, links, response);
+          requestAnimationFrame(positionMenu);
+        })
+        .catch(() => {
+          links.replaceChildren(createBuildStatus(strings.buildError, "error"));
+          requestAnimationFrame(positionMenu);
+        });
+    });
 
-    return container;
+    return details;
   }
 
   function createBuildStatus(message, type) {
@@ -1044,6 +1410,57 @@
     }
   }
 
+  function createVersionSelector(release) {
+    const repo = parseRepository();
+    if (!repo) return null;
+    const row = createElement("label", "ghdn-version-row");
+    const label = createElement("span", "ghdn-version-label", strings.versionLabel);
+    const select = createElement("select", "ghdn-version-select");
+    select.setAttribute("aria-label", strings.selectVersion);
+    const currentTag = String(release && release.tag_name || selectedReleaseTag || "");
+    const initial = createElement("option", "", currentTag || strings.latestVersion);
+    initial.value = currentTag;
+    select.append(initial);
+    row.append(label, select);
+
+    getReleaseTags(repo).then((tags) => {
+      if (!row.isConnected) return;
+      const unique = [...new Set([currentTag, ...tags].filter(Boolean))];
+      select.replaceChildren();
+      const latestTag = tags[0] || currentTag;
+      unique.forEach((tag) => {
+        const option = createElement("option", "", tag === latestTag ? `${tag} · ${strings.latestVersion}` : tag);
+        option.value = tag;
+        option.selected = tag === currentTag;
+        select.append(option);
+      });
+    }).catch(() => {});
+
+    select.addEventListener("change", async () => {
+      const nextTag = String(select.value || "");
+      if (!nextTag || nextTag === selectedReleaseTag && releaseState && releaseState.response.release.tag_name === nextTag) return;
+      selectedReleaseTag = nextTag;
+      releaseState = null;
+      buildInstructionsState = null;
+      buildInstructionsPromise = null;
+      loadingPromise = null;
+      try {
+        const state = await loadRelease();
+        if (!state.response.ok) return showResponseError(state.response);
+        renderMenu(state);
+        setMenuOpen(true);
+      } catch (_error) {
+        showToast(strings.networkError, "error");
+      }
+    });
+    return row;
+  }
+
+  function requestOpenOptions() {
+    return extensionApi.runtime.sendMessage({ type: "GHDN_OPEN_OPTIONS" })
+      .catch(() => openExternal(extensionApi.runtime.getURL("options.html")));
+  }
+
   function renderMenu(state) {
     const root = document.getElementById(ROOT_ID);
     if (!root) return;
@@ -1061,6 +1478,8 @@
     headerCopy.append(title, createElement("div", "ghdn-release-tag", meta));
     header.append(createIcon("download", "ghdn-menu-header-icon"), headerCopy);
     menu.append(header);
+    const versionSelector = createVersionSelector(release);
+    if (versionSelector) menu.append(versionSelector);
 
     if (isReleaseStale(release)) menu.append(createStaleWarning(release));
     if (settings.showRecommendationReason && best) menu.append(createRecommendationExplanation(best, state.platform));
@@ -1103,7 +1522,7 @@
     releaseLink.prepend(createIcon("external", "ghdn-inline-icon"));
     const settingsButton = createElement("button", "ghdn-settings-link", strings.openSettings);
     settingsButton.type = "button"; settingsButton.prepend(createIcon("settings", "ghdn-inline-icon"));
-    settingsButton.addEventListener("click", () => extensionApi.runtime.openOptionsPage());
+    settingsButton.addEventListener("click", () => requestOpenOptions());
     footer.append(releaseLink, settingsButton); menu.append(footer);
   }
 
@@ -1546,7 +1965,7 @@
   if (settingsApi) {
     settingsApi.onChanged((next) => {
       settings = next; strings = createStrings(settings.language); settingsReady = Promise.resolve(settings);
-      activeRepoKey = ""; releaseState = null; buildInstructionsState = null; buildInstructionsPromise = null; loadingPromise = null; detectedPlatformPromise = null;
+      activeRepoKey = ""; selectedReleaseTag = ""; releaseState = null; buildInstructionsState = null; buildInstructionsPromise = null; loadingPromise = null; detectedPlatformPromise = null;
       const root = document.getElementById(ROOT_ID); if (root) root.remove();
       setMenuOpen(false); scheduleMount();
     });
@@ -1559,6 +1978,13 @@
   window.addEventListener("scroll", () => {
     const menu = document.getElementById(MENU_ID);
     if (menu && !menu.hidden) requestAnimationFrame(positionMenu);
+    const repo = parseRepository();
+    if (isReleasesRoute(repo) && !releaseScrollFrame) {
+      releaseScrollFrame = requestAnimationFrame(() => {
+        releaseScrollFrame = null;
+        scheduleMount();
+      });
+    }
   }, { passive: true, capture: true });
   new MutationObserver(scheduleMount).observe(document.documentElement, { childList: true, subtree: true });
   scheduleMount();

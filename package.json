@@ -1,6 +1,6 @@
 {
   "name": "github-download-now",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "private": true,
   "description": "A privacy-friendly cross-browser extension that recommends GitHub release assets and watches selected repositories for updates.",
   "scripts": {
