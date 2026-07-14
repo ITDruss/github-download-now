@@ -10,7 +10,7 @@
   const UPDATES_KEY = "ghdnPendingUpdates";
   const META_KEY = "ghdnTrackerMeta";
   const MAX_HISTORY = 100;
-  const MAX_WATCHES = 50;
+  const MAX_WATCHES = 30;
 
   function text(value, max = 300) {
     return typeof value === "string" ? value.slice(0, max) : "";

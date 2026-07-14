@@ -19,9 +19,10 @@
     downloadAction: "Скачать рекомендацию", menuAction: "Всегда открывать меню", releaseAction: "Открыть страницу Releases",
     afterDownload: "После загрузки", ask: "Спрашивать о слежении", always: "Всегда следить", never: "Никогда не предлагать",
     interval: "Проверка обновлений", manual: "Только вручную", every6h: "Каждые 6 часов", daily: "Раз в день", every3d: "Раз в 3 дня", weekly: "Раз в неделю",
-    notifications: "Системные уведомления", badge: "Счётчик на иконке", historyEnabled: "Записывать историю загрузок",
+    notifications: "Системные уведомления", badge: "Счётчик на иконке", historyEnabled: "Записывать историю загрузок", enabledLabel: "Включить расширение",
     options: "Открыть все настройки", saved: "Сохранено", permissionDenied: "Разрешение на уведомления не выдано",
     updateFound: (n) => `Найдено обновлений: ${n}`, checkSummary: (found, failed) => `Найдено: ${found} · Ошибок: ${failed}`,
+    checkProgress: (checked, total) => `Проверено репозиториев: ${checked} из ${total}`,
     rateLimited: (time) => time ? `Лимит GitHub API исчерпан до ${time}` : "Лимит GitHub API исчерпан",
     auto: "Автоматически", noAsset: "Подходящий файл не найден", current: "Текущая", published: "выпущено"
   } : {
@@ -35,9 +36,10 @@
     downloadAction: "Download recommendation", menuAction: "Always open menu", releaseAction: "Open Releases page",
     afterDownload: "After a download", ask: "Ask whether to watch", always: "Always start watching", never: "Never ask",
     interval: "Update checks", manual: "Manual only", every6h: "Every 6 hours", daily: "Once a day", every3d: "Every 3 days", weekly: "Once a week",
-    notifications: "System notifications", badge: "Toolbar badge", historyEnabled: "Keep download history",
+    notifications: "System notifications", badge: "Toolbar badge", historyEnabled: "Keep download history", enabledLabel: "Enable extension",
     options: "Open all settings", saved: "Saved", permissionDenied: "Notification permission was not granted",
     updateFound: (n) => `${n} update${n === 1 ? "" : "s"} found`, checkSummary: (found, failed) => `Found: ${found} · Failed: ${failed}`,
+    checkProgress: (checked, total) => `Repositories checked: ${checked} of ${total}`,
     rateLimited: (time) => time ? `GitHub API limit reached until ${time}` : "GitHub API limit reached",
     auto: "Automatic", noAsset: "No matching asset found", current: "Current", published: "published"
   };
@@ -61,10 +63,12 @@
 
   function send(message) {
     if (typeof browser !== "undefined") return extensionApi.runtime.sendMessage(message);
-    return new Promise((resolve, reject) => extensionApi.runtime.sendMessage(message, (response) => {
-      const error = extensionApi.runtime.lastError;
-      if (error) reject(new Error(error.message)); else resolve(response);
-    }));
+    return new Promise((resolve, reject) => {
+      extensionApi.runtime.sendMessage(message, (response) => {
+        const error = extensionApi.runtime.lastError;
+        if (error) reject(new Error(error.message)); else resolve(response);
+      });
+    });
   }
 
   function openUrl(url) { return send({ type: "GHDN_OPEN_URL", url }); }
@@ -105,11 +109,20 @@
       const time = limited.resetAt ? new Date(limited.resetAt).toLocaleTimeString(russian ? "ru-RU" : "en-US", { hour: "2-digit", minute: "2-digit" }) : "";
       return { message: t.rateLimited(time), error: true };
     }
-    return { message: t.checkSummary(detected, errors.length), error: errors.length > 0 };
+    const checked = Number(result && (result.checked ?? result.meta?.lastCheckChecked));
+    const total = Number(result && (result.total ?? result.meta?.lastCheckTotal));
+    const summary = t.checkSummary(detected, errors.length);
+    const progress = Number.isFinite(checked) && Number.isFinite(total) && total > 0
+      ? ` · ${t.checkProgress(checked, total)}`
+      : "";
+    return { message: `${summary}${progress}`, error: errors.length > 0 };
   }
 
   function setLabels() {
     document.documentElement.lang = russian ? "ru" : "en";
+    const enabledSwitch = document.getElementById("enabledSwitch");
+    enabledSwitch.title = t.enabledLabel;
+    document.getElementById("enabled").setAttribute("aria-label", t.enabledLabel);
     const labels = {
       updatesTabLabel: t.updates, trackingTabLabel: t.tracking, historyTabLabel: t.history, settingsTabLabel: t.settings,
       updatesTitle: t.updatesTitle, trackingTitle: t.trackingTitle, historyTitle: t.historyTitle, trackingNote: t.trackingNote, historyNote: t.historyNote,
@@ -134,9 +147,19 @@
     select.value = settings[settingKey(platform.os)];
   }
 
-  function setTab(name) {
-    for (const node of document.querySelectorAll(".tab")) node.classList.toggle("active", node.dataset.tab === name);
-    for (const node of document.querySelectorAll(".panel")) node.classList.toggle("active", node.dataset.panel === name);
+  function setTab(name, focus = false) {
+    for (const node of document.querySelectorAll(".tab")) {
+      const active = node.dataset.tab === name;
+      node.classList.toggle("active", active);
+      node.setAttribute("aria-selected", String(active));
+      node.tabIndex = active ? 0 : -1;
+      if (active && focus) node.focus();
+    }
+    for (const node of document.querySelectorAll(".panel")) {
+      const active = node.dataset.panel === name;
+      node.classList.toggle("active", active);
+      node.hidden = !active;
+    }
     if (location.hash !== `#${name}`) history.replaceState(null, "", `#${name}`);
   }
 
@@ -149,7 +172,12 @@
     const count = dashboard.updates.length;
     document.getElementById("updatesCount").hidden = !count; document.getElementById("updatesCount").textContent = String(count);
     const last = dashboard.meta && dashboard.meta.lastCheckAt;
-    document.getElementById("lastChecked").textContent = last ? t.lastChecked(formatDate(last, true)) : t.neverChecked;
+    const checked = Number(dashboard.meta && dashboard.meta.lastCheckChecked);
+    const total = Number(dashboard.meta && dashboard.meta.lastCheckTotal);
+    const progress = Number.isFinite(checked) && Number.isFinite(total) && total > 0
+      ? ` · ${t.checkProgress(checked, total)}`
+      : "";
+    document.getElementById("lastChecked").textContent = last ? `${t.lastChecked(formatDate(last, true))}${progress}` : t.neverChecked;
     if (!count) { list.append(el("div", "empty", t.noUpdates)); return; }
     for (const update of dashboard.updates) {
       const item = el("article", "item");
@@ -201,7 +229,7 @@
   async function requestNotifications() {
     if (!extensionApi.permissions || !extensionApi.permissions.request) return false;
     if (typeof browser !== "undefined") return extensionApi.permissions.request({ permissions: ["notifications"] });
-    return new Promise((resolve) => extensionApi.permissions.request({ permissions: ["notifications"] }, resolve));
+    return new Promise((resolve) => { extensionApi.permissions.request({ permissions: ["notifications"] }, resolve); });
   }
 
   async function init() {
@@ -216,7 +244,21 @@
     for (const key of ["primaryAction", "afterDownload", "updateCheckInterval"]) document.getElementById(key).value = settings[key];
     for (const key of ["notificationsEnabled", "badgeEnabled", "historyEnabled"]) document.getElementById(key).checked = settings[key];
 
-    for (const node of document.querySelectorAll(".tab")) node.addEventListener("click", () => setTab(node.dataset.tab));
+    const tabs = [...document.querySelectorAll(".tab")];
+    for (const node of tabs) {
+      node.addEventListener("click", () => setTab(node.dataset.tab));
+      node.addEventListener("keydown", (event) => {
+        if (!new Set(["ArrowLeft", "ArrowRight", "Home", "End"]).has(event.key)) return;
+        event.preventDefault();
+        const current = tabs.indexOf(node);
+        const next = event.key === "Home"
+          ? 0
+          : event.key === "End"
+            ? tabs.length - 1
+            : (current + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+        setTab(tabs[next].dataset.tab, true);
+      });
+    }
     setTab(["updates", "tracking", "history", "settings"].includes(location.hash.slice(1)) ? location.hash.slice(1) : "updates");
 
     document.getElementById("enabled").addEventListener("change", async (event) => { settings = await settingsApi.set({ enabled: event.target.checked }); document.body.classList.toggle("disabled", !event.target.checked); status(t.saved); });
@@ -239,7 +281,10 @@
       finally { button.disabled = false; button.textContent = t.checkNow; }
     });
     document.getElementById("clearHistory").addEventListener("click", async () => { await send({ type: "GHDN_CLEAR_HISTORY" }); await refresh(); });
-    document.getElementById("openOptions").addEventListener("click", () => extensionApi.runtime.openOptionsPage());
+    document.getElementById("openOptions").addEventListener("click", async () => {
+      const result = await send({ type: "GHDN_OPEN_OPTIONS" });
+      if (!result || !result.ok) status("Error", true);
+    });
     await refresh();
   }
 

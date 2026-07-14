@@ -56,3 +56,16 @@ const base = {
 }
 
 console.log("tracker tests: OK");
+
+{
+  let watches = [];
+  for (let index = 0; index < tracker.MAX_WATCHES + 5; index += 1) {
+    watches = tracker.upsertWatch(watches, tracker.watchFromDownload({
+      ...base,
+      owner: `owner${index}`,
+      repo: `repo${index}`
+    }));
+  }
+  assert.equal(tracker.MAX_WATCHES, 30);
+  assert.equal(watches.length, tracker.MAX_WATCHES);
+}

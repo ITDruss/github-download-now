@@ -84,3 +84,25 @@ function asset(name, downloads = 0, size = 1000) {
 }
 
 console.log("asset-selector tests: OK");
+
+{
+  const result = selector.recommendation([
+    asset("app-android-arm64.aab"),
+    asset("app-android-arm64.apk")
+  ], { os: "android", arch: "arm64" });
+  assert.equal(result.best.name, "app-android-arm64.apk");
+  assert.equal(result.ranked.find((item) => item.name.endsWith(".aab")).autoEligible, false);
+}
+
+{
+  const automatic = selector.recommendation([
+    asset("app-android-arm64.apks"),
+    asset("app-android-arm64.zip")
+  ], { os: "android", arch: "arm64", preferredFormat: "auto" });
+  assert.notEqual(automatic.best.name, "app-android-arm64.apks");
+  const explicit = selector.recommendation([
+    asset("app-android-arm64.apks"),
+    asset("app-android-arm64.zip")
+  ], { os: "android", arch: "arm64", preferredFormat: "apks" });
+  assert.equal(explicit.best.name, "app-android-arm64.apks");
+}

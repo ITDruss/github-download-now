@@ -11,32 +11,32 @@
     <header class="header">
       <img src="icons/icon-48.png" width="36" height="36" alt="">
       <div class="brand"><h1>GitHub Download Now</h1><p id="version"></p></div>
-      <label class="switch" title="Enable extension"><input id="enabled" type="checkbox"><span></span></label>
+      <label id="enabledSwitch" class="switch"><input id="enabled" type="checkbox"><span></span></label>
     </header>
 
-    <nav class="tabs" aria-label="Sections">
-      <button class="tab active" data-tab="updates" type="button"><span id="updatesTabLabel"></span><b id="updatesCount" hidden></b></button>
-      <button class="tab" data-tab="tracking" type="button"><span id="trackingTabLabel"></span><b id="trackingCount" hidden></b></button>
-      <button class="tab" data-tab="history" type="button"><span id="historyTabLabel"></span></button>
-      <button class="tab" data-tab="settings" type="button"><span id="settingsTabLabel"></span></button>
+    <nav class="tabs" aria-label="Sections" role="tablist">
+      <button id="updatesTab" class="tab active" data-tab="updates" type="button" role="tab" aria-controls="updatesPanel" aria-selected="true"><span id="updatesTabLabel"></span><b id="updatesCount" hidden></b></button>
+      <button id="trackingTab" class="tab" data-tab="tracking" type="button" role="tab" aria-controls="trackingPanel" aria-selected="false"><span id="trackingTabLabel"></span><b id="trackingCount" hidden></b></button>
+      <button id="historyTab" class="tab" data-tab="history" type="button" role="tab" aria-controls="historyPanel" aria-selected="false"><span id="historyTabLabel"></span></button>
+      <button id="settingsTab" class="tab" data-tab="settings" type="button" role="tab" aria-controls="settingsPanel" aria-selected="false"><span id="settingsTabLabel"></span></button>
     </nav>
 
-    <section class="panel active" data-panel="updates">
+    <section id="updatesPanel" class="panel active" data-panel="updates" role="tabpanel" aria-labelledby="updatesTab">
       <div class="panel-head"><div><h2 id="updatesTitle"></h2><p id="lastChecked"></p></div><button id="checkNow" class="small-button" type="button"></button></div>
       <div id="updatesList" class="item-list"></div>
     </section>
 
-    <section class="panel" data-panel="tracking">
+    <section id="trackingPanel" class="panel" data-panel="tracking" role="tabpanel" aria-labelledby="trackingTab" hidden>
       <div class="panel-head"><div><h2 id="trackingTitle"></h2><p id="trackingNote"></p></div></div>
       <div id="trackingList" class="item-list"></div>
     </section>
 
-    <section class="panel" data-panel="history">
+    <section id="historyPanel" class="panel" data-panel="history" role="tabpanel" aria-labelledby="historyTab" hidden>
       <div class="panel-head"><div><h2 id="historyTitle"></h2><p id="historyNote"></p></div><button id="clearHistory" class="text-button" type="button"></button></div>
       <div id="historyList" class="item-list"></div>
     </section>
 
-    <section class="panel" data-panel="settings">
+    <section id="settingsPanel" class="panel" data-panel="settings" role="tabpanel" aria-labelledby="settingsTab" hidden>
       <section class="detected"><span id="detectedLabel"></span><strong id="detectedPlatform">—</strong></section>
       <label class="field"><span id="formatLabel"></span><select id="preferredFormat"></select></label>
       <label class="field"><span id="actionLabel"></span><select id="primaryAction"><option value="download"></option><option value="menu"></option><option value="release"></option></select></label>

@@ -3,6 +3,7 @@
 (() => {
   const extensionApi = typeof browser !== "undefined" ? browser : chrome;
   const selector = globalThis.GHDNAssetSelector;
+  const urlPolicy = globalThis.GHDNUrlPolicy;
   const settingsApi = globalThis.GHDNSettings;
   const installGuides = globalThis.GHDNInstallGuides;
   const ROOT_ID = "ghdn-root";
@@ -31,6 +32,8 @@
   let layoutFrame = null;
   let resizeObserver = null;
   let observedLayoutHost = null;
+  let pageObserver = null;
+  let observedPageHost = null;
   let placementBusy = false;
   let rejectedToolbarHost = null;
   let rejectedToolbarWidth = 0;
@@ -39,6 +42,17 @@
   let releaseScrollFrame = null;
   const pageReleaseCache = new Map();
   const releaseTagsCache = new Map();
+  const MAX_PAGE_CACHE_ENTRIES = 40;
+  const MAX_RELEASE_ASSETS = 500;
+  const MAX_GITHUB_PAGE_CHARS = 8_000_000;
+
+  function setLimitedCache(cache, key, value) {
+    if (cache.has(key)) cache.delete(key);
+    cache.set(key, value);
+    while (cache.size > MAX_PAGE_CACHE_ENTRIES) {
+      cache.delete(cache.keys().next().value);
+    }
+  }
 
   function createStrings(language) {
     const russian = language === "ru" || (language !== "en" && /^(ru|uk|be|kk)(-|$)/i.test(navigator.language || ""));
@@ -232,6 +246,7 @@
   function parseRepository() {
     const testRepository = globalThis.__GHDN_TEST_REPOSITORY__;
     if (testRepository) {
+      if (testRepository.public === false) return null;
       const owner = String(testRepository.owner || "test-owner");
       const repo = String(testRepository.repo || "test-repository");
       const parts = Array.isArray(testRepository.parts) && testRepository.parts.length >= 2
@@ -248,7 +263,28 @@
     const repositoryNwo = document
       .querySelector('meta[name="octolytics-dimension-repository_nwo"]')
       ?.getAttribute("content");
+    const repositoryPublic = document
+      .querySelector('meta[name="octolytics-dimension-repository_public"]')
+      ?.getAttribute("content")
+      ?.trim()
+      .toLowerCase();
+    const visibilityLabels = [
+      ...document.querySelectorAll(
+        '[data-testid="repository-visibility-label"], #repository-container-header .Label, #repository-container-header span'
+      )
+    ]
+      .map((element) => String(element.textContent || "").trim().toLowerCase())
+      .filter((value) => value === "public" || value === "private");
+    const visibility = repositoryPublic === "true" || repositoryPublic === "false"
+      ? repositoryPublic
+      : visibilityLabels.includes("private")
+        ? "false"
+        : visibilityLabels.includes("public")
+          ? "true"
+          : "";
 
+    // Fail closed: without a positive public marker the content script stays inactive.
+    if (visibility !== "true") return null;
     if (
       repositoryNwo &&
       repositoryNwo.toLowerCase() !== `${owner}/${repo}`.toLowerCase()
@@ -478,17 +514,15 @@
   }
 
   function releaseTagFromLink(link) {
-    if (!link) return "";
-    const href = String(link.getAttribute("href") || "");
-    const match = href.match(/\/releases\/tag\/([^?#]+)/i);
-    return match ? decodeReleaseTag(match[1]) : "";
-  }
-
-  function directChildContaining(parent, descendant) {
-    if (!parent || !descendant) return null;
-    let node = descendant;
-    while (node && node.parentElement !== parent) node = node.parentElement;
-    return node && node.parentElement === parent ? node : null;
+    if (!link || !urlPolicy) return "";
+    const repo = parseRepository();
+    if (!repo) return "";
+    const parsed = urlPolicy.releaseTag(
+      link.getAttribute("href") || "",
+      repo.owner,
+      repo.repo
+    );
+    return parsed ? parsed.tag : "";
   }
 
   function releaseTagForSection(section) {
@@ -762,7 +796,7 @@
     arrow.dataset.role = "menu";
     arrow.append(createIcon("chevron", "ghdn-arrow-icon"));
     arrow.setAttribute("aria-label", strings.chooseDownload);
-    arrow.setAttribute("aria-haspopup", "menu");
+    arrow.setAttribute("aria-haspopup", "dialog");
     arrow.setAttribute("aria-controls", MENU_ID);
     arrow.setAttribute("aria-expanded", "false");
 
@@ -782,7 +816,9 @@
     menu = createElement("div", "ghdn-menu");
     menu.id = MENU_ID;
     menu.hidden = true;
-    menu.setAttribute("role", "menu");
+    menu.setAttribute("role", "dialog");
+    menu.setAttribute("aria-label", strings.chooseDownload);
+    menu.setAttribute("tabindex", "-1");
     document.body.append(menu);
     return menu;
   }
@@ -848,7 +884,7 @@
       observeLayoutHost(target.element);
 
       if (target.mode === "toolbar") {
-        await new Promise((resolve) => requestAnimationFrame(resolve));
+        await new Promise((resolve) => { requestAnimationFrame(resolve); });
         if (!applyToolbarDensity(existing)) {
           rejectedToolbarHost = target.element;
           rejectedToolbarWidth = target.element.clientWidth;
@@ -876,6 +912,27 @@
 
   async function mount() {
     await refreshPlacement();
+  }
+
+  function configurePageObserver() {
+    const repo = parseRepository();
+    const nextHost = repo
+      ? (document.querySelector("main") || document.querySelector("#js-repo-pjax-container") || document.body)
+      : null;
+
+    if (nextHost === observedPageHost && pageObserver) return;
+    if (pageObserver) pageObserver.disconnect();
+    pageObserver = null;
+    observedPageHost = nextHost;
+
+    if (!nextHost) return;
+    pageObserver = new MutationObserver(scheduleMount);
+    pageObserver.observe(nextHost, { childList: true, subtree: true });
+  }
+
+  function handleNavigation() {
+    configurePageObserver();
+    scheduleMount();
   }
 
   function scheduleMount() {
@@ -984,7 +1041,7 @@
   }
 
   function encodeGitHubPath(value) {
-    return String(value || "").split("/").map((part) => encodeURIComponent(part)).join("/");
+    return encodeURIComponent(String(value || ""));
   }
 
   function assetContentType(name) {
@@ -1016,30 +1073,32 @@
   }
 
   function releaseAssetsFromDocument(doc, repo, tag) {
-    if (!doc) return [];
-    const prefix = `/${repo.owner}/${repo.repo}/releases/download/`;
+    if (!doc || !urlPolicy) return [];
     const assets = [];
     const seen = new Set();
     for (const link of doc.querySelectorAll('a[href*="/releases/download/"]')) {
-      let url;
-      try { url = new URL(link.getAttribute("href") || "", location.origin === "null" ? "https://github.com" : location.origin); } catch (_error) { continue; }
-      if (!url.pathname.startsWith(prefix)) continue;
-      const name = decodeReleaseTag(url.pathname.split("/").pop() || "");
-      if (!name || seen.has(url.href)) continue;
-      seen.add(url.href);
+      const parsed = urlPolicy.releaseAsset(
+        link.getAttribute("href") || "",
+        repo.owner,
+        repo.repo,
+        tag || ""
+      );
+      if (!parsed || seen.has(parsed.href)) continue;
+      seen.add(parsed.href);
       let container = link;
       for (let depth = 0; depth < 4 && container.parentElement; depth += 1) {
         container = container.parentElement;
         if (/\b(B|KB|KiB|MB|MiB|GB|GiB)\b/i.test(container.textContent || "")) break;
       }
+      if (assets.length >= MAX_RELEASE_ASSETS) break;
       assets.push({
-        id: stableAssetId(url.href, assets.length),
-        name,
+        id: stableAssetId(parsed.href, assets.length),
+        name: parsed.name,
         size: parseHumanSize(container.textContent || ""),
         state: "uploaded",
-        content_type: assetContentType(name),
+        content_type: assetContentType(parsed.name),
         download_count: 0,
-        browser_download_url: url.href,
+        browser_download_url: parsed.href,
         created_at: "",
         updated_at: ""
       });
@@ -1093,24 +1152,41 @@
   function collectReleaseTags(doc, repo) {
     const tags = [];
     const seen = new Set();
-    const prefix = `/${repo.owner}/${repo.repo}/releases/tag/`;
+    if (!doc || !urlPolicy) return tags;
     for (const link of doc.querySelectorAll('a[href*="/releases/tag/"]')) {
-      let url;
-      try { url = new URL(link.getAttribute("href") || "", location.origin === "null" ? "https://github.com" : location.origin); } catch (_error) { continue; }
-      if (!url.pathname.startsWith(prefix)) continue;
-      const tag = decodeReleaseTag(url.pathname.slice(prefix.length));
-      if (!tag || seen.has(tag)) continue;
-      seen.add(tag);
-      tags.push(tag);
+      const parsed = urlPolicy.releaseTag(
+        link.getAttribute("href") || "",
+        repo.owner,
+        repo.repo
+      );
+      if (!parsed || seen.has(parsed.tag)) continue;
+      seen.add(parsed.tag);
+      tags.push(parsed.tag);
       if (tags.length >= 20) break;
     }
     return tags;
   }
 
-  async function fetchGitHubDocument(path) {
-    const response = await fetch(path, { method: "GET", credentials: "include" });
+  async function fetchGitHubDocument(path, repo) {
+    const trusted = urlPolicy && urlPolicy.repositoryWebUrl(path, repo.owner, repo.repo);
+    if (!trusted) throw new Error("Untrusted GitHub page URL");
+    const response = await fetch(trusted.href, {
+      method: "GET",
+      credentials: "omit",
+      cache: "no-store",
+      redirect: "error",
+      referrerPolicy: "no-referrer"
+    });
+    const finalUrl = urlPolicy.repositoryWebUrl(response.url || trusted.href, repo.owner, repo.repo);
+    if (!finalUrl) throw new Error("GitHub page redirected to an untrusted URL");
     if (!response.ok) throw new Error(`GitHub page request failed: ${response.status}`);
-    return new DOMParser().parseFromString(await response.text(), "text/html");
+    const contentLength = Number(response.headers.get("content-length"));
+    if (Number.isFinite(contentLength) && contentLength > MAX_GITHUB_PAGE_CHARS) {
+      throw new Error("GitHub page response is too large");
+    }
+    const html = await response.text();
+    if (html.length > MAX_GITHUB_PAGE_CHARS) throw new Error("GitHub page response is too large");
+    return new DOMParser().parseFromString(html, "text/html");
   }
 
   async function getReleaseTags(repo) {
@@ -1119,25 +1195,21 @@
     let tags = collectReleaseTags(document, repo);
     if (tags.length < 5) {
       try {
-        const doc = await fetchGitHubDocument(`/${repo.owner}/${repo.repo}/releases`);
+        const doc = await fetchGitHubDocument(`/${repo.owner}/${repo.repo}/releases`, repo);
         tags = collectReleaseTags(doc, repo);
       } catch (_error) {}
     }
-    releaseTagsCache.set(repo.key, { timestamp: Date.now(), tags });
+    setLimitedCache(releaseTagsCache, repo.key, { timestamp: Date.now(), tags });
     return tags;
   }
 
   function latestReleaseTagFromPage(repo) {
-    const prefix = `/${repo.owner}/${repo.repo}/releases/tag/`;
     const links = [...document.querySelectorAll('a[href*="/releases/tag/"]')]
-      .filter((link) => {
-        try {
-          const url = new URL(link.getAttribute("href") || "", location.origin === "null" ? "https://github.com" : location.origin);
-          return url.pathname.startsWith(prefix);
-        } catch (_error) {
-          return false;
-        }
-      });
+      .filter((link) => Boolean(urlPolicy && urlPolicy.releaseTag(
+        link.getAttribute("href") || "",
+        repo.owner,
+        repo.repo
+      )));
     const preferred = links.find((link) => {
       const context = String(link.closest("aside, section, div")?.textContent || "");
       return /latest|releases?/i.test(context);
@@ -1160,11 +1232,11 @@
       const section = releaseSectionByTag(tag);
       let assets = releaseAssetsFromDocument(section || document, repo, tag);
       if (!assets.length) {
-        const doc = await fetchGitHubDocument(`/${repo.owner}/${repo.repo}/releases/expanded_assets/${encodeGitHubPath(tag)}`);
+        const doc = await fetchGitHubDocument(`/${repo.owner}/${repo.repo}/releases/expanded_assets/${encodeGitHubPath(tag)}`, repo);
         assets = releaseAssetsFromDocument(doc, repo, tag);
       }
       release = releaseResponseFromPage(repo, tag, assets, platform, section).release;
-      pageReleaseCache.set(key, release);
+      setLimitedCache(pageReleaseCache, key, release);
     }
     const selection = selector.recommendation(release.assets, platform || {});
     return {
@@ -1281,7 +1353,8 @@
     const repo = parseRepository();
     if (!repo) throw new Error("Repository not found");
     const ref = String(release && release.tag_name || "");
-    const key = `${repo.key}:${ref || "default"}`;
+    const platform = await getDetectedPlatform();
+    const key = `${repo.key}:${ref || "default"}:${platform.os || "unknown"}`;
     if (buildInstructionsState && buildInstructionsState.key === key) {
       return buildInstructionsState.response;
     }
@@ -1293,7 +1366,8 @@
       type: "GHDN_GET_BUILD_INSTRUCTIONS",
       owner: repo.owner,
       repo: repo.repo,
-      ref
+      ref,
+      platform
     }).then((response) => {
       buildInstructionsState = { key, response };
       return response;
@@ -1378,7 +1452,7 @@
       link.rel = "noopener noreferrer";
       link.append(
         createIcon("external", "ghdn-inline-icon"),
-        createElement("span", "", documentLink.path || strings.buildFromSource)
+        createElement("span", "", documentLink.title || documentLink.path || strings.buildFromSource)
       );
       links.append(link);
     }
@@ -1641,7 +1715,7 @@
     const entry = createElement("div", "ghdn-asset-entry");
     const row = createElement("div", "ghdn-asset-row");
     const button = createElement("button", "ghdn-asset");
-    button.type = "button"; button.setAttribute("role", "menuitem"); button.title = asset.name;
+    button.type = "button"; button.title = asset.name;
     const detectedOs = assetPlatform(asset);
     const iconWrap = createElement("span", `ghdn-platform-icon ghdn-platform-${detectedOs}`);
     iconWrap.append(createIcon(platformIconName(detectedOs), "ghdn-platform-svg"));
@@ -1763,7 +1837,14 @@
   }
 
   async function startDownload(url, asset = null, release = null, platform = null) {
-    if (!url || !/^https:\/\//i.test(url)) return showToast(strings.networkError, "error");
+    const repo = parseRepository();
+    const trusted = repo && urlPolicy
+      ? asset && release && release.tag_name
+        ? urlPolicy.releaseAsset(url, repo.owner, repo.repo, release.tag_name)
+        : urlPolicy.download(url, repo.owner, repo.repo)
+      : null;
+    if (!trusted) return showToast(strings.networkError, "error");
+    url = trusted.href;
     setMenuOpen(false);
     const anchor = document.createElement("a");
     anchor.href = url; anchor.rel = "noopener noreferrer"; document.body.append(anchor); anchor.click(); anchor.remove();
@@ -1773,9 +1854,7 @@
       if (guide) showInstallPrompt(guide);
     }
 
-    if (!asset || !release || !platform) return;
-    const repo = parseRepository();
-    if (!repo) return;
+    if (!asset || !release || !platform || !repo) return;
     const download = {
       owner: repo.owner,
       repo: repo.repo,
@@ -1835,8 +1914,12 @@
   }
 
   function openExternal(url) {
-    if (!url || !/^https:\/\//i.test(url)) return showToast(strings.networkError, "error");
-    window.open(url, "_blank", "noopener,noreferrer");
+    const repo = parseRepository();
+    const trusted = repo && urlPolicy
+      ? urlPolicy.repositoryWebUrl(url, repo.owner, repo.repo)
+      : null;
+    if (!trusted) return showToast(strings.networkError, "error");
+    window.open(trusted.href, "_blank", "noopener,noreferrer");
   }
 
   async function copyText(text, successMessage = strings.copied) {
@@ -1897,7 +1980,18 @@
     menu.hidden = !open;
     if (root) root.classList.toggle("ghdn-menu-open", open);
     if (arrow) arrow.setAttribute("aria-expanded", String(open));
-    if (open) requestAnimationFrame(positionMenu);
+    if (open) {
+      requestAnimationFrame(() => {
+        positionMenu();
+        if (document.activeElement === arrow) {
+          const first = menu.querySelector("button:not([disabled]), a[href], select, [tabindex]:not([tabindex='-1'])");
+          if (first) first.focus();
+          else menu.focus();
+        }
+      });
+    } else if (arrow && menu.contains(document.activeElement)) {
+      arrow.focus();
+    }
   }
 
   function installCloseListeners() {
@@ -1949,21 +2043,21 @@
     });
   }
 
-  document.addEventListener("turbo:load", scheduleMount);
-  document.addEventListener("pjax:end", scheduleMount);
-  window.addEventListener("popstate", scheduleMount);
+  document.addEventListener("turbo:load", handleNavigation);
+  document.addEventListener("pjax:end", handleNavigation);
+  window.addEventListener("popstate", handleNavigation);
   window.addEventListener("resize", scheduleLayoutRefresh, { passive: true });
   window.addEventListener("scroll", () => {
     const menu = document.getElementById(MENU_ID);
     if (menu && !menu.hidden) requestAnimationFrame(positionMenu);
+    if (!observedPageHost || releaseScrollFrame) return;
     const repo = parseRepository();
-    if (isReleasesRoute(repo) && !releaseScrollFrame) {
-      releaseScrollFrame = requestAnimationFrame(() => {
-        releaseScrollFrame = null;
-        scheduleMount();
-      });
-    }
+    if (!isReleasesRoute(repo)) return;
+    releaseScrollFrame = requestAnimationFrame(() => {
+      releaseScrollFrame = null;
+      scheduleMount();
+    });
   }, { passive: true, capture: true });
-  new MutationObserver(scheduleMount).observe(document.documentElement, { childList: true, subtree: true });
+  configurePageObserver();
   scheduleMount();
 })();

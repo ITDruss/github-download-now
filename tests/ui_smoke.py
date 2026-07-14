@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,6 +16,10 @@ html = html.replace(
 html = html.replace(
     '<script src="../../src/settings.js"></script>',
     f'<script>{(ROOT / "src" / "settings.js").read_text(encoding="utf-8")}</script>'
+)
+html = html.replace(
+    '<script src="../../src/url-policy.js"></script>',
+    f'<script>{(ROOT / "src" / "url-policy.js").read_text(encoding="utf-8")}</script>'
 )
 html = html.replace(
     '<script src="../../src/asset-selector.js"></script>',
@@ -35,7 +40,11 @@ cases = [
 ]
 
 with sync_playwright() as p:
-    browser = p.chromium.launch(headless=True, executable_path="/usr/bin/chromium", args=["--no-sandbox"])
+    launch_options = {"headless": True, "args": ["--no-sandbox"]}
+    chromium_path = os.environ.get("GHDN_CHROMIUM_PATH", "").strip()
+    if chromium_path:
+        launch_options["executable_path"] = chromium_path
+    browser = p.chromium.launch(**launch_options)
 
     # Wide desktop: integrate after the complete Star control.
     for locale, badge, heading, output in cases:
@@ -57,10 +66,15 @@ with sync_playwright() as p:
         assert page.locator(".ghdn-badge").first.text_content() == badge
         assert page.locator(".ghdn-section-heading").first.text_content().strip() == heading
         assert page.locator(".ghdn-asset").count() >= 6
+        assert page.locator("#ghdn-menu").get_by_text("evil.AppImage", exact=True).count() == 0
+        assert page.locator("#ghdn-menu").get_attribute("role") == "dialog"
         assert page.locator("#ghdn-menu").evaluate("node => node.parentElement === document.body")
         assert page.locator("#ghdn-menu").evaluate("node => getComputedStyle(node).position === 'fixed'")
         assert page.locator(".ghdn-source-actions").count() == 1
         assert page.locator(".ghdn-guide-toggle").count() >= 5
+        # Store screenshot: show the complete recommendation menu before
+        # expanding installation guidance or build-document details.
+        page.screenshot(path=str(output), full_page=False)
         page.locator(".ghdn-guide-toggle").first.click()
         page.wait_for_selector(".ghdn-install-guide:not([hidden])")
         guide_commands = page.locator(".ghdn-install-guide:not([hidden]) .ghdn-install-command")
@@ -71,15 +85,14 @@ with sync_playwright() as p:
         page.wait_for_selector(".ghdn-build-doc-link")
         docs = page.locator(".ghdn-build-doc-link")
         assert docs.count() == 2
-        assert docs.nth(0).text_content().strip() == "CONTRIBUTING.md"
-        assert docs.nth(0).get_attribute("href").endswith("/CONTRIBUTING.md")
+        assert docs.nth(0).text_content().strip() == "Building → Linux"
+        assert docs.nth(0).get_attribute("href").endswith("/README.md#linux")
         assert page.locator(".ghdn-build-code").count() == 0
 
         namespaces = page.locator("#ghdn-root svg, #ghdn-menu svg").evaluate_all(
             "nodes => nodes.map(node => node.namespaceURI)"
         )
         assert namespaces and all(value == "http://www.w3.org/2000/svg" for value in namespaces)
-        page.screenshot(path=str(output), full_page=False)
         context.close()
 
     # GitHub row-reverse toolbar: visual placement is to the right of Star,
@@ -113,6 +126,18 @@ with sync_playwright() as p:
     root_box = root.bounding_box()
     star_box = page.locator(".star-group").bounding_box()
     assert root_box and star_box and root_box["x"] > star_box["x"]
+    context.close()
+
+    # Public-only policy fails closed when repository visibility is negative.
+    context = browser.new_context(viewport={"width": 1280, "height": 800}, locale="en-US", device_scale_factor=1)
+    page = context.new_page()
+    private_html = html.replace(
+        'window.__GHDN_TEST_REPOSITORY__ = {owner: "localsend", repo: "localsend"};',
+        'window.__GHDN_TEST_REPOSITORY__ = {owner: "localsend", repo: "localsend", public: false};'
+    )
+    page.set_content(private_html, wait_until="load")
+    page.wait_for_timeout(250)
+    assert page.locator("#ghdn-root").count() == 0
     context.close()
 
     # Hidden legacy header on the main repository page: visible in-flow control.
@@ -207,6 +232,7 @@ with sync_playwright() as p:
     page.click("[data-role='menu']")
     page.wait_for_selector("#ghdn-menu:not([hidden])")
     page.wait_for_function("document.querySelectorAll('.ghdn-version-select option').length >= 3")
+    page.screenshot(path=str(OUTPUTS / "releases-version-menu-ru.png"), full_page=False)
     page.select_option(".ghdn-version-select", "v1.16.1")
     page.wait_for_function("document.querySelector('.ghdn-release-tag')?.textContent.includes('v1.16.1')")
     assert page.evaluate("window.__ghdnPageFetches.some(url => url.includes('/releases/expanded_assets/v1.16.1'))")
