@@ -2,6 +2,25 @@
 
 All notable changes to this project are documented here.
 
+## [0.4.3] - 2026-07-14
+
+### Fixed
+
+- Replaced the full-width control on GitHub Releases pages with a compact split button beside the visible release version.
+- The Releases-page button now requests and recommends assets for the selected release tag instead of always using the latest release.
+- Added route and layout regression coverage for Releases pages while preserving the existing repository toolbar and emergency fallback modes.
+- UI smoke tests now write generated screenshots to the ignored `test-results/` directory instead of modifying publication assets.
+- Positioned the compact release control directly beside the version and remount it for the release currently in view.
+- Anchored the Releases control inside the version text wrapper so wide GitHub flex rows cannot push it toward Compare.
+- Fixed opening extension settings from the injected GitHub menu in Chromium.
+- Read public release assets and version tags from GitHub pages before falling back to the REST API, greatly reducing quota usage.
+- Settings UI smoke tests now also write screenshots to the ignored `test-results/` directory.
+
+### Added
+
+- Added a release-version selector inside the download menu.
+- Made build-document discovery lazy so GitHub API quota is used only after the user expands that section.
+
 ## [0.4.2] - 2026-07-14
 
 ### Fixed

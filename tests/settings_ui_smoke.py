@@ -3,14 +3,15 @@ from base64 import b64encode
 from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
-ASSETS = ROOT / "assets"
+OUTPUTS = ROOT / "test-results" / "settings-ui"
+OUTPUTS.mkdir(parents=True, exist_ok=True)
 
 MOCK = r'''
 <script>
 const __settings = {preferredLinux:"deb", primaryAction:"menu", enabled:true};
 window.chrome = {
   runtime: {
-    getManifest: () => ({version:"0.4.2"}),
+    getManifest: () => ({version:"0.4.3"}),
     openOptionsPage: () => { window.__optionsOpened = true; },
     sendMessage: (message, callback) => {
       const response = message.type === "GHDN_GET_DASHBOARD"
@@ -55,7 +56,7 @@ with sync_playwright() as p:
     assert page.locator("#primaryAction").input_value() == "menu"
     page.evaluate("document.querySelector('#preferredFormat').value='appimage'; document.querySelector('#preferredFormat').dispatchEvent(new Event('change',{bubbles:true}));")
     page.wait_for_function("__settings.preferredLinux === 'appimage'")
-    page.screenshot(path=str(ASSETS / "popup-settings-ru.png"), full_page=True)
+    page.screenshot(path=str(OUTPUTS / "popup-settings-ru.png"), full_page=True)
     context.close()
 
     context = browser.new_context(viewport={"width": 1100, "height": 900}, locale="ru-RU")
@@ -65,7 +66,7 @@ with sync_playwright() as p:
     assert page.locator("#generalTitle").text_content() == "Общие настройки"
     page.evaluate("document.querySelector('#buttonStyle').value='native'; document.querySelector('#buttonStyle').dispatchEvent(new Event('change',{bubbles:true}));")
     page.wait_for_function("__settings.buttonStyle === 'native'")
-    page.screenshot(path=str(ASSETS / "options-settings-ru.png"), full_page=True)
+    page.screenshot(path=str(OUTPUTS / "options-settings-ru.png"), full_page=True)
     context.close()
 
     browser.close()

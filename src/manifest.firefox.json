@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "GitHub Download Now",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "Adds a smart GitHub release download button, remembers downloads, and optionally watches repositories for new releases.",
   "icons": {
     "16": "icons/icon-16.png",

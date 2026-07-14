@@ -113,6 +113,30 @@ async function getRelease(owner, repo, platform, releaseChannel, options = {}) {
   return buildResponse(release, platform, false, result.etag || "");
 }
 
+async function getReleaseByTag(owner, repo, requestedTag, platform, options = {}) {
+  if (!VALID_PART.test(owner) || !VALID_PART.test(repo)) {
+    return { ok: false, error: "invalid_repository" };
+  }
+
+  const tag = validGitRef(requestedTag);
+  if (tag === null || !tag) return { ok: false, error: "invalid_ref" };
+
+  const cacheKey = `${owner.toLowerCase()}/${repo.toLowerCase()}:tag:${tag}`;
+  const cached = releaseCache.get(cacheKey);
+  if (!options.force && cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    return buildResponse(cached.release, platform, true, cached.etag);
+  }
+
+  const encoded = `${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
+  const url = `https://api.github.com/repos/${encoded}/releases/tags/${encodeURIComponent(tag)}`;
+  const result = await fetchJson(url, { etag: options.etag });
+  if (!result.ok || result.notModified) return result;
+
+  const release = sanitizeRelease(result.data);
+  releaseCache.set(cacheKey, { timestamp: Date.now(), release, etag: result.etag || "" });
+  return buildResponse(release, platform, false, result.etag || "");
+}
+
 function buildResponse(release, platform, fromCache, etag = "") {
   const selection = selector.recommendation(release.assets, platform || {});
   return {
@@ -594,6 +618,23 @@ async function updateBadge(updatesArg = null, settingsArg = null) {
   } catch (_error) {}
 }
 
+
+async function openOptionsPage() {
+  if (extensionApi.runtime && typeof extensionApi.runtime.openOptionsPage === "function") {
+    try {
+      await extensionApi.runtime.openOptionsPage();
+      return { ok: true };
+    } catch (_error) {}
+  }
+  const url = extensionApi.runtime.getURL("options.html");
+  if (extensionApi.tabs && extensionApi.tabs.create) {
+    if (typeof browser !== "undefined") await extensionApi.tabs.create({ url });
+    else await new Promise((resolve) => extensionApi.tabs.create({ url }, resolve));
+    return { ok: true, fallback: true };
+  }
+  return { ok: false, error: "options_unavailable" };
+}
+
 async function openTab(url) {
   if (!url || !/^https?:\/\//i.test(url)) return;
   if (typeof browser !== "undefined") await extensionApi.tabs.create({ url });
@@ -645,6 +686,9 @@ extensionApi.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case "GHDN_GET_LATEST_RELEASE":
       operation = getRelease(message.owner, message.repo, message.platform, message.releaseChannel);
       break;
+    case "GHDN_GET_RELEASE_BY_TAG":
+      operation = getReleaseByTag(message.owner, message.repo, message.tag, message.platform);
+      break;
     case "GHDN_GET_BUILD_INSTRUCTIONS":
       operation = getBuildInstructions(message.owner, message.repo, message.ref);
       break;
@@ -671,6 +715,9 @@ extensionApi.runtime.onMessage.addListener((message, sender, sendResponse) => {
       break;
     case "GHDN_OPEN_URL":
       operation = openTab(message.url).then(() => ({ ok: true }));
+      break;
+    case "GHDN_OPEN_OPTIONS":
+      operation = openOptionsPage();
       break;
     case "GHDN_CLEAR_HISTORY":
       operation = clearHistory();

@@ -12,6 +12,7 @@ GitHub Download Now — open-source расширение для Chromium и Fire
 - поддержка x64, x86, ARM64 и ARM;
 - выбор подходящих установщиков и пакетов для каждой платформы: EXE и MSI, DMG и PKG, AppImage, DEB и RPM, APK и других форматов;
 - структурированное меню альтернативных сборок;
+- компактная кнопка рядом с выбранной версией на странице GitHub Releases, использующая файлы именно этого тега;
 - исключение checksum, подписей, SBOM, debug-файлов и исходников из автоматической рекомендации;
 - поиск файлов с документацией по сборке для выбранного тега релиза и прямые ссылки на оригинальные файлы GitHub без интерпретации или запуска команд;
 - локальные проверенные подсказки по установке и запуску AppImage, DEB, RPM, Flatpak, Snap, Windows/macOS/Android-пакетов, архивов и других распространённых форматов;
@@ -38,7 +39,7 @@ GitHub Download Now — open-source расширение для Chromium и Fire
 
 ### Chromium
 
-1. Распаковать `github-download-now-chromium-v0.4.2.zip`.
+1. Распаковать `github-download-now-chromium-v0.4.3.zip`.
 2. Открыть `chrome://extensions`.
 3. Включить **Режим разработчика**.
 4. Нажать **Загрузить распакованное расширение**.
@@ -46,7 +47,7 @@ GitHub Download Now — open-source расширение для Chromium и Fire
 
 ### Firefox
 
-1. Распаковать `github-download-now-firefox-v0.4.2.zip`.
+1. Распаковать `github-download-now-firefox-v0.4.3.zip`.
 2. Открыть `about:debugging#/runtime/this-firefox`.
 3. Нажать **Загрузить временное дополнение**.
 4. Выбрать `manifest.json`.

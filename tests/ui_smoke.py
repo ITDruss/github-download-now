@@ -4,6 +4,8 @@ from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parents[1]
 DEMO = ROOT / "tests" / "fixtures" / "demo.html"
 ASSETS = ROOT / "assets"
+OUTPUTS = ROOT / "test-results" / "ui-smoke"
+OUTPUTS.mkdir(parents=True, exist_ok=True)
 
 html = DEMO.read_text(encoding="utf-8")
 html = html.replace(
@@ -28,8 +30,8 @@ html = html.replace(
 )
 
 cases = [
-    ("ru-RU", "Рекомендуется", "Подходит для вашего устройства", ASSETS / "screenshot-recommended-ru.png"),
-    ("en-US", "Recommended", "Suitable for your device", ASSETS / "screenshot-recommended-en.png"),
+    ("ru-RU", "Рекомендуется", "Подходит для вашего устройства", OUTPUTS / "screenshot-recommended-ru.png"),
+    ("en-US", "Recommended", "Suitable for your device", OUTPUTS / "screenshot-recommended-en.png"),
 ]
 
 with sync_playwright() as p:
@@ -65,6 +67,7 @@ with sync_playwright() as p:
         assert guide_commands.count() == 2
         assert guide_commands.nth(0).text_content().startswith("chmod +x --")
         assert "AppImage" in guide_commands.nth(1).text_content()
+        page.locator(".ghdn-build-docs > summary").click()
         page.wait_for_selector(".ghdn-build-doc-link")
         docs = page.locator(".ghdn-build-doc-link")
         assert docs.count() == 2
@@ -141,6 +144,78 @@ with sync_playwright() as p:
     assert root.evaluate("node => node.parentElement === document.body")
     pull_box = root.bounding_box()
     assert pull_box and pull_box["width"] < 300 and pull_box["x"] > 900 and pull_box["y"] > 600
+    context.close()
+
+    # Releases page: compact, tag-specific control beside the selected release title.
+    context = browser.new_context(viewport={"width": 1280, "height": 800}, locale="ru-RU", device_scale_factor=1)
+    page = context.new_page()
+    release_markup = """
+    <section id="release-v1.17.0" data-release-anchor="release-v1.17.0" style="margin:24px 0;border:1px solid #d0d7de;border-radius:8px;padding:20px">
+      <h2 class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden">v1.17.0</h2>
+      <div class="release-heading-row" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+        <div class="release-heading-main" style="display:flex;flex:1;align-items:center;min-width:0">
+          <span class="release-version-text" style="display:inline;font-size:28px;font-weight:700">
+            <a href="/localsend/localsend/releases/tag/v1.17.0" style="text-decoration:none">v1.17.0</a>
+          </span>
+          <span class="latest-badge" style="margin-left:8px;border:1px solid #1a7f37;border-radius:999px;padding:2px 7px;color:#1a7f37">Latest</span>
+        </div>
+        <div class="release-heading-actions"><button class="native-btn">Compare</button></div>
+      </div>
+      <p>Selected release summary.</p>
+    </section>
+    <div style="height:720px"></div>
+    <section id="release-v1.16.1" data-release-anchor="release-v1.16.1" style="margin:24px 0;border:1px solid #d0d7de;border-radius:8px;padding:20px">
+      <h2 class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden">v1.16.1</h2>
+      <div class="release-heading-row" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+        <div class="release-heading-main" style="display:flex;flex:1;align-items:center;min-width:0">
+          <span class="release-version-text old-release-title" style="display:inline;font-size:28px;font-weight:700">
+            <a href="/localsend/localsend/releases/tag/v1.16.1" style="text-decoration:none">v1.16.1</a>
+          </span>
+        </div>
+        <div class="release-heading-actions"><button class="native-btn">Compare</button></div>
+      </div>
+      <p>Older release summary.</p>
+    </section>
+    """
+    releases_html = hidden_header_html.replace(
+        'window.__GHDN_TEST_REPOSITORY__ = {owner: "localsend", repo: "localsend"};',
+        'window.__GHDN_TEST_REPOSITORY__ = {owner: "localsend", repo: "localsend", parts: ["localsend", "localsend", "releases"]};'
+    ).replace(
+        '<div class="content">',
+        release_markup + '<div class="content" style="display:none">',
+        1
+    )
+    page.set_content(releases_html, wait_until="load")
+    page.wait_for_selector("#ghdn-root")
+    root = page.locator("#ghdn-root")
+    assert root.get_attribute("data-placement") == "release"
+    assert root.get_attribute("data-release-tag") == "v1.17.0"
+    assert root.evaluate("node => node.parentElement.classList.contains('release-version-text')")
+    assert root.evaluate("""node => node.previousElementSibling?.matches('a[href*="/releases/tag/"]')""")
+    release_box = root.bounding_box()
+    title_box = page.locator('.release-version-text > a').first.bounding_box()
+    compare_box = page.locator('.release-heading-actions .native-btn').first.bounding_box()
+    assert release_box and title_box and compare_box and release_box["width"] < 260
+    assert 0 <= release_box["x"] - (title_box["x"] + title_box["width"]) <= 16
+    assert release_box["x"] + release_box["width"] < compare_box["x"] - 24
+    assert not root.evaluate("node => node.parentElement === document.body")
+    page.hover("#ghdn-root .ghdn-button-group")
+    page.wait_for_function("document.querySelector('.ghdn-primary-title-full')?.textContent.includes('AppImage')")
+    assert page.evaluate("window.__ghdnPageFetches.some(url => url.includes('/releases/expanded_assets/v1.17.0'))")
+    assert not page.evaluate("window.__ghdnMessages.some(message => message.type === 'GHDN_GET_RELEASE_BY_TAG')")
+
+    page.click("[data-role='menu']")
+    page.wait_for_selector("#ghdn-menu:not([hidden])")
+    page.wait_for_function("document.querySelectorAll('.ghdn-version-select option').length >= 3")
+    page.select_option(".ghdn-version-select", "v1.16.1")
+    page.wait_for_function("document.querySelector('.ghdn-release-tag')?.textContent.includes('v1.16.1')")
+    assert page.evaluate("window.__ghdnPageFetches.some(url => url.includes('/releases/expanded_assets/v1.16.1'))")
+
+    page.locator('[id="release-v1.16.1"]').scroll_into_view_if_needed()
+    page.wait_for_function("document.querySelector('#ghdn-root')?.dataset.releaseTag === 'v1.16.1'")
+    assert page.locator("#ghdn-root").evaluate("node => node.parentElement.classList.contains('old-release-title')")
+    assert page.locator("#ghdn-root").evaluate("node => node.previousElementSibling?.textContent.trim() === 'v1.16.1'")
+    page.screenshot(path=str(OUTPUTS / "releases-compact-button-ru.png"), full_page=False)
     context.close()
 
     # Modern GitHub-like layout: hidden legacy header plus a separate visible actions toolbar.
@@ -226,7 +301,7 @@ with sync_playwright() as p:
     page.click(".ghdn-primary")
     page.wait_for_selector("#ghdn-install-prompt")
     assert page.locator("#ghdn-install-prompt .ghdn-install-command").count() == 2
-    assert page.evaluate("window.__ghdnDownloaded === 'https://example.test/appimage'")
+    assert page.evaluate("window.__ghdnDownloaded.includes('/releases/download/v1.17.0/') && window.__ghdnDownloaded.endsWith('.AppImage')")
     assert page.locator("#ghdn-install-prompt").evaluate("node => node.parentElement.id === 'ghdn-notice-stack'")
     context.close()
 
