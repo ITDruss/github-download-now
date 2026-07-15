@@ -9,6 +9,8 @@ ASSETS.mkdir(parents=True, exist_ok=True)
 
 DARK = (13, 17, 23, 255)
 DARK_2 = (22, 27, 34, 255)
+PURPLE = (130, 80, 223, 255)
+PURPLE_BRIGHT = (163, 113, 247, 255)
 GREEN = (31, 136, 61, 255)
 GREEN_BRIGHT = (46, 160, 67, 255)
 WHITE = (255, 255, 255, 255)
@@ -23,65 +25,92 @@ def rounded_rect(draw, box, radius, fill, outline=None, width=1):
     draw.rounded_rectangle(box, radius=radius, fill=fill, outline=outline, width=width)
 
 
-def draw_download_mark(image, box, background=True):
+def draw_brand_mark(image, box, background=True, compact=False):
     draw = ImageDraw.Draw(image)
     x0, y0, x1, y1 = box
     w, h = x1 - x0, y1 - y0
+    scale = min(w, h)
     if background:
-        rounded_rect(draw, box, max(4, int(w * 0.2)), DARK_2)
+        rounded_rect(draw, box, int(scale * 0.22), DARK)
+
+    inset = scale * 0.13
+    ring_box = (x0 + inset, y0 + inset, x1 - inset, y1 - inset)
+    ring_width = max(3, int(scale * (0.065 if compact else 0.055)))
+    # Three broken arcs give the mark its own silhouette without copying GitHub branding.
+    draw.arc(ring_box, 205, 335, fill=PURPLE_BRIGHT, width=ring_width)
+    draw.arc(ring_box, 145, 190, fill=PURPLE, width=ring_width)
+    draw.arc(ring_box, 350, 395, fill=PURPLE, width=ring_width)
+
     cx = (x0 + x1) / 2
-    top = y0 + h * 0.22
-    shaft_bottom = y0 + h * 0.58
-    line_w = max(2, int(w * 0.09))
-    draw.line((cx, top, cx, shaft_bottom), fill=GREEN_BRIGHT, width=line_w)
+    joint_y = y0 + h * 0.52
+    top_y = y0 + h * 0.27
+    side_y = y0 + h * 0.36
+    side_dx = w * 0.245
+    line_width = max(4, int(scale * (0.085 if compact else 0.075)))
+
+    draw.line((cx, top_y, cx, joint_y), fill=WHITE, width=line_width)
+    draw.line((cx, joint_y, cx - side_dx, side_y), fill=WHITE, width=line_width)
+    draw.line((cx, joint_y, cx + side_dx, side_y), fill=WHITE, width=line_width)
+
+    node_radius = scale * (0.09 if compact else 0.082)
+    hole_radius = node_radius * 0.38
+    for nx, ny in ((cx, top_y), (cx - side_dx, side_y), (cx + side_dx, side_y)):
+        draw.ellipse((nx-node_radius, ny-node_radius, nx+node_radius, ny+node_radius), fill=WHITE)
+        draw.ellipse((nx-hole_radius, ny-hole_radius, nx+hole_radius, ny+hole_radius), fill=DARK)
+
+    stem_top = joint_y - line_width * 0.15
+    stem_bottom = y0 + h * 0.72
+    draw.rectangle((cx-line_width/2, stem_top, cx+line_width/2, stem_bottom), fill=WHITE)
+    arrow_half = w * (0.25 if compact else 0.285)
+    arrow_top = y0 + h * 0.63
+    arrow_tip = y0 + h * 0.86
     draw.polygon([
-        (cx - w * 0.20, y0 + h * 0.50),
-        (cx, y0 + h * 0.70),
-        (cx + w * 0.20, y0 + h * 0.50),
-    ], fill=GREEN_BRIGHT)
-    draw.line((x0 + w * 0.25, y0 + h * 0.78, x0 + w * 0.75, y0 + h * 0.78), fill=WHITE, width=line_w)
+        (cx-arrow_half, arrow_top),
+        (cx+arrow_half, arrow_top),
+        (cx, arrow_tip),
+    ], fill=WHITE)
 
 
-# Extension icons: 96px artwork centered on a transparent 128px canvas.
 master = Image.new("RGBA", (1024, 1024), (0, 0, 0, 0))
-draw_download_mark(master, (128, 128, 896, 896), background=True)
-for size in (16, 32, 48, 128):
-    icon = master.resize((size, size), Image.Resampling.LANCZOS)
-    icon.save(ICONS / f"icon-{size}.png")
+draw_brand_mark(master, (64, 64, 960, 960), background=True)
 master.save(ASSETS / "icon-master.png")
+for size in (16, 32, 48, 128):
+    source = Image.new("RGBA", (512, 512), (0, 0, 0, 0))
+    draw_brand_mark(source, (24, 24, 488, 488), background=True, compact=size <= 32)
+    source.resize((size, size), Image.Resampling.LANCZOS).save(ICONS / f"icon-{size}.png")
 
 
 def make_social_preview():
     image = Image.new("RGBA", (1280, 640), DARK)
+    glow = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    gd = ImageDraw.Draw(glow)
+    gd.ellipse((640, -260, 1420, 760), fill=(130, 80, 223, 72))
+    glow = glow.filter(ImageFilter.GaussianBlur(70))
+    image.alpha_composite(glow)
     draw = ImageDraw.Draw(image)
-    # subtle panels
-    for i in range(8):
-        alpha = 20 + i * 4
-        draw.ellipse((760 + i * 20, -180 + i * 10, 1450 + i * 40, 600 + i * 20), fill=(31, 136, 61, alpha))
-    draw_download_mark(image, (72, 88, 232, 248), background=True)
-    title = ImageFont.truetype(FONT_BOLD, 50)
-    subtitle = ImageFont.truetype(FONT_REGULAR, 28)
-    small = ImageFont.truetype(FONT_BOLD, 20)
-    draw.text((72, 285), "GitHub Download Now", font=title, fill=WHITE)
-    draw.text((76, 370), "The right release asset. One bright button.", font=subtitle, fill=MUTED)
-    rounded_rect(draw, (76, 450, 455, 500), 12, GREEN)
-    draw.text((103, 462), "Linux  ·  x64  ·  AppImage", font=small, fill=WHITE)
+    draw_brand_mark(image, (70, 68, 245, 243), background=True)
+    title = ImageFont.truetype(FONT_BOLD, 49)
+    subtitle = ImageFont.truetype(FONT_REGULAR, 27)
+    small = ImageFont.truetype(FONT_BOLD, 19)
+    draw.text((72, 278), "GitHub Download Now", font=title, fill=WHITE)
+    draw.text((76, 360), "The right release asset. One clear action.", font=subtitle, fill=MUTED)
+    rounded_rect(draw, (76, 438, 455, 490), 12, GREEN)
+    draw.text((103, 451), "Linux  ·  x64  ·  AppImage", font=small, fill=WHITE)
 
-    # UI card
-    card = (735, 95, 1205, 545)
+    card = (730, 88, 1205, 552)
     shadow = Image.new("RGBA", image.size, (0, 0, 0, 0))
     sd = ImageDraw.Draw(shadow)
-    rounded_rect(sd, (card[0] + 10, card[1] + 14, card[2] + 10, card[3] + 14), 24, (0, 0, 0, 115))
+    rounded_rect(sd, (card[0] + 10, card[1] + 14, card[2] + 10, card[3] + 14), 24, (0, 0, 0, 120))
     shadow = shadow.filter(ImageFilter.GaussianBlur(18))
     image.alpha_composite(shadow)
     draw = ImageDraw.Draw(image)
     rounded_rect(draw, card, 24, DARK_2, BORDER, 2)
-    rounded_rect(draw, (790, 132, 1150, 202), 14, GREEN)
-    draw_download_mark(image, (810, 145, 855, 190), background=False)
+    draw.arc((770, 112, 825, 167), 205, 335, fill=PURPLE_BRIGHT, width=5)
+    rounded_rect(draw, (785, 132, 1150, 202), 14, GREEN)
     button_font = ImageFont.truetype(FONT_BOLD, 22)
     meta_font = ImageFont.truetype(FONT_REGULAR, 15)
-    draw.text((872, 147), "Download AppImage", font=button_font, fill=WHITE)
-    draw.text((872, 174), "Linux · x64 · Recommended", font=meta_font, fill=(220, 255, 227, 255))
+    draw.text((820, 147), "Download AppImage", font=button_font, fill=WHITE)
+    draw.text((820, 174), "Linux · x64 · Recommended", font=meta_font, fill=(220, 255, 227, 255))
     row_font = ImageFont.truetype(FONT_BOLD, 17)
     for idx, (label, meta, selected) in enumerate([
         ("AppImage", "Linux · x64 · 92 MB", True),
@@ -102,15 +131,12 @@ def make_promo(size, name):
     w, h = size
     image = Image.new("RGBA", size, DARK)
     draw = ImageDraw.Draw(image)
-    # saturated green field and abstract browser card, no text
-    draw.ellipse((int(w * 0.44), int(-h * 0.45), int(w * 1.24), int(h * 1.3)), fill=(31, 136, 61, 255))
-    draw.ellipse((int(w * 0.60), int(-h * 0.15), int(w * 1.08), int(h * 0.9)), fill=(46, 160, 67, 255))
-    logo_size = int(min(w, h) * 0.42)
-    draw_download_mark(image, (int(w * 0.09), int((h - logo_size) / 2), int(w * 0.09) + logo_size, int((h + logo_size) / 2)), background=True)
-    card_x0 = int(w * 0.46)
-    card_y0 = int(h * 0.20)
-    card_x1 = int(w * 0.93)
-    card_y1 = int(h * 0.80)
+    draw.ellipse((int(w * 0.48), int(-h * 0.60), int(w * 1.20), int(h * 1.35)), fill=PURPLE)
+    draw.ellipse((int(w * 0.66), int(-h * 0.16), int(w * 1.08), int(h * 0.88)), fill=PURPLE_BRIGHT)
+    logo_size = int(min(w, h) * 0.48)
+    draw_brand_mark(image, (int(w * 0.07), int((h-logo_size)/2), int(w * 0.07)+logo_size, int((h+logo_size)/2)), background=True, compact=True)
+    card_x0, card_y0 = int(w * 0.48), int(h * 0.20)
+    card_x1, card_y1 = int(w * 0.93), int(h * 0.80)
     rounded_rect(draw, (card_x0, card_y0, card_x1, card_y1), max(8, int(h * .04)), DARK_2, (255,255,255,55), 2)
     button_h = int((card_y1-card_y0)*.24)
     rounded_rect(draw, (card_x0+int(w*.03), card_y0+int(h*.06), card_x1-int(w*.03), card_y0+int(h*.06)+button_h), max(6, int(h*.025)), GREEN_BRIGHT)

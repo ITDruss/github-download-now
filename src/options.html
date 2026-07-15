@@ -50,6 +50,40 @@
       </div>
     </section>
 
+    <section class="card auth-card" id="githubAuthCard">
+      <div class="auth-heading">
+        <div>
+          <h2 id="githubAuthTitle"></h2>
+          <p class="note" id="githubAuthNote"></p>
+        </div>
+        <span class="auth-badge" id="githubAuthBadge"></span>
+      </div>
+      <ul class="auth-benefits">
+        <li id="githubAuthBenefitLimit"></li>
+        <li id="githubAuthBenefitDiscovery"></li>
+        <li id="githubAuthBenefitPrivacy"></li>
+      </ul>
+      <div id="githubAuthDisconnected" class="auth-state">
+        <button id="githubAuthConnect" class="brand-button" type="button"></button>
+      </div>
+      <div id="githubAuthPending" class="auth-state" hidden>
+        <div class="device-code-wrap">
+          <span id="githubAuthCodeLabel"></span>
+          <code id="githubAuthCode"></code>
+        </div>
+        <p class="note auth-pending-note" id="githubAuthPendingNote"></p>
+        <button id="githubAuthOpenDevice" type="button"></button>
+      </div>
+      <div id="githubAuthConnected" class="auth-state connected" hidden>
+        <div>
+          <strong id="githubAuthAccount"></strong>
+          <p class="note" id="githubAuthRate"></p>
+        </div>
+        <button id="githubAuthDisconnect" class="danger" type="button"></button>
+      </div>
+      <p id="githubAuthMessage" class="auth-message" aria-live="polite"></p>
+    </section>
+
     <section class="card">
       <h2 id="releasesTitle"></h2>
       <div class="grid two">

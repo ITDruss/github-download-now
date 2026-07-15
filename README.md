@@ -17,10 +17,13 @@ It adds a clear download control to repository pages, detects the current operat
 - Rejects external or cross-repository links that imitate GitHub Release paths.
 - Excludes checksums, signatures, SBOMs, source archives and developer-only Android App Bundles from automatic recommendations.
 - Finds dedicated build documents and useful `Building` sections inside README files, including operating-system-specific subsections.
+- Follows a small, ranked set of same-repository README links to find component-specific instructions such as `libpiper/README.md`, with depth and API-budget limits.
 - Links to original GitHub documentation without inventing or executing commands.
 - Shows deterministic installation and launch guidance with copyable commands using the exact filename.
 - Keeps optional local download history and opt-in repository watches.
 - Rotates background checks in small batches and respects GitHub API rate limits.
+- Offers an optional scope-free GitHub connection for a larger API budget; anonymous public-only mode remains fully available.
+- Uses an original purple repository-branch/download mark while keeping green for successful download actions.
 - Supports Russian and English interfaces.
 
 ## Privacy and security
@@ -28,6 +31,8 @@ It adds a clear download control to repository pages, detects the current operat
 The extension has no analytics, advertising, AI service, developer-operated backend or remote executable code.
 
 GitHub Download Now supports public repositories only and fails closed when GitHub does not expose a positive public-repository marker. It reads public release data already present on the current GitHub page and may make anonymous requests to public `github.com` pages. The official GitHub REST API is used as a fallback, for user-requested build-document discovery and for opt-in update checks. Page requests omit GitHub session credentials.
+
+Users may optionally connect GitHub through the official OAuth Device Flow with no requested scopes. This raises the API budget for public requests but does not enable private-repository support. The token stays in `storage.local`, is never synchronized or sent to the developer, and its local copy can be removed with **Disconnect**. Full server-side revocation remains available in GitHub Settings → Applications. Browser extension storage is not an encrypted credential vault; see the complete policy before enabling the connection.
 
 Release and source URLs are accepted only when their origin, repository and path match the expected GitHub resource. Download history, watched repositories and rate-limit scheduling metadata stay in `storage.local`; preferences may be synchronized by the browser through `storage.sync`.
 
@@ -45,7 +50,7 @@ Android in the feature list means the extension can recognise APK/APKS/AAB relea
 
 ### Chromium
 
-1. Extract `github-download-now-chromium-v1.0.0.zip`.
+1. Extract `github-download-now-chromium-v1.1.0.zip`.
 2. Open `chrome://extensions`.
 3. Enable **Developer mode**.
 4. Choose **Load unpacked**.
@@ -53,7 +58,7 @@ Android in the feature list means the extension can recognise APK/APKS/AAB relea
 
 ### Firefox
 
-1. Extract `github-download-now-firefox-v1.0.0.zip`.
+1. Extract `github-download-now-firefox-v1.1.0.zip`.
 2. Open `about:debugging#/runtime/this-firefox`.
 3. Choose **Load Temporary Add-on**.
 4. Select `manifest.json`.
@@ -101,18 +106,18 @@ The build uses an explicit source-file allowlist. Unknown files in `src/` fail v
 - `storage`: saves settings and optional local update-tracking data.
 - `alarms`: schedules batched checks for explicitly watched repositories.
 - `notifications` (optional): displays update notifications only after the user enables them.
-- `https://github.com/*`: displays the interface and reads public data from the currently open repository page.
-- `https://api.github.com/*`: requests public release metadata and build-document locations from GitHub.
+- `https://github.com/*`: displays the interface on public repository pages and, only after an explicit connection action, uses GitHub's official OAuth Device Flow endpoints.
+- `https://api.github.com/*`: requests public release metadata, build documents, rate-limit status and watched-repository updates.
 
-The extension does not request cookie, download-history, browsing-history or GitHub-token permissions.
+The extension does not request cookie, download-history or browsing-history permissions. Optional GitHub authentication is initiated only from settings, requests no OAuth scopes and is disclosed in [PRIVACY.md](PRIVACY.md).
 
 ## Supply-chain verification
 
 Release workflows create SHA-256 checksums and signed GitHub artifact attestations. A downloaded release can be checked with:
 
 ```bash
-sha256sum -c SHA256SUMS-v1.0.0.txt
-gh attestation verify github-download-now-chromium-v1.0.0.zip -R ITDruss/github-download-now
+sha256sum -c SHA256SUMS-v1.1.0.txt
+gh attestation verify github-download-now-chromium-v1.1.0.zip -R ITDruss/github-download-now
 ```
 
 ## Contributing

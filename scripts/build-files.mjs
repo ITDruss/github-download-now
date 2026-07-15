@@ -3,6 +3,7 @@ export const EXTENSION_FILES = Object.freeze([
   "background.js",
   "build-instructions.js",
   "content.js",
+  "github-auth.js",
   "install-guides.js",
   "options.css",
   "options.html",

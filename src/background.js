@@ -6,6 +6,7 @@ if (typeof importScripts === "function") {
   if (!globalThis.GHDNTracker) importScripts("tracker.js");
   if (!globalThis.GHDNUrlPolicy) importScripts("url-policy.js");
   if (!globalThis.GHDNBuildInstructions) importScripts("build-instructions.js");
+  if (!globalThis.GHDNGitHubAuth) importScripts("github-auth.js");
 }
 
 const extensionApi = typeof browser !== "undefined" ? browser : chrome;
@@ -14,6 +15,7 @@ const selector = globalThis.GHDNAssetSelector;
 const tracker = globalThis.GHDNTracker;
 const buildInstructions = globalThis.GHDNBuildInstructions;
 const urlPolicy = globalThis.GHDNUrlPolicy;
+const githubAuth = globalThis.GHDNGitHubAuth;
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const BUILD_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const MAX_CACHE_ENTRIES = 50;
@@ -21,8 +23,13 @@ const UPDATE_BATCH_SIZE = 8;
 const MAX_RELEASE_ASSETS = 500;
 const MAX_API_RESPONSE_CHARS = 8_000_000;
 const MAX_BUILD_DOCUMENT_CHARS = 2_000_000;
+const GUIDED_LINK_LIMIT = 3;
+const GUIDED_DIRECTORY_LIMIT = 2;
+const GUIDED_DOCUMENT_LIMIT = 3;
+const BUILD_RATE_LIMIT_RESERVE = 10;
 const releaseCache = new Map();
 const buildInstructionsCache = new Map();
+let githubAuthCache;
 const VALID_PART = /^[A-Za-z0-9_.-]{1,100}$/;
 const UPDATE_ALARM = "ghdn-update-check";
 const NOTIFICATION_PREFIX = "ghdn-update:";
@@ -111,14 +118,48 @@ function rateLimitDetails(response) {
   };
 }
 
+async function getStoredGitHubAuth() {
+  if (!githubAuth) return null;
+  if (githubAuthCache !== undefined) return githubAuthCache;
+  const stored = await localGet({ [githubAuth.STORAGE_KEY]: null });
+  githubAuthCache = githubAuth.normalizeStoredAuth(stored[githubAuth.STORAGE_KEY]);
+  return githubAuthCache;
+}
+
+async function clearStoredGitHubAuth() {
+  githubAuthCache = null;
+  if (!githubAuth) return;
+  await localRemove([githubAuth.STORAGE_KEY]);
+}
+
+async function saveStoredGitHubAuth(value) {
+  const clean = githubAuth && githubAuth.normalizeStoredAuth(value);
+  if (!clean) throw new Error("Invalid GitHub authorization state");
+  githubAuthCache = clean;
+  await localSet({ [githubAuth.STORAGE_KEY]: clean });
+  return clean;
+}
+
+async function githubApiHeaders(options = {}) {
+  const headers = {
+    "Accept": options.accept || "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28"
+  };
+  const auth = options.token
+    ? { token: String(options.token) }
+    : options.skipAuth ? null : await getStoredGitHubAuth();
+  if (auth && githubAuth && githubAuth.TOKEN_PATTERN.test(auth.token)) {
+    headers.Authorization = `Bearer ${auth.token}`;
+  }
+  if (options.etag) headers["If-None-Match"] = options.etag;
+  return headers;
+}
+
 async function fetchJson(url, options = {}) {
   const trusted = urlPolicy && urlPolicy.apiUrl(url);
   if (!trusted) return { ok: false, error: "untrusted_url" };
-  const headers = {
-    "Accept": "application/vnd.github+json",
-    "X-GitHub-Api-Version": "2022-11-28"
-  };
-  if (options.etag) headers["If-None-Match"] = options.etag;
+  const headers = await githubApiHeaders(options);
+  const usedStoredAuth = Boolean(headers.Authorization && !options.token && !options.skipAuth);
 
   const response = await fetch(trusted.href, {
     method: "GET",
@@ -138,7 +179,15 @@ async function fetchJson(url, options = {}) {
     };
   }
 
+  if (response.status === 401 && usedStoredAuth) {
+    await clearStoredGitHubAuth();
+    if (options.allowAnonymousFallback !== false) {
+      return fetchJson(trusted.href, { ...options, skipAuth: true, etag: "" });
+    }
+  }
+
   if (!response.ok) {
+    if (response.status === 401) return { ok: false, error: "invalid_token", status: 401, rateLimit };
     if (response.status === 404) return { ok: false, error: "no_release", status: 404, rateLimit };
     if ((response.status === 403 || response.status === 429) && (rateLimit.remaining === 0 || response.status === 429)) {
       return { ok: false, error: "rate_limited", status: response.status, resetAt: rateLimit.resetAt, rateLimit };
@@ -240,23 +289,27 @@ function buildResponse(release, platform, fromCache, etag = "", rateLimit = null
 }
 
 
-async function fetchText(url) {
+async function fetchText(url, options = {}) {
   const trusted = urlPolicy && urlPolicy.apiUrl(url);
   if (!trusted) return { ok: false, error: "untrusted_url" };
+  const headers = await githubApiHeaders({ ...options, accept: "application/vnd.github.raw+json" });
+  const usedStoredAuth = Boolean(headers.Authorization && !options.token && !options.skipAuth);
   const response = await fetch(trusted.href, {
     method: "GET",
     credentials: "omit",
     redirect: "error",
     referrerPolicy: "no-referrer",
-    headers: {
-      "Accept": "application/vnd.github.raw+json",
-      "X-GitHub-Api-Version": "2022-11-28"
-    }
+    headers
   });
   if (!urlPolicy.apiUrl(response.url || trusted.href)) return { ok: false, error: "untrusted_redirect" };
   const rateLimit = rateLimitDetails(response);
 
+  if (response.status === 401 && usedStoredAuth) {
+    await clearStoredGitHubAuth();
+    return fetchText(trusted.href, { ...options, skipAuth: true });
+  }
   if (!response.ok) {
+    if (response.status === 401) return { ok: false, error: "invalid_token", status: 401, rateLimit };
     if (response.status === 404) return { ok: false, error: "not_found", status: 404, rateLimit };
     if ((response.status === 403 || response.status === 429) && (rateLimit.remaining === 0 || response.status === 429)) {
       return { ok: false, error: "rate_limited", status: response.status, resetAt: rateLimit.resetAt, rateLimit };
@@ -325,6 +378,26 @@ async function getContentDirectory(owner, repo, path, ref) {
   return { ok: true, entries, rateLimit: result.rateLimit || null };
 }
 
+function repositoryDocumentUrl(owner, repo, ref, path, type = "file") {
+  const encodedPath = String(path || "")
+    .split("/")
+    .filter(Boolean)
+    .map((part) => encodeURIComponent(part))
+    .join("/");
+  if (!encodedPath) return "";
+  const mode = type === "dir" ? "tree" : "blob";
+  const encodedRef = encodeURIComponent(ref || "HEAD");
+  return `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/${mode}/${encodedRef}/${encodedPath}`;
+}
+
+function discoveryReserveReached(rateLimit) {
+  return Boolean(
+    rateLimit &&
+    Number.isFinite(rateLimit.remaining) &&
+    rateLimit.remaining <= BUILD_RATE_LIMIT_RESERVE
+  );
+}
+
 async function getBuildInstructions(owner, repo, requestedRef = "", platformInput = {}) {
   if (!VALID_PART.test(owner) || !VALID_PART.test(repo)) return { ok: false, error: "invalid_repository" };
   if (!buildInstructions || !urlPolicy) return { ok: false, error: "internal_error" };
@@ -346,35 +419,61 @@ async function getBuildInstructions(owner, repo, requestedRef = "", platformInpu
   }
   if (!rootResult.ok) return rootResult;
 
+  let lastRateLimit = rootResult.rateLimit || null;
   const entries = [...rootResult.entries];
+  const checked = [];
   const docsDirectories = rootResult.entries.filter((entry) => entry.type === "dir" && /^(docs?|documentation)$/i.test(entry.name));
   for (const directory of docsDirectories.slice(0, 2)) {
+    if (discoveryReserveReached(lastRateLimit)) break;
     const docsResult = await getContentDirectory(owner, repo, directory.path, refUsed);
     if (!docsResult.ok) {
       if (docsResult.error === "rate_limited") break;
       continue;
     }
+    lastRateLimit = docsResult.rateLimit || lastRateLimit;
     entries.push(...docsResult.entries);
   }
 
   const candidates = buildInstructions.chooseCandidates(entries, 10);
   const discovered = [];
+  const guidedLinks = [];
+  const seenGuided = new Set();
+
+  function addGuided(items) {
+    for (const item of items) {
+      const key = `${item.type}:${String(item.path).toLowerCase()}`;
+      if (seenGuided.has(key)) continue;
+      seenGuided.add(key);
+      guidedLinks.push(item);
+    }
+  }
+
+  function addFileDocument(candidate, trusted, scoreAdjustment = 0) {
+    discovered.push({
+      type: "file",
+      path: candidate.path,
+      title: candidate.path,
+      htmlUrl: trusted.href,
+      score: candidate.score + scoreAdjustment
+    });
+  }
+
   for (const candidate of candidates) {
     const trusted = urlPolicy.repositoryWebUrl(candidate.html_url, owner, repo);
     if (!trusted) continue;
+    checked.push(candidate.path);
     if (!buildInstructions.isReadme(candidate.path)) {
-      discovered.push({
-        type: "file",
-        path: candidate.path,
-        title: candidate.path,
-        htmlUrl: trusted.href,
-        score: candidate.score
-      });
+      addFileDocument(candidate, trusted);
       continue;
     }
 
+    if (discoveryReserveReached(lastRateLimit)) {
+      addFileDocument(candidate, trusted, -12);
+      continue;
+    }
     const raw = await fetchText(contentsUrl(owner, repo, candidate.path, refUsed));
     if (raw.ok) {
+      lastRateLimit = raw.rateLimit || lastRateLimit;
       const sections = buildInstructions.chooseReadmeSections(raw.text, platform, 5);
       for (const section of sections) {
         discovered.push({
@@ -385,14 +484,76 @@ async function getBuildInstructions(owner, repo, requestedRef = "", platformInpu
           score: section.score + Math.min(20, candidate.score / 5)
         });
       }
+      if (candidate.path.split("/").length <= 2) {
+        addGuided(buildInstructions.chooseGuidedLinks(
+          raw.text,
+          candidate.path,
+          owner,
+          repo,
+          GUIDED_LINK_LIMIT
+        ));
+      }
     }
-    discovered.push({
-      type: "file",
-      path: candidate.path,
-      title: candidate.path,
-      htmlUrl: trusted.href,
-      score: candidate.score - 12
-    });
+    addFileDocument(candidate, trusted, -12);
+  }
+
+  let guidedDirectories = 0;
+  let guidedDocuments = 0;
+  for (const link of guidedLinks.slice(0, GUIDED_LINK_LIMIT)) {
+    if (guidedDocuments >= GUIDED_DOCUMENT_LIMIT || discoveryReserveReached(lastRateLimit)) break;
+    let linkedCandidates = [];
+
+    if (link.type === "dir") {
+      if (guidedDirectories >= GUIDED_DIRECTORY_LIMIT) continue;
+      guidedDirectories += 1;
+      const directoryResult = await getContentDirectory(owner, repo, link.path, refUsed);
+      if (!directoryResult.ok) {
+        if (directoryResult.error === "rate_limited") break;
+        continue;
+      }
+      lastRateLimit = directoryResult.rateLimit || lastRateLimit;
+      linkedCandidates = buildInstructions.chooseCandidates(directoryResult.entries, 4);
+    } else {
+      linkedCandidates = [{
+        type: "file",
+        name: link.path.split("/").pop(),
+        path: link.path,
+        html_url: repositoryDocumentUrl(owner, repo, refUsed, link.path),
+        score: link.score
+      }];
+    }
+
+    for (const candidate of linkedCandidates) {
+      if (guidedDocuments >= GUIDED_DOCUMENT_LIMIT || discoveryReserveReached(lastRateLimit)) break;
+      if (checked.some((path) => path.toLowerCase() === candidate.path.toLowerCase())) continue;
+      const htmlUrl = candidate.html_url || repositoryDocumentUrl(owner, repo, refUsed, candidate.path);
+      const trusted = urlPolicy.repositoryWebUrl(htmlUrl, owner, repo);
+      if (!trusted) continue;
+      checked.push(candidate.path);
+      guidedDocuments += 1;
+
+      const raw = await fetchText(contentsUrl(owner, repo, candidate.path, refUsed));
+      if (raw.ok) {
+        lastRateLimit = raw.rateLimit || lastRateLimit;
+        const sections = buildInstructions.chooseReadmeSections(raw.text, platform, 5);
+        for (const section of sections) {
+          discovered.push({
+            type: "section",
+            path: candidate.path,
+            title: section.context || section.title,
+            htmlUrl: `${trusted.href}#${section.anchor}`,
+            score: section.score + Math.min(28, (Number(link.score) || 0) / 6)
+          });
+        }
+      }
+      discovered.push({
+        type: "file",
+        path: candidate.path,
+        title: `${link.label || candidate.path} — ${candidate.path}`,
+        htmlUrl: trusted.href,
+        score: (Number(candidate.score) || Number(link.score) || 70) - 10
+      });
+    }
   }
 
   const documents = buildInstructions.rankDocuments(discovered, 6).map(({ type, path, title, htmlUrl }) => ({ type, path, title, htmlUrl }));
@@ -407,7 +568,13 @@ async function getBuildInstructions(owner, repo, requestedRef = "", platformInpu
     refRequested: ref,
     refUsed: refUsed || "default",
     usedDefaultBranchFallback,
-    checked: candidates.map((candidate) => candidate.path)
+    guidedDiscovery: {
+      followed: guidedLinks.slice(0, GUIDED_LINK_LIMIT).map(({ path, type, label }) => ({ path, type, label })),
+      directoriesChecked: guidedDirectories,
+      documentsChecked: guidedDocuments
+    },
+    rateLimit: lastRateLimit,
+    checked
   };
   setLimitedCache(buildInstructionsCache, cacheKey, { timestamp: Date.now(), value });
   return value;
@@ -441,6 +608,184 @@ async function localGet(defaults) {
 async function localSet(values) {
   if (typeof browser !== "undefined") return extensionApi.storage.local.set(values);
   return chromeStorageSet(extensionApi.storage.local, values);
+}
+
+function chromeStorageRemove(area, keys) {
+  return new Promise((resolve, reject) => {
+    area.remove(keys, () => {
+      const error = extensionApi.runtime && extensionApi.runtime.lastError;
+      if (error) reject(new Error(error.message));
+      else resolve();
+    });
+  });
+}
+
+async function localRemove(keys) {
+  if (typeof browser !== "undefined") return extensionApi.storage.local.remove(keys);
+  return chromeStorageRemove(extensionApi.storage.local, keys);
+}
+
+async function restrictLocalStorageToTrustedContexts() {
+  const area = extensionApi.storage && extensionApi.storage.local;
+  if (!area || typeof area.setAccessLevel !== "function") return;
+  try {
+    if (typeof browser !== "undefined") await area.setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" });
+    else await new Promise((resolve) => {
+      area.setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" }, resolve);
+    });
+  } catch (_error) {}
+}
+
+async function oauthPost(endpoint, body) {
+  const trusted = urlPolicy && urlPolicy.oauthEndpoint(endpoint);
+  if (!trusted) return { ok: false, error: "untrusted_url" };
+  const response = await fetch(trusted.href, {
+    method: "POST",
+    headers: {
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    body,
+    credentials: "omit",
+    redirect: "error",
+    referrerPolicy: "no-referrer"
+  });
+  if (!urlPolicy.oauthEndpoint(response.url || trusted.href)) return { ok: false, error: "untrusted_redirect" };
+  if (!response.ok) return { ok: false, error: "oauth_http_error", status: response.status };
+  const contentLength = Number(response.headers.get("content-length"));
+  if (Number.isFinite(contentLength) && contentLength > 100_000) return { ok: false, error: "oauth_response_too_large" };
+  const text = await response.text();
+  if (text.length > 100_000) return { ok: false, error: "oauth_response_too_large" };
+  try { return { ok: true, data: JSON.parse(text) }; }
+  catch (_error) { return { ok: false, error: "invalid_oauth_response" }; }
+}
+
+async function readGitHubAuthPending() {
+  if (!githubAuth) return null;
+  const stored = await localGet({ [githubAuth.PENDING_KEY]: null });
+  const pending = stored[githubAuth.PENDING_KEY];
+  if (!pending || typeof pending !== "object") return null;
+  const expiresAt = Date.parse(pending.expiresAt || "");
+  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+    await localRemove([githubAuth.PENDING_KEY]);
+    return null;
+  }
+  if (!githubAuth.TOKEN_PATTERN.test(String(pending.deviceCode || ""))) return null;
+  if (pending.verificationUri !== githubAuth.VERIFICATION_URI) return null;
+  return pending;
+}
+
+async function publicGitHubAuthStatus(options = {}) {
+  if (!githubAuth) return { ok: false, error: "auth_unavailable" };
+  let auth = await getStoredGitHubAuth();
+  const pending = await readGitHubAuthPending();
+  if (auth && options.refresh) {
+    const rate = await fetchJson("https://api.github.com/rate_limit", {
+      token: auth.token,
+      allowAnonymousFallback: false
+    });
+    if (!rate.ok && rate.error === "invalid_token") {
+      await clearStoredGitHubAuth();
+      auth = null;
+    } else if (rate.ok) {
+      const rateLimit = githubAuth.normalizeRateLimit(rate.data);
+      if (rateLimit) auth = await saveStoredGitHubAuth({ ...auth, rateLimit });
+    }
+  }
+  return { ok: true, ...githubAuth.publicStatus(auth, pending) };
+}
+
+async function openGitHubDeviceVerification(value) {
+  const trusted = urlPolicy && urlPolicy.deviceVerification(value);
+  if (!trusted || !extensionApi.tabs || !extensionApi.tabs.create) return { ok: false, error: "verification_unavailable" };
+  if (typeof browser !== "undefined") await extensionApi.tabs.create({ url: trusted.href });
+  else await new Promise((resolve) => {
+    extensionApi.tabs.create({ url: trusted.href }, resolve);
+  });
+  return { ok: true };
+}
+
+async function startGitHubAuthorization() {
+  if (!githubAuth) return { ok: false, error: "auth_unavailable" };
+  const existing = await getStoredGitHubAuth();
+  if (existing) return { ok: false, error: "already_connected", ...githubAuth.publicStatus(existing) };
+
+  const request = await oauthPost(githubAuth.DEVICE_CODE_ENDPOINT, githubAuth.deviceCodeBody());
+  if (!request.ok) return request;
+  const pending = githubAuth.normalizeDeviceResponse(request.data);
+  if (!pending) return { ok: false, error: "invalid_device_response" };
+  await localSet({ [githubAuth.PENDING_KEY]: pending });
+  await openGitHubDeviceVerification(pending.verificationUri);
+  return { ok: true, ...githubAuth.publicStatus(null, pending) };
+}
+
+async function pollGitHubAuthorization() {
+  if (!githubAuth) return { ok: false, error: "auth_unavailable" };
+  const existing = await getStoredGitHubAuth();
+  if (existing) return { ok: true, ...githubAuth.publicStatus(existing) };
+  const pending = await readGitHubAuthPending();
+  if (!pending) return { ok: false, error: "no_pending_authorization" };
+
+  const now = Date.now();
+  const nextPollAt = Math.max(0, Number(pending.nextPollAt) || 0);
+  if (now < nextPollAt) {
+    return {
+      ok: true,
+      ...githubAuth.publicStatus(null, pending),
+      retryAfterMs: nextPollAt - now
+    };
+  }
+
+  const locked = { ...pending, nextPollAt: now + Math.max(5, Number(pending.interval) || 5) * 1000 };
+  await localSet({ [githubAuth.PENDING_KEY]: locked });
+  const request = await oauthPost(githubAuth.ACCESS_TOKEN_ENDPOINT, githubAuth.accessTokenBody(pending.deviceCode));
+  if (!request.ok) return request;
+  const tokenResult = githubAuth.normalizeTokenResponse(request.data);
+
+  if (!tokenResult.ok) {
+    if (tokenResult.error === "authorization_pending" || tokenResult.error === "slow_down") {
+      const interval = Math.min(60, Math.max(5, Number(pending.interval) || 5) + (tokenResult.error === "slow_down" ? 5 : 0));
+      const updated = { ...pending, interval, nextPollAt: Date.now() + interval * 1000 };
+      await localSet({ [githubAuth.PENDING_KEY]: updated });
+      return { ok: true, ...githubAuth.publicStatus(null, updated), waiting: true };
+    }
+    await localRemove([githubAuth.PENDING_KEY]);
+    return tokenResult;
+  }
+
+  const rateResult = await fetchJson("https://api.github.com/rate_limit", {
+    token: tokenResult.token,
+    allowAnonymousFallback: false
+  });
+  const rateLimit = rateResult.ok ? githubAuth.normalizeRateLimit(rateResult.data) : null;
+  const auth = await saveStoredGitHubAuth({
+    token: tokenResult.token,
+    tokenType: tokenResult.tokenType,
+    scope: tokenResult.scope,
+    connectedAt: new Date().toISOString(),
+    rateLimit
+  });
+  await localRemove([githubAuth.PENDING_KEY]);
+  return { ok: true, ...githubAuth.publicStatus(auth) };
+}
+
+async function disconnectGitHubAuthorization() {
+  if (!githubAuth) return { ok: false, error: "auth_unavailable" };
+  await localRemove([githubAuth.STORAGE_KEY, githubAuth.PENDING_KEY]);
+  githubAuthCache = null;
+  releaseCache.clear();
+  buildInstructionsCache.clear();
+  return { ok: true, ...githubAuth.publicStatus(null) };
+}
+
+function trustedExtensionSender(sender) {
+  const origin = extensionApi.runtime && extensionApi.runtime.getURL ? extensionApi.runtime.getURL("") : "";
+  return Boolean(
+    sender &&
+    (!sender.id || sender.id === extensionApi.runtime.id) &&
+    typeof sender.url === "string" &&
+    origin && sender.url.startsWith(origin)
+  );
 }
 
 function trustedReleasePage(value, owner, repo, expectedTag) {
@@ -907,12 +1252,17 @@ async function ensureUpdateAlarm() {
 }
 
 async function initializeBackground() {
+  await restrictLocalStorageToTrustedContexts();
   await ensureUpdateAlarm();
   await updateBadge();
 }
 
 extensionApi.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || typeof message.type !== "string") return false;
+  if (message.type.startsWith("GHDN_AUTH_") && !trustedExtensionSender(sender)) {
+    sendResponse({ ok: false, error: "unauthorized_sender" });
+    return false;
+  }
   let operation;
   switch (message.type) {
     case "GHDN_GET_LATEST_RELEASE":
@@ -923,6 +1273,18 @@ extensionApi.runtime.onMessage.addListener((message, sender, sendResponse) => {
       break;
     case "GHDN_GET_BUILD_INSTRUCTIONS":
       operation = getBuildInstructions(message.owner, message.repo, message.ref, message.platform);
+      break;
+    case "GHDN_AUTH_STATUS":
+      operation = publicGitHubAuthStatus({ refresh: Boolean(message.refresh) });
+      break;
+    case "GHDN_AUTH_START":
+      operation = startGitHubAuthorization();
+      break;
+    case "GHDN_AUTH_POLL":
+      operation = pollGitHubAuthorization();
+      break;
+    case "GHDN_AUTH_DISCONNECT":
+      operation = disconnectGitHubAuthorization();
       break;
     case "GHDN_RECORD_DOWNLOAD":
       operation = recordDownload(message.download, sender);
@@ -981,6 +1343,7 @@ if (extensionApi.runtime.onStartup) extensionApi.runtime.onStartup.addListener((
 
 if (extensionApi.storage && extensionApi.storage.onChanged) {
   extensionApi.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === "local" && githubAuth && changes[githubAuth.STORAGE_KEY]) githubAuthCache = undefined;
     if (areaName !== "sync") return;
     if (changes.updateCheckInterval || changes.enabled) ensureUpdateAlarm().catch(console.error);
     if (changes.badgeEnabled || changes.enabled) updateBadge().catch(console.error);

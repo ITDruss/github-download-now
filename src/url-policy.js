@@ -118,6 +118,19 @@
     return url && url.origin === GITHUB_API_ORIGIN ? { url, href: url.href } : null;
   }
 
+  function oauthEndpoint(value) {
+    const url = parse(value);
+    if (!url || url.origin !== GITHUB_ORIGIN || !hasNoQueryOrFragment(url)) return null;
+    if (!new Set(["/login/device/code", "/login/oauth/access_token"]).has(url.pathname)) return null;
+    return { url, href: url.href };
+  }
+
+  function deviceVerification(value) {
+    const url = parse(value);
+    if (!url || url.origin !== GITHUB_ORIGIN || !hasNoQueryOrFragment(url)) return null;
+    return url.pathname === "/login/device" ? { url, href: url.href } : null;
+  }
+
   return {
     GITHUB_ORIGIN,
     GITHUB_API_ORIGIN,
@@ -130,6 +143,8 @@
     apiArchive,
     download,
     repositoryWebUrl,
-    apiUrl
+    apiUrl,
+    oauthEndpoint,
+    deviceVerification
   };
 });

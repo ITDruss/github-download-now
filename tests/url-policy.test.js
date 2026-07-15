@@ -73,4 +73,11 @@ assert.equal(policy.releaseTag(
   "localsend",
   "localsend"
 ), null);
+assert.equal(policy.oauthEndpoint("https://github.com/login/device/code").href, "https://github.com/login/device/code");
+assert.equal(policy.oauthEndpoint("https://github.com/login/oauth/access_token").href, "https://github.com/login/oauth/access_token");
+assert.equal(policy.oauthEndpoint("https://github.com/login/device"), null);
+assert.equal(policy.oauthEndpoint("https://evil.example/login/device/code"), null);
+assert.equal(policy.deviceVerification("https://github.com/login/device").href, "https://github.com/login/device");
+assert.equal(policy.deviceVerification("https://github.com/login/device?x=1"), null);
+
 console.log("URL policy tests: OK");

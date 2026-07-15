@@ -29,17 +29,19 @@ window.__dashboard = {
 };
 window.chrome = {
   runtime: {
-    getManifest: () => ({version:"1.0.0"}),
+    getManifest: () => ({version:"1.1.0"}),
     openOptionsPage: () => { window.__optionsOpened = true; },
     sendMessage: (message, callback) => {
       const response = message.type === "GHDN_GET_DASHBOARD"
         ? window.__dashboard
-        : {ok:true, detected:[]};
+        : message.type === "GHDN_AUTH_STATUS"
+          ? {ok:true, connected:false, pending:null, rateLimit:null}
+          : {ok:true, detected:[]};
       if (callback) callback(response);
     },
     lastError: null
   },
-  permissions: { request: (_value, callback) => callback(true) },
+  permissions: { getAll: (callback) => callback({permissions:[]}), request: (_value, callback) => callback(true) },
   storage: {
     sync: {
       get: (defaults, callback) => callback({...defaults, ...__settings}),
@@ -93,6 +95,12 @@ with sync_playwright() as p:
     page.evaluate("document.querySelector('#buttonStyle').value='native'; document.querySelector('#buttonStyle').dispatchEvent(new Event('change',{bubbles:true}));")
     page.wait_for_function("__settings.buttonStyle === 'native'")
     page.screenshot(path=str(OUTPUTS / "options-settings-ru.png"), full_page=False)
+    page.locator("#githubAuthCard").scroll_into_view_if_needed()
+    page.screenshot(path=str(OUTPUTS / "options-github-connect-ru.png"), full_page=False)
+    assert page.locator("#githubAuthConnect").text_content() == "Подключить GitHub"
+    assert "5 000" in page.locator("#githubAuthBenefitLimit").text_content()
+    assert page.locator("#githubAuthPending").is_hidden()
+    assert page.locator("#githubAuthConnected").is_hidden()
     context.close()
 
     browser.close()

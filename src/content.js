@@ -1981,6 +1981,7 @@
     if (root) root.classList.toggle("ghdn-menu-open", open);
     if (arrow) arrow.setAttribute("aria-expanded", String(open));
     if (open) {
+      positionMenu();
       requestAnimationFrame(() => {
         positionMenu();
         if (document.activeElement === arrow) {
