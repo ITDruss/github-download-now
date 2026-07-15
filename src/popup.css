@@ -52,3 +52,10 @@ body.disabled .tabs, body.disabled .panel { opacity: .52; }
   body { min-width: 0; background: color-mix(in srgb, CanvasText 4%, Canvas); }
   .popup { width: min(560px, calc(100vw - 32px)); max-height: none; margin: 30px auto; padding: 20px; border: 1px solid color-mix(in srgb, CanvasText 15%, transparent); border-radius: 12px; background: Canvas; box-shadow: 0 8px 30px color-mix(in srgb, CanvasText 10%, transparent); }
 }
+
+:root { --ghdn-brand: #8250df; --ghdn-brand-strong: #6e40c9; }
+.header img { border-radius: 10px; box-shadow: 0 4px 14px color-mix(in srgb, var(--ghdn-brand) 28%, transparent); }
+.tab.active { color: var(--ghdn-brand); }
+.tab:focus-visible, select:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--ghdn-brand); outline-offset: 2px; }
+.options-button { background: var(--ghdn-brand); border-color: var(--ghdn-brand); }
+.options-button:hover { background: var(--ghdn-brand-strong); }

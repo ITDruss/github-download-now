@@ -26,8 +26,8 @@ Outputs:
 ```text
 dist/chromium/
 dist/firefox/
-github-download-now-chromium-v1.0.0.zip
-github-download-now-firefox-v1.0.0.zip
+github-download-now-chromium-v1.1.0.zip
+github-download-now-firefox-v1.1.0.zip
 ```
 
 `npm run package` performs only these transformations:

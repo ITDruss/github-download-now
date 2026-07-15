@@ -11,7 +11,7 @@ for (const file of ["manifest.chromium.json", "manifest.firefox.json"]) {
   const manifest = JSON.parse(fs.readFileSync(path.join(root, "src", file), "utf8"));
   assert.equal(manifest.manifest_version, 3);
   assert.equal(manifest.version, packageJson.version, `${file} version must match package.json`);
-  assert.deepEqual(manifest.host_permissions, ["https://api.github.com/*"]);
+  assert.deepEqual(manifest.host_permissions, ["https://api.github.com/*", "https://github.com/*"]);
   assert.ok(manifest.content_scripts[0].matches.includes("https://github.com/*"));
   assert.deepEqual(manifest.permissions, ["storage", "alarms"]);
   assert.deepEqual(manifest.optional_permissions, ["notifications"]);
@@ -27,9 +27,11 @@ for (const file of ["manifest.chromium.json", "manifest.firefox.json"]) {
   if (file === "manifest.firefox.json") {
     assert.equal(manifest.browser_specific_settings.gecko.strict_min_version, "140.0");
     assert.deepEqual(manifest.browser_specific_settings.gecko.data_collection_permissions.required, ["browsingActivity"]);
+    assert.deepEqual(manifest.browser_specific_settings.gecko.data_collection_permissions.optional, ["authenticationInfo"]);
     assert.equal(manifest.browser_specific_settings.gecko_android.strict_min_version, "142.0");
     assert.deepEqual(manifest.background.scripts.slice(0, 2), ["settings.js", "url-policy.js"]);
     assert.ok(manifest.background.scripts.indexOf("build-instructions.js") < manifest.background.scripts.indexOf("background.js"));
+    assert.ok(manifest.background.scripts.indexOf("github-auth.js") < manifest.background.scripts.indexOf("background.js"));
   }
 }
 

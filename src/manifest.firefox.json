@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "GitHub Download Now",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Adds a smart GitHub release download button, remembers downloads, and optionally watches repositories for new releases.",
   "icons": {
     "16": "icons/icon-16.png",
@@ -10,7 +10,8 @@
     "128": "icons/icon-128.png"
   },
   "host_permissions": [
-    "https://api.github.com/*"
+    "https://api.github.com/*",
+    "https://github.com/*"
   ],
   "background": {
     "scripts": [
@@ -19,6 +20,7 @@
       "asset-selector.js",
       "tracker.js",
       "build-instructions.js",
+      "github-auth.js",
       "background.js"
     ]
   },
@@ -47,6 +49,9 @@
       "data_collection_permissions": {
         "required": [
           "browsingActivity"
+        ],
+        "optional": [
+          "authenticationInfo"
         ]
       }
     },

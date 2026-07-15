@@ -57,11 +57,15 @@ for (const manifest of [chromium, firefox]) {
   assert(manifest.manifest_version === 3, "Manifest V3 is required");
   assert(JSON.stringify(manifest.permissions) === JSON.stringify(["storage", "alarms"]), "Unexpected required permissions");
   assert(JSON.stringify(manifest.optional_permissions) === JSON.stringify(["notifications"]), "Unexpected optional permissions");
-  assert(JSON.stringify(manifest.host_permissions) === JSON.stringify(["https://api.github.com/*"]), "Unexpected host permissions");
+  assert(JSON.stringify(manifest.host_permissions) === JSON.stringify(["https://api.github.com/*", "https://github.com/*"]), "Unexpected host permissions");
   assert(manifest.content_security_policy?.extension_pages === "script-src 'self'; object-src 'none'", "Strict extension CSP is required");
   const scripts = manifest.content_scripts?.[0]?.js || [];
   assert(scripts.includes("url-policy.js") && scripts.indexOf("url-policy.js") < scripts.indexOf("content.js"), "URL policy must load before content.js");
+  if (manifest.background?.scripts) assert(manifest.background.scripts.indexOf("github-auth.js") < manifest.background.scripts.indexOf("background.js"), "GitHub auth helpers must load before background.js");
 }
+
+assert(JSON.stringify(firefox.browser_specific_settings?.gecko?.data_collection_permissions?.required) === JSON.stringify(["browsingActivity"]), "Firefox required data collection disclosure is incorrect");
+assert(JSON.stringify(firefox.browser_specific_settings?.gecko?.data_collection_permissions?.optional) === JSON.stringify(["authenticationInfo"]), "Firefox optional authentication disclosure is incorrect");
 
 const forbidden = [
   { pattern: /\beval\s*\(/, label: "eval" },
@@ -89,6 +93,11 @@ assert(privacyPage.includes("fails closed"), "Published privacy page must descri
 assert(privacy.includes("credentials: omit"), "Privacy policy must disclose anonymous GitHub page requests");
 assert(privacyPage.includes("credentials: omit"), "Published privacy page must disclose anonymous GitHub page requests");
 assert(privacyPage.includes("https://github.com/ITDruss/github-download-now/blob/main/PRIVACY.md"), "Published privacy page must link to the canonical policy");
+assert(privacy.includes("OAuth Device Flow"), "Privacy policy must explain optional GitHub authorization");
+assert(privacy.includes("not an encrypted credential vault"), "Privacy policy must disclose local token storage limitations");
+assert(privacy.includes("requests no OAuth scopes"), "Privacy policy must disclose the scope-free authorization model");
+assert(privacyPage.includes("OAuth Device Flow"), "Published privacy page must explain optional GitHub authorization");
+assert(privacyPage.includes("not an encrypted credential vault"), "Published privacy page must disclose local token storage limitations");
 
 const requirements = (await readFile(path.join(root, "requirements-dev.txt"), "utf8")).trim();
 assert(requirements === "playwright==1.61.0", "Playwright must be pinned exactly");

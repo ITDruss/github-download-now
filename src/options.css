@@ -25,3 +25,28 @@ footer { display: flex; align-items: center; justify-content: flex-end; gap: 16p
 .data-actions button { padding: 0 13px; cursor: pointer; }
 .data-actions button:hover { background: color-mix(in srgb, CanvasText 7%, Canvas); }
 .data-actions .danger { color: #cf222e; }
+
+:root { --ghdn-brand: #8250df; --ghdn-brand-strong: #6e40c9; --ghdn-success: #1f883d; }
+.hero img { border-radius: 16px; box-shadow: 0 8px 24px color-mix(in srgb, var(--ghdn-brand) 25%, transparent); }
+.hero h1 { letter-spacing: -0.02em; }
+.auth-card { border-color: color-mix(in srgb, var(--ghdn-brand) 42%, transparent); }
+.auth-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.auth-heading .note { margin-bottom: 0; max-width: 650px; }
+.auth-badge { flex: 0 0 auto; padding: 4px 9px; border-radius: 999px; background: color-mix(in srgb, var(--ghdn-brand) 12%, Canvas); color: var(--ghdn-brand); font-size: 11px; font-weight: 750; }
+.auth-benefits { display: grid; gap: 7px; margin: 16px 0; padding-left: 20px; color: GrayText; font-size: 13px; }
+.auth-benefits li::marker { color: var(--ghdn-brand); }
+.auth-state { display: flex; align-items: center; gap: 12px; }
+.auth-state[hidden] { display: none !important; }
+.auth-state.connected { justify-content: space-between; padding: 12px 14px; border: 1px solid color-mix(in srgb, var(--ghdn-success) 30%, transparent); border-radius: 9px; background: color-mix(in srgb, var(--ghdn-success) 7%, Canvas); }
+.auth-state button { padding: 0 15px; cursor: pointer; }
+.brand-button { border-color: var(--ghdn-brand); background: var(--ghdn-brand); color: white; font-weight: 700; }
+.brand-button:hover { background: var(--ghdn-brand-strong); }
+.device-code-wrap { display: grid; gap: 5px; }
+.device-code-wrap span { color: GrayText; font-size: 12px; }
+.device-code-wrap code { padding: 8px 12px; border: 1px solid color-mix(in srgb, var(--ghdn-brand) 35%, transparent); border-radius: 8px; background: color-mix(in srgb, var(--ghdn-brand) 8%, Canvas); color: CanvasText; font-size: 20px; font-weight: 800; letter-spacing: .12em; }
+.auth-pending-note { flex: 1 1 auto; margin: 0; }
+.auth-message { min-height: 18px; margin: 10px 0 0; color: GrayText; font-size: 12px; }
+.auth-message.error { color: #cf222e; }
+.auth-state .danger { color: #cf222e; }
+select:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--ghdn-brand); outline-offset: 2px; }
+@media (max-width: 680px) { .auth-heading, .auth-state, .auth-state.connected { align-items: stretch; flex-direction: column; } }

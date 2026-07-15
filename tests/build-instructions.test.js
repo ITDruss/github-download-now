@@ -65,4 +65,36 @@ assert.equal(
   "build-linux"
 );
 
+const piperReadme = `
+* [C/C++ API][libpiper]
+* [Python API][api-python]
+* [Building manually][building]
+
+[libpiper]: https://github.com/OHF-Voice/piper1-gpl/tree/main/libpiper
+[api-python]: https://github.com/OHF-Voice/piper1-gpl/blob/main/docs/API_PYTHON.md
+[building]: https://github.com/OHF-Voice/piper1-gpl/blob/main/docs/BUILDING.md
+`;
+const guided = build.chooseGuidedLinks(piperReadme, "README.md", "OHF-Voice", "piper1-gpl", 3);
+assert.equal(guided[0].path, "libpiper");
+assert.equal(guided[0].type, "dir");
+assert.equal(guided[0].label, "C/C++ API");
+assert.ok(guided.some((item) => item.path === "docs/API_PYTHON.md" && item.type === "file"));
+assert.equal(
+  build.chooseGuidedLinks("[External](https://github.com/other/project/tree/main/lib)", "README.md", "OHF-Voice", "piper1-gpl").length,
+  0
+);
+assert.equal(
+  build.resolveGuidedTarget("../outside", "README.md", "OHF-Voice", "piper1-gpl"),
+  null
+);
+
+const rootRelative = build.chooseGuidedLinks(
+  "[C API](/OHF-Voice/piper1-gpl/tree/main/libpiper)",
+  "README.md",
+  "OHF-Voice",
+  "piper1-gpl"
+);
+assert.equal(rootRelative[0].path, "libpiper");
+assert.equal(rootRelative[0].type, "dir");
+
 console.log("build documentation discovery tests: OK");

@@ -1,12 +1,12 @@
 {
   "name": "github-download-now",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "A privacy-friendly cross-browser extension that recommends trusted GitHub Release assets, explains installation, and watches selected public repositories for updates.",
   "scripts": {
     "validate": "node scripts/validate-project.mjs",
-    "test:unit": "node tests/settings.test.js && node tests/tracker.test.js && node tests/url-policy.test.js && node tests/background.test.js && node tests/build-instructions.test.js && node tests/install-guides.test.js && node tests/asset-selector.test.js && node tests/manifest.test.js && node tests/release-notes.test.mjs",
-    "test": "npm run validate && npm run lint && npm run test:unit && node --check src/settings.js && node --check src/url-policy.js && node --check src/tracker.js && node --check src/build-instructions.js && node --check src/install-guides.js && node --check src/asset-selector.js && node --check src/background.js && node --check src/content.js && node --check src/popup.js && node --check src/options.js",
+    "test:unit": "node tests/settings.test.js && node tests/tracker.test.js && node tests/url-policy.test.js && node tests/github-auth.test.js && node tests/background.test.js && node tests/build-instructions.test.js && node tests/install-guides.test.js && node tests/asset-selector.test.js && node tests/manifest.test.js && node tests/release-notes.test.mjs",
+    "test": "npm run validate && npm run lint && npm run test:unit && node --check src/settings.js && node --check src/url-policy.js && node --check src/tracker.js && node --check src/github-auth.js && node --check src/build-instructions.js && node --check src/install-guides.js && node --check src/asset-selector.js && node --check src/background.js && node --check src/content.js && node --check src/popup.js && node --check src/options.js",
     "build": "node scripts/build.mjs",
     "package": "npm run build && python3 scripts/package.py",
     "ui-test": "python3 tests/ui_smoke.py",

@@ -19,17 +19,20 @@ let currentRelease = 17;
 let alarmInfo = null;
 let optionsOpened = 0;
 let apiRemaining = 60;
+let oauthPolls = 0;
 
 function area(store) {
   return {
     get(defaults, callback) { callback({ ...defaults, ...store }); },
     set(values, callback) { Object.assign(store, values); if (callback) callback(); },
+    remove(keys, callback) { for (const key of Array.isArray(keys) ? keys : [keys]) delete store[key]; if (callback) callback(); },
     clear(callback) { for (const key of Object.keys(store)) delete store[key]; if (callback) callback(); }
   };
 }
 
 global.chrome = {
   runtime: {
+    id: "test-extension-id",
     lastError: null,
     getURL: (value) => `chrome-extension://test/${value}`,
     openOptionsPage: () => { optionsOpened += 1; return Promise.resolve(); },
@@ -66,6 +69,7 @@ global.GHDNUrlPolicy = require("../src/url-policy.js");
 global.GHDNAssetSelector = require("../src/asset-selector.js");
 global.GHDNTracker = require("../src/tracker.js");
 global.GHDNBuildInstructions = require("../src/build-instructions.js");
+global.GHDNGitHubAuth = require("../src/github-auth.js");
 
 function response(body, status = 200, extraHeaders = {}) {
   apiRemaining = Math.max(0, apiRemaining - 1);
@@ -90,6 +94,45 @@ global.fetch = async (url, options = {}) => {
   const owner = apiMatch ? decodeURIComponent(apiMatch[1]) : "example";
   const repo = apiMatch ? decodeURIComponent(apiMatch[2]) : "app";
   const accept = String(options.headers && (options.headers.Accept || options.headers.accept) || "");
+
+  if (requestUrl === "https://github.com/login/device/code") {
+    return new Response(JSON.stringify({
+      device_code: "dc_abcdefghijklmnopqrstuvwxyz123456",
+      user_code: "ABCD-EFGH",
+      verification_uri: "https://github.com/login/device",
+      expires_in: 900,
+      interval: 5
+    }), { status: 200, headers: { "content-type": "application/json" } });
+  }
+  if (requestUrl === "https://github.com/login/oauth/access_token") {
+    oauthPolls += 1;
+    const data = oauthPolls === 1
+      ? { error: "authorization_pending" }
+      : { access_token: "gho_abcdefghijklmnopqrstuvwxyz1234567890", token_type: "bearer", scope: "" };
+    return new Response(JSON.stringify(data), { status: 200, headers: { "content-type": "application/json" } });
+  }
+  if (requestUrl === "https://api.github.com/rate_limit") {
+    return response(JSON.stringify({ resources: { core: { limit: 5000, remaining: 4998, reset: Math.floor(Date.now() / 1000) + 3600 } } }), 200, { "x-ratelimit-limit": "5000", "x-ratelimit-remaining": "4998" });
+  }
+
+  if (owner === "OHF-Voice" && repo === "piper1-gpl" && requestUrl.includes("/contents/libpiper/README.md") && accept.includes("raw")) {
+    return response("# Piper C/C++ API\n\n## Building\n\n```sh\ncmake -Bbuild\n```\n");
+  }
+  if (owner === "OHF-Voice" && repo === "piper1-gpl" && /\/contents\/libpiper(?:\?|$)/.test(requestUrl)) {
+    return response(JSON.stringify([{
+      type: "file", name: "README.md", path: "libpiper/README.md",
+      html_url: "https://github.com/OHF-Voice/piper1-gpl/blob/v1.4.2/libpiper/README.md"
+    }]));
+  }
+  if (owner === "OHF-Voice" && repo === "piper1-gpl" && requestUrl.includes("/contents/README.md") && accept.includes("raw")) {
+    return response("# Piper\n\n* [C/C++ API][libpiper]\n* [Building manually][building]\n\n[libpiper]: https://github.com/OHF-Voice/piper1-gpl/tree/main/libpiper\n[building]: https://github.com/OHF-Voice/piper1-gpl/blob/main/docs/BUILDING.md\n");
+  }
+  if (owner === "OHF-Voice" && repo === "piper1-gpl" && /\/contents(?:\?|$)/.test(requestUrl)) {
+    return response(JSON.stringify([{
+      type: "file", name: "README.md", path: "README.md",
+      html_url: "https://github.com/OHF-Voice/piper1-gpl/blob/v1.4.2/README.md"
+    }]));
+  }
 
   if (owner === "malformed") {
     return new Response("not-json", { status: 200, headers: { "content-type": "application/json" } });
@@ -169,12 +212,14 @@ global.fetch = async (url, options = {}) => {
 
 require(path.join("..", "src", "background.js"));
 
-function message(payload) {
+function message(payload, sender = { tab: { incognito: false } }) {
   return new Promise((resolve, reject) => {
-    const keepAlive = listeners.message(payload, { tab: { incognito: false } }, resolve);
-    if (!keepAlive) reject(new Error(`Message not handled: ${payload.type}`));
+    const keepAlive = listeners.message(payload, sender, resolve);
+    if (!keepAlive && !String(payload.type).startsWith("GHDN_AUTH_")) reject(new Error(`Message not handled: ${payload.type}`));
   });
 }
+
+const extensionSender = { id: "test-extension-id", url: "chrome-extension://test/options.html" };
 
 function download(owner = "example", repo = "app", release = 17) {
   const tag = `v1.${release}.0`;
@@ -203,6 +248,18 @@ function download(owner = "example", repo = "app", release = 17) {
   assert.equal(buildResult.recommended.htmlUrl, "https://github.com/example/app/blob/v1.17.0/README.md#linux");
   assert.ok(buildResult.documents.some((document) => document.path === "docs/INSTALL.md"));
   assert.equal("instructions" in buildResult, false);
+
+  const piperBuild = await message({
+    type: "GHDN_GET_BUILD_INSTRUCTIONS",
+    owner: "OHF-Voice",
+    repo: "piper1-gpl",
+    ref: "v1.4.2",
+    platform: { os: "linux" }
+  });
+  assert.equal(piperBuild.ok, true);
+  assert.ok(piperBuild.documents.some((document) => document.path === "libpiper/README.md" && document.title.includes("Building")));
+  assert.ok(piperBuild.checked.includes("libpiper/README.md"));
+  assert.equal(piperBuild.guidedDiscovery.directoriesChecked, 1);
 
   const taggedRelease = await message({
     type: "GHDN_GET_RELEASE_BY_TAG",
@@ -255,6 +312,33 @@ function download(owner = "example", repo = "app", release = 17) {
   assert.equal(crossTag.ok, true);
   assert.equal(crossTag.release.assets.length, 0);
   assert.equal(crossTag.recommendation.best, null);
+
+  const rejectedAuth = await message({ type: "GHDN_AUTH_STATUS" });
+  assert.equal(rejectedAuth.ok, false);
+  assert.equal(rejectedAuth.error, "unauthorized_sender");
+
+  const authStart = await message({ type: "GHDN_AUTH_START" }, extensionSender);
+  assert.equal(authStart.ok, true);
+  assert.equal(authStart.pending.userCode, "ABCD-EFGH");
+  const authorizationPage = new URL(openedTabs.at(-1));
+  assert.equal(authorizationPage.protocol, "https:");
+  assert.equal(authorizationPage.hostname, "github.com");
+  assert.equal(authorizationPage.port, "");
+  assert.equal(authorizationPage.pathname, "/login/device");
+  assert.equal(authorizationPage.search, "");
+  assert.equal(authorizationPage.hash, "");
+  const waiting = await message({ type: "GHDN_AUTH_POLL" }, extensionSender);
+  assert.equal(waiting.ok, true);
+  assert.equal(waiting.connected, false);
+  localStore.ghdnGithubAuthPendingV1.nextPollAt = 0;
+  const connected = await message({ type: "GHDN_AUTH_POLL" }, extensionSender);
+  assert.equal(connected.ok, true);
+  assert.equal(connected.connected, true);
+  assert.equal("token" in connected, false);
+  assert.ok(localStore.ghdnGithubAuthV1.token.startsWith("gho_"));
+  const disconnected = await message({ type: "GHDN_AUTH_DISCONNECT" }, extensionSender);
+  assert.equal(disconnected.connected, false);
+  assert.equal(localStore.ghdnGithubAuthV1, undefined);
 
   const optionsResult = await message({ type: "GHDN_OPEN_OPTIONS" });
   assert.equal(optionsResult.ok, true);

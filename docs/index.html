@@ -6,7 +6,7 @@
   <meta name="description" content="Privacy policy for the GitHub Download Now browser extension.">
   <title>GitHub Download Now — Privacy Policy</title>
   <style>
-    :root{color-scheme:light dark}body{font:16px/1.65 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:860px;margin:0 auto;padding:36px 22px;color:#1f2328;background:#fff}h1,h2{line-height:1.25}h1{margin-bottom:.25em}h2{margin-top:1.8em}code{background:#f6f8fa;padding:.15em .35em;border-radius:4px}a{color:#0969da}ul{padding-left:1.4em}.meta{color:#59636e}@media(prefers-color-scheme:dark){body{color:#f0f6fc;background:#0d1117}.meta{color:#9198a1}code{background:#161b22}a{color:#58a6ff}}
+    :root{color-scheme:light dark}body{font:16px/1.65 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:860px;margin:0 auto;padding:36px 22px;color:#1f2328;background:#fff}h1,h2{line-height:1.25}h1{margin-bottom:.25em}h2{margin-top:1.8em}code{background:#f6f8fa;padding:.15em .35em;border-radius:4px}a{color:#8250df}ul{padding-left:1.4em}.meta{color:#59636e}.notice{padding:14px 16px;border:1px solid #8250df55;border-radius:10px;background:#8250df0d}@media(prefers-color-scheme:dark){body{color:#f0f6fc;background:#0d1117}.meta{color:#9198a1}code{background:#161b22}a{color:#a371f7}}
   </style>
 </head>
 <body>
@@ -15,45 +15,43 @@
   <p>GitHub Download Now does not sell user data and does not send data to the developer, analytics providers or advertising services.</p>
 
   <h2>Public repositories only</h2>
-  <p>The extension is designed for public GitHub repositories. It does not request GitHub authentication tokens, does not read cookie values and does not intentionally process private repository content. The content script activates only after GitHub provides a positive public-repository marker. It remains inactive on private repositories and fails closed when visibility cannot be established.</p>
+  <p>The extension is designed for public GitHub repositories and <strong>fails closed</strong> when repository visibility cannot be established. The optional GitHub connection does not enable private-repository support.</p>
 
-  <h2>Public GitHub page data</h2>
-  <p>The extension reads the public repository identifier, release tags and release-asset links available on the current GitHub page. It may anonymously request public pages at <code>github.com</code> for another selected release version. These requests use <code>credentials: omit</code>, so the browser's GitHub session cookies are not attached.</p>
-  <p>Release, source archive and navigation URLs are validated against the expected GitHub origin and repository before they are shown, stored or opened.</p>
+  <h2>Public GitHub data</h2>
+  <p>The extension reads the public repository identifier, release tags and release assets available on the current page. Public page requests use <code>credentials: omit</code>, so GitHub session cookies are not attached. Release and navigation URLs are validated against the expected GitHub origin and repository.</p>
 
-  <h2>GitHub REST API</h2>
-  <p>The extension may query the official public API at <code>api.github.com</code> when page data is unavailable, when the user asks to find build documentation, or when checking repositories the user explicitly chose to watch.</p>
-  <p>For build documentation, it may read public directory listings and likely README text for the selected tag. It analyses Markdown headings such as “Building” and links to the original section. It does not execute build commands or send repository content to any service other than GitHub.</p>
-  <p>Update checks are rotated in small batches. Rate-limit metadata is stored locally so checks can pause until GitHub's published reset time.</p>
+  <h2>Build-document discovery</h2>
+  <p>The extension may query public directory listings and likely README files at <code>api.github.com</code>. It can follow up to three relevant links found in README documentation, with depth one, at most two linked directories and at most three additional documents. Same-repository links are kept on the selected release tag. Commands are linked, never executed.</p>
 
-  <h2>Local installation guidance</h2>
-  <p>Installation and launch guidance is generated locally from the selected filename, extension, detected platform and interface language. It is not sent to an AI service or developer server. Commands are never executed automatically.</p>
+  <h2>Optional GitHub connection</h2>
+  <div class="notice">
+    <p>Users may voluntarily connect GitHub through GitHub's official OAuth Device Flow. No OAuth scopes are requested. The connection raises the API limit for public release, documentation and watch requests.</p>
+  </div>
+  <ul>
+    <li>The extension never asks for a GitHub password and never reads GitHub cookies.</li>
+    <li>The OAuth token is sent only to the official <code>api.github.com</code> service.</li>
+    <li>The token stays in <code>storage.local</code>, is not synchronized and its local copy is removed by <strong>Disconnect</strong>. Server-side revocation remains available under GitHub Settings → Applications.</li>
+    <li>Extension storage is not an encrypted credential vault and may be inspectable by someone with sufficient access to the local browser profile or developer tools.</li>
+    <li>The extension does not request profile, email or private-repository data.</li>
+  </ul>
+  <p>Without a connection, the extension continues to work in anonymous public-only mode.</p>
 
-  <h2>Local storage</h2>
-  <p>Optional download records, watched repositories, pending updates, ETags and scheduling metadata are stored in <code>storage.local</code>. Preferences may be synchronized by the browser through <code>storage.sync</code>. The extension does not read the browser's general download history and writes no local history from private/incognito tabs.</p>
-
-  <h2>Notifications</h2>
-  <p>System notifications are disabled by default and require the optional <code>notifications</code> permission. The toolbar badge does not require notification permission.</p>
+  <h2>Local storage and notifications</h2>
+  <p>Optional download records, watched repositories, pending updates, ETags and scheduling metadata remain in <code>storage.local</code>. Preferences may be synchronized through <code>storage.sync</code>. System notifications are disabled by default and require the optional notification permission.</p>
 
   <h2>Data not accessed</h2>
-  <ul>
-    <li>cookie values or GitHub authentication tokens;</li>
-    <li>private repository content by design;</li>
-    <li>account profile data;</li>
-    <li>the browser's browsing-history database or general download history;</li>
-    <li>personal communications or unrelated sensitive information.</li>
-  </ul>
-  <p>The extension observes only the currently open GitHub page required for its user-facing controls. It does not query the browser history API.</p>
+  <p>Except for the voluntarily supplied OAuth token, the extension does not access cookie values, GitHub passwords, private repository content, account profile or email data, the browser history database, general download history, personal communications or unrelated sensitive information.</p>
 
   <h2>Third parties and Limited Use</h2>
-  <p>The only network service queried is GitHub, through public pages at <code>github.com</code> and the official API at <code>api.github.com</code>. There is no extension-operated backend, telemetry endpoint, AI service or advertising service.</p>
-  <p>Information received through browser APIs is used only for release downloads, installation guidance and opt-in update tracking. It is not used for advertising, profiling, creditworthiness, sale to third parties or unrelated purposes, and is not made available for human review by the developer.</p>
+  <p>The only network service queried is GitHub through <code>github.com</code> and <code>api.github.com</code>. There is no developer backend, telemetry, advertising or AI service. Information is used only for the extension's user-facing functionality and is not sold, profiled or made available for human review by the developer.</p>
+
+  <h2>Firefox disclosure</h2>
+  <p>Firefox declares <code>browsingActivity</code> as required for the currently open public repository page and <code>authenticationInfo</code> as optional. Optional consent is requested only when the user chooses to connect GitHub.</p>
 
   <h2>User controls</h2>
-  <p>Users can disable the extension, select manual-only checks, remove watches, clear local history, hide installation guidance, disable notifications or uninstall the extension.</p>
+  <p>Users can remain anonymous, connect or disconnect GitHub, disable the extension, select manual checks, remove watches, clear local history, disable notifications or uninstall the extension.</p>
 
   <h2>Canonical policy</h2>
-  <p>The complete canonical Markdown policy and change history are available in the public repository:</p>
-  <p><a href="https://github.com/ITDruss/github-download-now/blob/main/PRIVACY.md">Open PRIVACY.md on GitHub</a></p>
+  <p><a href="https://github.com/ITDruss/github-download-now/blob/main/PRIVACY.md">Open the complete canonical PRIVACY.md on GitHub</a></p>
 </body>
 </html>

@@ -2,6 +2,30 @@
 
 All notable changes to this project are documented here.
 
+## [1.1.0] - 2026-07-14
+
+### Added
+
+- Added README-guided build-document discovery that follows at most three ranked same-repository links with depth one, a two-directory limit, a three-document limit and a reserved API budget.
+- Added regression coverage for `OHF-Voice/piper1-gpl` so the C/C++ API instructions in `libpiper/README.md` are discovered while staying on the selected release tag.
+- Added an optional scope-free GitHub OAuth Device Flow connection using OAuth App client ID `Ov23liF54e9cVZTKyRqy`.
+- Added a settings explanation of the larger authenticated API budget, the public-only boundary, local token storage and disconnect control.
+- Added Firefox optional `authenticationInfo` consent for the user-initiated GitHub connection.
+- Added a new original repository-branch/download logo and a restrained purple brand accent while preserving green for successful download actions.
+
+### Changed
+
+- Promoted the extension to version 1.1.0 for the initial store submission.
+- Authenticated API requests remain restricted to `api.github.com`; browser GitHub cookies and private-repository content remain outside the extension's design.
+- Build-document links that point to another branch such as `main` are rebound to the release tag currently selected by the user.
+- Updated store-facing privacy disclosures, permissions explanations, screenshots and promotional artwork for optional authentication.
+
+### Security
+
+- OAuth tokens never enter `storage.sync`, content-script messages or UI responses.
+- OAuth endpoints and the device verification page are accepted only at exact GitHub paths, redirects are rejected and empty OAuth scopes are enforced.
+- Authentication messages are accepted only from extension pages, and invalid stored tokens fall back to anonymous public API access.
+
 ## [1.0.0] - 2026-07-14
 
 ### Added
