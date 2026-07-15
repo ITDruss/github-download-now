@@ -320,7 +320,13 @@ function download(owner = "example", repo = "app", release = 17) {
   const authStart = await message({ type: "GHDN_AUTH_START" }, extensionSender);
   assert.equal(authStart.ok, true);
   assert.equal(authStart.pending.userCode, "ABCD-EFGH");
-  assert.ok(openedTabs.includes("https://github.com/login/device"));
+  const authorizationPage = new URL(openedTabs.at(-1));
+  assert.equal(authorizationPage.protocol, "https:");
+  assert.equal(authorizationPage.hostname, "github.com");
+  assert.equal(authorizationPage.port, "");
+  assert.equal(authorizationPage.pathname, "/login/device");
+  assert.equal(authorizationPage.search, "");
+  assert.equal(authorizationPage.hash, "");
   const waiting = await message({ type: "GHDN_AUTH_POLL" }, extensionSender);
   assert.equal(waiting.ok, true);
   assert.equal(waiting.connected, false);
