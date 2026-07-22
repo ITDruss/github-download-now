@@ -4,14 +4,15 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const output = execFileSync(process.execPath, ["scripts/release-notes.mjs", "1.1.0"], {
+const output = execFileSync(process.execPath, ["scripts/release-notes.mjs", "1.2.0"], {
   cwd: root,
   encoding: "utf8"
 });
 
 assert.match(output, /### Added/);
-assert.match(output, /README-guided build-document discovery/i);
-assert.doesNotMatch(output, /## \[0\.4\.3\]/);
+assert.match(output, /native WebExtensions localization/i);
+assert.match(output, /modular architecture|focused modules/i);
+assert.doesNotMatch(output, /## \[1\.1\.0\]/);
 assert.throws(() => {
   execFileSync(process.execPath, ["scripts/release-notes.mjs", "999.0.0"], {
     cwd: root,

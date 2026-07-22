@@ -69,7 +69,7 @@ GitHub Download Now — открытое расширение для Chromium и
 
 ### Chromium
 
-1. Распаковать `github-download-now-chromium-v1.1.0.zip`.
+1. Распаковать `github-download-now-chromium-v1.2.0.zip`.
 2. Открыть `chrome://extensions`.
 3. Включить **Режим разработчика**.
 4. Нажать **Загрузить распакованное расширение**.
@@ -77,7 +77,7 @@ GitHub Download Now — открытое расширение для Chromium и
 
 ### Firefox
 
-1. Распаковать `github-download-now-firefox-v1.1.0.zip`.
+1. Распаковать `github-download-now-firefox-v1.2.0.zip`.
 2. Открыть `about:debugging#/runtime/this-firefox`.
 3. Нажать **Загрузить временное дополнение**.
 4. Выбрать `manifest.json`.
@@ -130,8 +130,8 @@ npm run test:ui
 Релизы содержат SHA-256 и подписанные GitHub attestations:
 
 ```bash
-sha256sum -c SHA256SUMS-v1.1.0.txt
-gh attestation verify github-download-now-chromium-v1.1.0.zip -R ITDruss/github-download-now
+sha256sum -c SHA256SUMS-v1.2.0.txt
+gh attestation verify github-download-now-chromium-v1.2.0.zip -R ITDruss/github-download-now
 ```
 
 ## Участие в разработке

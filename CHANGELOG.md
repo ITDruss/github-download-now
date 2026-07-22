@@ -2,6 +2,31 @@
 
 All notable changes to this project are documented here.
 
+## [1.2.0] - 2026-07-22
+
+### Added
+
+- Added native WebExtensions localization with complete English and Russian message catalogs and English fallback behavior.
+- Added translation documentation and generated locale-catalog validation.
+- Added dedicated architecture and development documentation with a task-to-module map.
+- Added focused unit coverage for content, background, popup, options and shared modules, with automatic test discovery.
+- Added automated architecture checks for module boundaries, script order, duplicate APIs, raw runtime-message strings and browser API adapter usage.
+- Added prominent installation links to the official signed Firefox Add-ons listing.
+
+### Changed
+
+- Refactored the content script, background worker, popup and options pages into focused modules with small composition-root entry files.
+- Replaced the monolithic content stylesheet with component-specific styles.
+- Centralized build allowlists, runtime script order and project structure metadata.
+- Updated pinned GitHub Actions for Node.js, Python, checkout, CodeQL analysis and artifact attestations.
+- Promoted the extension to version 1.2.0.
+
+### Fixed
+
+- Fixed the fallback used to open extension options from the injected GitHub interface.
+- Made toolbar fallback mounting tolerate missing GitHub layout targets.
+- Hardened HTML script-source parsing used by project and architecture validation.
+
 ## [1.1.0] - 2026-07-14
 
 ### Added
