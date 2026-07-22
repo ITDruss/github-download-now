@@ -16,7 +16,7 @@
     <section class="card">
       <h2 id="generalTitle"></h2>
       <div class="grid two">
-        <label><span id="languageLabel"></span><select id="language"><option value="auto">Auto</option><option value="ru">Русский</option><option value="en">English</option></select></label>
+        <label><span id="languageLabel"></span><select id="language"></select></label>
         <label><span id="showOnLabel"></span><select id="showOn"><option value="all"></option><option value="main_releases"></option><option value="main"></option></select></label>
         <label><span id="buttonStyleLabel"></span><select id="buttonStyle"><option value="accent"></option><option value="native"></option><option value="compact"></option></select></label>
         <label><span id="primaryActionLabel"></span><select id="primaryAction"><option value="download"></option><option value="menu"></option><option value="release"></option></select></label>
@@ -117,7 +117,17 @@
       <button id="reset" type="button"></button>
     </footer>
   </main>
+  <script src="shared/messages.js"></script>
+  <script src="shared/browser-api.js"></script>
+  <script src="shared/formatting.js"></script>
+  <script src="i18n-catalogs.js"></script>
+  <script src="i18n.js"></script>
   <script src="settings.js"></script>
+  <script src="options/strings.js"></script>
+  <script src="options/view.js"></script>
+  <script src="options/form.js"></script>
+  <script src="options/auth-panel.js"></script>
+  <script src="options/update-actions.js"></script>
   <script src="options.js"></script>
 </body>
 </html>
