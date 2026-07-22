@@ -19,6 +19,8 @@ Content-page changes must respect the current module boundaries: repository pars
 
 Background changes must respect the service boundaries in `src/background/`: GitHub GET requests in `github-client.js`, release normalization in `release-service.js`, build-document discovery in `build-service.js`, OAuth Device Flow in `auth-service.js`, stored tracker sanitization in `tracker-state.js`, alarm ownership in `alarms.js`, notification/badge behavior in `notifications.js`, tracking operations in `tracking-service.js`, and runtime dispatch in `message-router.js`. `src/background.js` is only the composition root; do not add service algorithms back to it.
 
+Popup and options changes must respect their extension-page boundaries. Popup translations belong in `src/popup/strings.js`, generic tab/status DOM behavior in `src/popup/view.js`, compact preferences in `src/popup/settings-controller.js`, and dashboard lists/actions in `src/popup/dashboard-controller.js`. Options translations belong in `src/options/strings.js`, label rendering in `src/options/view.js`, the persisted field schema in `src/options/form.js`, Device Flow UI in `src/options/auth-panel.js`, and update/data actions in `src/options/update-actions.js`. `src/popup.js` and `src/options.js` are composition roots; keep both under 120 lines.
+
 ## Translations
 
 Translations live in `src/_locales/<locale>/messages.json`. See [`docs/TRANSLATING.md`](../docs/TRANSLATING.md) for the complete workflow. Do not add user-facing strings directly to JavaScript when a locale message can be used.

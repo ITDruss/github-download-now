@@ -255,26 +255,53 @@ When adding a source file, update all applicable places:
 
 Every behavior-preserving extraction must keep all existing tests green. New shared helpers require dedicated unit tests.
 
-## Current layout and remaining decomposition
+## Popup and options architecture
 
-Content and background runtime code are now decomposed. Stable entry points remain intentionally named `src/content.js` and `src/background.js`; renaming them would add manifest churn without improving the boundary.
+The extension-page entry scripts are now composition roots, matching the content and background boundaries.
 
-The remaining architectural work is limited to popup/options presentation modules and mirrored UI tests:
+### Popup modules
+
+| Module | Responsibility |
+|---|---|
+| `popup/strings.js` | Build the localized popup catalog and platform-format choices. |
+| `popup/view.js` | Own generic popup DOM helpers, tab accessibility, labels, status messages and formatting adapters. |
+| `popup/settings-controller.js` | Bind the compact settings panel, notification consent and platform-specific format preference. |
+| `popup/dashboard-controller.js` | Load and render updates, watched repositories and download history; own dashboard actions. |
+| `popup.js` | Compose dependencies and start the popup. |
+
+### Options modules
+
+| Module | Responsibility |
+|---|---|
+| `options/strings.js` | Build the localized options catalog, plural forms and OAuth status text. |
+| `options/view.js` | Apply translated labels/options and own the transient footer status. |
+| `options/form.js` | Define the settings-field schema, collect/fill values and debounce persisted changes. |
+| `options/auth-panel.js` | Own Device Flow consent, polling, connection state and disconnect behavior. |
+| `options/update-actions.js` | Own manual update checks and history/tracking cleanup actions. |
+| `options.js` | Compose dependencies and start the options page. |
+
+### Extension-page boundary rules
+
+- `popup.js` and `options.js` must remain composition roots under 120 lines.
+- User-facing strings belong in locale catalogs and are exposed through the dedicated `strings.js` modules.
+- Dashboard list rendering and update actions belong in `popup/dashboard-controller.js`.
+- Popup quick settings belong in `popup/settings-controller.js`; the full options field schema belongs in `options/form.js`.
+- GitHub Device Flow UI state and timers belong only in `options/auth-panel.js`.
+- Popup/options HTML declares dependency order explicitly; any new module must also be added to the source allowlist, validation and UI-test inlining.
+- The existing `popup.css` and `options.css` remain intentionally separate, focused stylesheets. Their current sizes do not justify artificial component fragmentation.
+
+## Completed modular layout
+
+The four runtime surfaces now use small entry points and focused modules:
 
 ```text
-src/popup/
-├── dashboard-view.js
-├── updates-view.js
-├── history-view.js
-└── settings-summary.js
-
-src/options/
-├── settings-form.js
-├── auth-panel.js
-└── updates-panel.js
+src/content.js       → content route/data/lifecycle/UI modules
+src/background.js    → background services and message router
+src/popup.js         → popup strings/view/settings/dashboard modules
+src/options.js       → options strings/view/form/auth/update modules
 ```
 
-That future extraction must stay behavior-preserving and must not be combined with new product features, permission changes or release-version changes.
+Future work should improve a domain module in place rather than recreating a central controller. Product features, permission changes and release-version changes should remain separate from structural refactors.
 
 ## Contribution checklist
 

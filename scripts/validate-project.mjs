@@ -66,6 +66,21 @@ const backgroundModules = Object.freeze([
   "background/message-router.js",
 ]);
 
+const popupModules = Object.freeze([
+  "popup/strings.js",
+  "popup/view.js",
+  "popup/settings-controller.js",
+  "popup/dashboard-controller.js",
+]);
+
+const optionsModules = Object.freeze([
+  "options/strings.js",
+  "options/view.js",
+  "options/form.js",
+  "options/auth-panel.js",
+  "options/update-actions.js",
+]);
+
 const actual = await listFiles(source);
 assert(JSON.stringify(actual) === JSON.stringify([...ALLOWED_SOURCE_FILES].sort()), "src/ contains unexpected or missing files");
 
@@ -76,6 +91,15 @@ assert(!/async function checkAllUpdates\b/.test(backgroundEntry), "Update tracki
 for (const backgroundModule of backgroundModules) {
   assert(backgroundEntry.includes(`"${backgroundModule}"`), `background.js must import ${backgroundModule} for Chromium`);
 }
+
+const popupEntry = await readFile(path.join(source, "popup.js"), "utf8");
+const optionsEntry = await readFile(path.join(source, "options.js"), "utf8");
+assert(popupEntry.split(/\r?\n/).length <= 120, "popup.js must remain a small composition root");
+assert(optionsEntry.split(/\r?\n/).length <= 120, "options.js must remain a small composition root");
+assert(!/function renderUpdates\b/.test(popupEntry), "Dashboard rendering must not return to popup.js");
+assert(!/function createStrings\b/.test(popupEntry), "Popup translations must not return to popup.js");
+assert(!/function pollAuthorization\b/.test(optionsEntry), "OAuth polling must not return to options.js");
+assert(!/const fields\s*=/.test(optionsEntry), "Options field schema must not return to options.js");
 
 for (const manifest of [chromium, firefox]) {
   assert(manifest.manifest_version === 3, "Manifest V3 is required");
@@ -162,11 +186,14 @@ for (const relative of actual.filter((file) => file.endsWith(".html"))) {
   assert(!/<script(?![^>]*\bsrc=)[^>]*>/i.test(text), `${relative} contains inline script`);
   assert(!/\son\w+\s*=/i.test(text), `${relative} contains inline event handler`);
 }
-for (const relative of ["popup.html", "options.html"]) {
+for (const [relative, featureModules, entry] of [
+  ["popup.html", popupModules, "popup.js"],
+  ["options.html", optionsModules, "options.js"]
+]) {
   const text = await readFile(path.join(source, relative), "utf8");
   const orderedScripts = [
     "shared/messages.js", "shared/browser-api.js", "shared/formatting.js",
-    "i18n-catalogs.js", "i18n.js", "settings.js"
+    "i18n-catalogs.js", "i18n.js", "settings.js", ...featureModules, entry
   ];
   let previous = -1;
   for (const script of orderedScripts) {

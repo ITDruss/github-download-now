@@ -21,6 +21,22 @@ const backgroundModules = [
   "background/message-router.js",
 ];
 
+
+const popupModules = [
+  "popup/strings.js",
+  "popup/view.js",
+  "popup/settings-controller.js",
+  "popup/dashboard-controller.js",
+];
+
+const optionsModules = [
+  "options/strings.js",
+  "options/view.js",
+  "options/form.js",
+  "options/auth-panel.js",
+  "options/update-actions.js",
+];
+
 const backgroundEntry = fs.readFileSync(path.join(root, "src", "background.js"), "utf8");
 for (const backgroundModule of backgroundModules) assert.ok(backgroundEntry.includes(`"${backgroundModule}"`));
 
@@ -101,5 +117,28 @@ for (const file of ["manifest.chromium.json", "manifest.firefox.json"]) {
     assert.equal(manifest.background.service_worker, "background.js");
   }
 }
+
+
+for (const [file, featureModules, entry] of [
+  ["popup.html", popupModules, "popup.js"],
+  ["options.html", optionsModules, "options.js"]
+]) {
+  const html = fs.readFileSync(path.join(root, "src", file), "utf8");
+  const scripts = [
+    "shared/messages.js", "shared/browser-api.js", "shared/formatting.js",
+    "i18n-catalogs.js", "i18n.js", "settings.js", ...featureModules, entry
+  ];
+  let previous = -1;
+  for (const script of scripts) {
+    const current = html.indexOf(`src="${script}"`);
+    assert.ok(current > previous, `${file} must load ${script} in order`);
+    previous = current;
+  }
+}
+
+const popupEntry = fs.readFileSync(path.join(root, "src", "popup.js"), "utf8");
+const optionsEntry = fs.readFileSync(path.join(root, "src", "options.js"), "utf8");
+assert.ok(popupEntry.split(/\r?\n/).length <= 120, "popup.js must remain a small composition root");
+assert.ok(optionsEntry.split(/\r?\n/).length <= 120, "options.js must remain a small composition root");
 
 console.log(`manifest tests: OK (v${packageJson.version})`);
