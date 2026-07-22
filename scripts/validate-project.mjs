@@ -2,24 +2,21 @@ import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ALLOWED_SOURCE_FILES } from "./build-files.mjs";
+import { assert, listFiles, scriptsFromHtml } from "./file-utils.mjs";
+import {
+  BACKGROUND_IMPORTS,
+  CONTENT_SCRIPTS,
+  CONTENT_STYLES,
+  FIREFOX_BACKGROUND_SCRIPTS,
+  OPTIONS_SCRIPTS,
+  POPUP_SCRIPTS
+} from "./project-structure.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const source = path.join(root, "src");
 
-async function listFiles(directory, prefix = "") {
-  const entries = await readdir(directory, { withFileTypes: true });
-  const files = [];
-  for (const entry of entries) {
-    const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
-    const absolute = path.join(directory, entry.name);
-    if (entry.isDirectory()) files.push(...await listFiles(absolute, relative));
-    else if (entry.isFile()) files.push(relative);
-  }
-  return files.sort();
-}
-
-function assert(condition, message) {
-  if (!condition) throw new Error(message);
+function arraysEqual(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 const packageJson = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"));
@@ -39,9 +36,12 @@ assert(packageJson.private === true, "The npm package must remain private");
 assert(packageJson.devDependencies?.["web-ext"] === "10.5.0", "web-ext must be pinned exactly");
 assert(packageJson.devDependencies?.eslint === "10.7.0", "ESLint must be pinned exactly");
 assert(packageJson.devDependencies?.globals === "17.7.0", "ESLint globals must be pinned exactly");
-assert(packageJson.scripts?.["lint:firefox"], "Firefox lint script is required");
-assert(packageJson.scripts?.["verify:reproducible"], "Reproducible-build verification is required");
-assert(packageJson.scripts?.verify, "Combined verification script is required");
+for (const script of [
+  "lint:firefox", "verify:reproducible", "verify", "i18n:generate", "i18n:check",
+  "check:architecture", "check:syntax", "test:unit"
+]) {
+  assert(packageJson.scripts?.[script], `npm script ${script} is required`);
+}
 
 const lockText = await readFile(path.join(root, "package-lock.json"), "utf8");
 assert(!lockText.includes("applied-caas-gateway"), "package-lock.json contains an environment-specific npm registry");
@@ -51,21 +51,31 @@ for (const match of lockText.matchAll(/"resolved"\s*:\s*"(https:[^"]+)"/g)) {
 }
 
 const actual = await listFiles(source);
-assert(JSON.stringify(actual) === JSON.stringify([...ALLOWED_SOURCE_FILES].sort()), "src/ contains unexpected or missing files");
+assert(arraysEqual(actual, [...ALLOWED_SOURCE_FILES].sort()), "src/ contains unexpected or missing files");
 
 for (const manifest of [chromium, firefox]) {
   assert(manifest.manifest_version === 3, "Manifest V3 is required");
-  assert(JSON.stringify(manifest.permissions) === JSON.stringify(["storage", "alarms"]), "Unexpected required permissions");
-  assert(JSON.stringify(manifest.optional_permissions) === JSON.stringify(["notifications"]), "Unexpected optional permissions");
-  assert(JSON.stringify(manifest.host_permissions) === JSON.stringify(["https://api.github.com/*", "https://github.com/*"]), "Unexpected host permissions");
+  assert(manifest.default_locale === "en", "English must remain the default locale");
+  assert(manifest.name === "__MSG_extensionName__", "Manifest name must use the locale catalog");
+  assert(manifest.description === "__MSG_extensionDescription__", "Manifest description must use the locale catalog");
+  assert(manifest.action?.default_title === "__MSG_extensionName__", "Action title must use the locale catalog");
+  assert(arraysEqual(manifest.permissions, ["storage", "alarms"]), "Unexpected required permissions");
+  assert(arraysEqual(manifest.optional_permissions, ["notifications"]), "Unexpected optional permissions");
+  assert(arraysEqual(manifest.host_permissions, ["https://api.github.com/*", "https://github.com/*"]), "Unexpected host permissions");
   assert(manifest.content_security_policy?.extension_pages === "script-src 'self'; object-src 'none'", "Strict extension CSP is required");
-  const scripts = manifest.content_scripts?.[0]?.js || [];
-  assert(scripts.includes("url-policy.js") && scripts.indexOf("url-policy.js") < scripts.indexOf("content.js"), "URL policy must load before content.js");
-  if (manifest.background?.scripts) assert(manifest.background.scripts.indexOf("github-auth.js") < manifest.background.scripts.indexOf("background.js"), "GitHub auth helpers must load before background.js");
+  assert(arraysEqual(manifest.content_scripts?.[0]?.js || [], CONTENT_SCRIPTS), "Content script order is inconsistent");
+  assert(arraysEqual(manifest.content_scripts?.[0]?.css || [], CONTENT_STYLES), "Content style order is inconsistent");
 }
+assert(chromium.background?.service_worker === "background.js", "Chromium must use background.js as the service worker");
+assert(arraysEqual(firefox.background?.scripts || [], FIREFOX_BACKGROUND_SCRIPTS), "Firefox background script order is inconsistent");
 
-assert(JSON.stringify(firefox.browser_specific_settings?.gecko?.data_collection_permissions?.required) === JSON.stringify(["browsingActivity"]), "Firefox required data collection disclosure is incorrect");
-assert(JSON.stringify(firefox.browser_specific_settings?.gecko?.data_collection_permissions?.optional) === JSON.stringify(["authenticationInfo"]), "Firefox optional authentication disclosure is incorrect");
+assert(arraysEqual(firefox.browser_specific_settings?.gecko?.data_collection_permissions?.required, ["browsingActivity"]), "Firefox required data collection disclosure is incorrect");
+assert(arraysEqual(firefox.browser_specific_settings?.gecko?.data_collection_permissions?.optional, ["authenticationInfo"]), "Firefox optional authentication disclosure is incorrect");
+
+const backgroundEntry = await readFile(path.join(source, "background.js"), "utf8");
+for (const backgroundModule of BACKGROUND_IMPORTS) {
+  assert(backgroundEntry.includes(`"${backgroundModule}"`), `background.js must import ${backgroundModule} for Chromium`);
+}
 
 const forbidden = [
   { pattern: /\beval\s*\(/, label: "eval" },
@@ -82,6 +92,10 @@ for (const relative of actual.filter((file) => file.endsWith(".html"))) {
   const text = await readFile(path.join(source, relative), "utf8");
   assert(!/<script(?![^>]*\bsrc=)[^>]*>/i.test(text), `${relative} contains inline script`);
   assert(!/\son\w+\s*=/i.test(text), `${relative} contains inline event handler`);
+}
+for (const [relative, expectedScripts] of [["popup.html", POPUP_SCRIPTS], ["options.html", OPTIONS_SCRIPTS]]) {
+  const text = await readFile(path.join(source, relative), "utf8");
+  assert(arraysEqual(scriptsFromHtml(text), expectedScripts), `${relative} script order is inconsistent`);
 }
 
 const privacy = await readFile(path.join(root, "PRIVACY.md"), "utf8");
