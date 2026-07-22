@@ -6,6 +6,25 @@ It adds a clear download control to repository pages, detects the current operat
 
 ![GitHub Download Now](assets/social-preview.png)
 
+<p align="center">
+  <a href="https://addons.mozilla.org/en-US/firefox/addon/github-download-now/">
+    <img
+      alt="Install GitHub Download Now from Firefox Add-ons"
+      src="https://img.shields.io/amo/v/github-download-now?label=Firefox%20Add-ons&logo=firefoxbrowser"
+    >
+  </a>
+</p>
+
+## Install
+
+### Firefox
+
+**[Install GitHub Download Now from Firefox Add-ons →](https://addons.mozilla.org/en-US/firefox/addon/github-download-now/)**
+
+The official signed build is available for Firefox Desktop and Firefox for Android where add-ons are supported.
+
+For unpacked development builds, see [Install for development](#install-for-development).
+
 ## Highlights
 
 - Detects Windows, Linux, macOS and Android release assets.
@@ -63,7 +82,13 @@ Android in the feature list means the extension can recognise APK/APKS/AAB relea
 3. Choose **Load Temporary Add-on**.
 4. Select `manifest.json`.
 
-A permanent Firefox installation requires Mozilla signing through AMO.
+The temporary installation above is intended for development. For normal use, install the signed build from [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/github-download-now/).
+
+## Languages
+
+The extension ships with English and Russian. Interface text uses the standard WebExtensions `_locales` format, and unsupported browser languages fall back to English.
+
+Adding a translation does not require changing application logic. Copy the English catalog, translate its `message` values and run the locale validator. See [Translating GitHub Download Now](docs/TRANSLATING.md).
 
 ## Development
 
@@ -80,7 +105,7 @@ npm ci --ignore-scripts
 npm run verify
 ```
 
-`npm run verify` runs project validation, ESLint, unit tests, reproducible packaging and Firefox add-on linting. Full browser UI checks:
+`npm run verify` runs locale/project validation, architecture-boundary checks, ESLint, automatically discovered unit tests, JavaScript syntax checks, reproducible packaging and Firefox add-on linting. Full browser UI checks:
 
 ```bash
 python3 -m venv .venv-ui
@@ -123,6 +148,8 @@ gh attestation verify github-download-now-chromium-v1.1.0.zip -R ITDruss/github-
 ## Contributing
 
 Reports of incorrect recommendations are especially useful. Include the public repository URL, detected platform, selected asset and expected asset.
+
+Before changing code, read the [contributing guide](.github/CONTRIBUTING.md), [development task map](docs/DEVELOPMENT.md) and [architecture reference](docs/ARCHITECTURE.md). Translation-only contributions are documented separately in [TRANSLATING.md](docs/TRANSLATING.md).
 
 ## Disclaimer
 
