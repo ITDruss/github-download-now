@@ -32,6 +32,8 @@
         "url-policy.js",
         "asset-selector.js",
         "install-guides.js",
+        "content/strings.js",
+        "content/platform.js",
         "content/repository-context.js",
         "content/github-dom.js",
         "content/placement.js",
@@ -41,10 +43,25 @@
         "content/release/release-loader.js",
         "content/release/version-controller.js",
         "content/lifecycle.js",
+        "content/ui/icons.js",
+        "content/ui/elements.js",
+        "content/ui/download-button.js",
+        "content/ui/menu-shell.js",
+        "content/ui/notices.js",
+        "content/ui/install-guidance.js",
+        "content/ui/build-documents.js",
+        "content/ui/asset-list.js",
+        "content/ui/release-menu.js",
         "content.js"
       ],
       "css": [
-        "styles.css"
+        "styles/content-base.css",
+        "styles/download-menu.css",
+        "styles/asset-list.css",
+        "styles/notices.css",
+        "styles/install-guidance.css",
+        "styles/build-documents.css",
+        "styles/version-selector.css"
       ],
       "run_at": "document_idle"
     }

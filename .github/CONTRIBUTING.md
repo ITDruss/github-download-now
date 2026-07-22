@@ -14,7 +14,7 @@ Keep the extension privacy-friendly: no telemetry, remote code, broad host permi
 
 Read [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) before changing runtime messages, browser API wrappers, script loading order or security boundaries. Shared runtime message names belong in `src/shared/messages.js`; Chrome/Firefox compatibility wrappers belong in `src/shared/browser-api.js`.
 
-Content-page changes must respect the current module boundaries: repository parsing in `src/content/repository-context.js`, GitHub DOM knowledge in `src/content/github-dom.js`, mount selection in `src/content/placement.js`, page state in `src/content/state.js`, trusted HTML requests in `src/content/page-client.js`, release parsing/loading in `src/content/release/`, and navigation/observer ownership in `src/content/lifecycle.js`. Do not add duplicate route parsers, GitHub selector sets, page fetchers, release caches or observers back to `src/content.js`.
+Content-page changes must respect the current module boundaries: repository parsing in `src/content/repository-context.js`, GitHub DOM knowledge in `src/content/github-dom.js`, mount selection in `src/content/placement.js`, page state in `src/content/state.js`, trusted HTML requests in `src/content/page-client.js`, release parsing/loading in `src/content/release/`, navigation/observer ownership in `src/content/lifecycle.js`, platform classification in `src/content/platform.js`, and reusable presentation in `src/content/ui/`. `src/content.js` is only the composition root. Component styles belong in `src/styles/`; do not recreate a monolithic `styles.css` or add duplicate route parsers, GitHub selector sets, page fetchers, release caches or observers.
 
 ## Translations
 

@@ -72,6 +72,8 @@ for (const manifest of [chromium, firefox]) {
   ]), "Shared contracts, browser adapter, formatting, locales and settings must load first in content scripts");
   assert(scripts.includes("url-policy.js") && scripts.indexOf("url-policy.js") < scripts.indexOf("content.js"), "URL policy must load before content.js");
   const contentModules = [
+    "content/strings.js",
+    "content/platform.js",
     "content/repository-context.js",
     "content/github-dom.js",
     "content/placement.js",
@@ -80,12 +82,30 @@ for (const manifest of [chromium, firefox]) {
     "content/release/page-parser.js",
     "content/release/release-loader.js",
     "content/release/version-controller.js",
-    "content/lifecycle.js"
+    "content/lifecycle.js",
+    "content/ui/icons.js",
+    "content/ui/elements.js",
+    "content/ui/download-button.js",
+    "content/ui/menu-shell.js",
+    "content/ui/notices.js",
+    "content/ui/install-guidance.js",
+    "content/ui/build-documents.js",
+    "content/ui/asset-list.js",
+    "content/ui/release-menu.js"
   ];
   for (const contentModule of contentModules) {
     assert(scripts.includes(contentModule), `${contentModule} must be included in content scripts`);
     assert(scripts.indexOf(contentModule) < scripts.indexOf("content.js"), `${contentModule} must load before content.js`);
   }
+  assert(JSON.stringify(manifest.content_scripts?.[0]?.css || []) === JSON.stringify([
+    "styles/content-base.css",
+    "styles/download-menu.css",
+    "styles/asset-list.css",
+    "styles/notices.css",
+    "styles/install-guidance.css",
+    "styles/build-documents.css",
+    "styles/version-selector.css"
+  ]), "Content styles must use the documented component order");
   if (manifest.background?.scripts) {
     assert(JSON.stringify(manifest.background.scripts.slice(0, 5)) === JSON.stringify([
       "shared/messages.js", "shared/browser-api.js",

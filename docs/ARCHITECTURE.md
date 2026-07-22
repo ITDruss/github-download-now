@@ -69,7 +69,7 @@ Reusable formatting belongs in `src/shared/formatting.js`. Feature-specific labe
 
 ## Content-page modules
 
-The content decomposition is now split across route/DOM, state, loading and lifecycle modules. `src/content.js` remains the UI coordinator while non-visual responsibilities live in focused modules:
+The content decomposition is split across route/DOM, state, loading, lifecycle and presentation modules. `src/content.js` is now a small composition root that wires those APIs together and owns only cross-module workflows such as mounting, trusted downloads and settings refreshes:
 
 | Module | Responsibility |
 |---|---|
@@ -82,6 +82,17 @@ The content decomposition is now split across route/DOM, state, loading and life
 | `content/release/release-loader.js` | Cache parsed release pages and tags, rank assets and fall back to background API messages. |
 | `content/release/version-controller.js` | Deduplicate release loads, coordinate version changes and update the primary presentation. |
 | `content/lifecycle.js` | Own navigation listeners, observers, mount scheduling, prefetch and layout refresh scheduling. |
+| `content/strings.js` | Build the content-facing translated string facade from native locale catalogs. |
+| `content/platform.js` | Detect browser platform, classify assets and format platform/release metadata. |
+| `content/ui/icons.js` | Own the local SVG icon catalog as inert data. |
+| `content/ui/elements.js` | Create safe DOM/SVG nodes from trusted local icon markup. |
+| `content/ui/download-button.js` | Render and update the primary split button, loading state and toolbar density. |
+| `content/ui/menu-shell.js` | Own the detached menu container, positioning, focus and close behavior. |
+| `content/ui/notices.js` | Render toast messages and update-watch prompts, plus clipboard fallback. |
+| `content/ui/install-guidance.js` | Render deterministic installation cards and post-download guidance. |
+| `content/ui/build-documents.js` | Render lazy build-document discovery controls and status states. |
+| `content/ui/asset-list.js` | Render ranked asset rows, recommendation explanations and source links. |
+| `content/ui/release-menu.js` | Compose the release menu, version selector, asset sections and footer. |
 
 Every module exposes a small `GHDN*` API and is CommonJS-compatible for Node tests. DOM parsing remains separate from network access, while UI construction remains in `content.js` until the next extraction stage.
 
@@ -94,7 +105,25 @@ Every module exposes a small `GHDN*` API and is CommonJS-compatible for Node tes
 - Release/tag caches and page-to-background fallback belong only in `release/release-loader.js`.
 - Selected-version and in-flight release state belong in `state.js` and `release/version-controller.js`.
 - Turbo/PJAX/scroll/resize observers and timers belong only in `lifecycle.js`.
-- `content.js` coordinates these modules and renders UI; it must not reintroduce duplicate parsers, network clients, caches or page observers.
+- `content.js` is the composition root; it must not contain reusable DOM components, duplicate parsers, network clients, caches or page observers.
+- Reusable content-page UI belongs in `content/ui/`; platform classification belongs in `content/platform.js`; translated string mapping belongs in `content/strings.js`.
+
+## Content styles
+
+Content CSS is loaded in an explicit component order and mirrors the UI modules:
+
+```text
+src/styles/
+├── content-base.css
+├── download-menu.css
+├── asset-list.css
+├── notices.css
+├── install-guidance.css
+├── build-documents.css
+└── version-selector.css
+```
+
+Do not recreate a monolithic `styles.css`. Put a selector in the narrowest matching component file, preserve manifest order when dependencies exist, and update both manifests plus UI-test inlining when adding or renaming a stylesheet.
 
 ## Existing domain modules
 
@@ -197,33 +226,37 @@ Every behavior-preserving extraction must keep all existing tests green. New sha
 
 ## Planned decomposition
 
-The current `content.js`, `background.js` and `styles.css` are still large. They will be split in behavior-preserving local commits.
-
-Current and target content structure:
+Content UI and styles are now decomposed. The current content structure is:
 
 ```text
 src/content/
-├── repository-context.js      # extracted
-├── github-dom.js              # extracted
-├── placement.js               # extracted
-├── entry.js                   # planned replacement for content.js
-├── state.js                   # extracted
-├── page-client.js             # extracted
-├── lifecycle.js               # extracted
+├── strings.js
+├── platform.js
+├── repository-context.js
+├── github-dom.js
+├── placement.js
+├── state.js
+├── page-client.js
+├── lifecycle.js
 ├── release/
-│   ├── page-parser.js         # extracted
-│   ├── release-loader.js      # extracted
-│   └── version-controller.js  # extracted
+│   ├── page-parser.js
+│   ├── release-loader.js
+│   └── version-controller.js
 └── ui/
-    ├── button.js
-    ├── menu.js
-    ├── asset-row.js
+    ├── icons.js
+    ├── elements.js
+    ├── download-button.js
+    ├── menu-shell.js
+    ├── notices.js
+    ├── install-guidance.js
     ├── build-documents.js
-    ├── install-card.js
-    └── notices.js
+    ├── asset-list.js
+    └── release-menu.js
 ```
 
-Target background structure:
+`src/content.js` remains the stable manifest entry point and composition root. Renaming it to `entry.js` would add churn without improving the boundary, so it stays intentionally small and explicit.
+
+The next major target is the background context:
 
 ```text
 src/background/
@@ -240,7 +273,7 @@ src/background/
 └── notifications.js
 ```
 
-The extraction order is intentionally incremental: shared foundation, repository/DOM logic, content loading/lifecycle, content UI, CSS, background services, then popup/options. No step should combine architectural movement with unrelated product features.
+The remaining extraction order is background services, then popup/options presentation modules and mirrored tests. No step should combine architectural movement with unrelated product features.
 
 ## Contribution checklist
 

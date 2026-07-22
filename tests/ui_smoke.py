@@ -9,10 +9,19 @@ OUTPUTS = ROOT / "test-results" / "ui-smoke"
 OUTPUTS.mkdir(parents=True, exist_ok=True)
 
 html = DEMO.read_text(encoding="utf-8")
-html = html.replace(
-    '<link rel="stylesheet" href="../../src/styles.css">',
-    f'<style>{(ROOT / "src" / "styles.css").read_text(encoding="utf-8")}</style>'
-)
+for style_name in (
+    "content-base.css",
+    "download-menu.css",
+    "asset-list.css",
+    "notices.css",
+    "install-guidance.css",
+    "build-documents.css",
+    "version-selector.css",
+):
+    html = html.replace(
+        f'<link rel="stylesheet" href="../../src/styles/{style_name}">',
+        f'<style>{(ROOT / "src" / "styles" / style_name).read_text(encoding="utf-8")}</style>'
+    )
 for shared_script in ("messages.js", "browser-api.js", "formatting.js"):
     html = html.replace(
         f'<script src="../../src/shared/{shared_script}"></script>',
@@ -44,6 +53,8 @@ html = html.replace(
     f'<script>{(ROOT / "src" / "install-guides.js").read_text(encoding="utf-8")}</script>'
 )
 for content_script in (
+    "strings.js",
+    "platform.js",
     "repository-context.js",
     "github-dom.js",
     "placement.js",
@@ -63,6 +74,21 @@ html = html.replace(
     '<script src="../../src/content/lifecycle.js"></script>',
     f'<script>{(ROOT / "src" / "content" / "lifecycle.js").read_text(encoding="utf-8")}</script>'
 )
+for ui_script in (
+    "icons.js",
+    "elements.js",
+    "download-button.js",
+    "menu-shell.js",
+    "notices.js",
+    "install-guidance.js",
+    "build-documents.js",
+    "asset-list.js",
+    "release-menu.js",
+):
+    html = html.replace(
+        f'<script src="../../src/content/ui/{ui_script}"></script>',
+        f'<script>{(ROOT / "src" / "content" / "ui" / ui_script).read_text(encoding="utf-8")}</script>'
+    )
 html = html.replace(
     '<script src="../../src/content.js"></script>',
     f'<script>{(ROOT / "src" / "content.js").read_text(encoding="utf-8")}</script>'

@@ -1,0 +1,59 @@
+/* Release version selector */
+.ghdn-version-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 7px 9px 8px;
+  border-bottom: 1px solid var(--borderColor-muted, var(--color-border-muted, #d8dee4));
+}
+
+.ghdn-version-label {
+  color: var(--fgColor-muted, var(--color-fg-muted, #656d76));
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ghdn-version-select {
+  min-width: 0;
+  height: 30px;
+  padding: 0 28px 0 9px;
+  border: 1px solid var(--borderColor-default, var(--color-border-default, #d0d7de));
+  border-radius: 6px;
+  background: var(--button-default-bgColor-rest, var(--color-btn-bg, #f6f8fa));
+  color: var(--fgColor-default, var(--color-fg-default, #1f2328));
+  font: inherit;
+  font-size: 12px;
+}
+
+#ghdn-root.ghdn-placement-release {
+  display: inline-flex;
+  flex: none;
+  margin: 0 0 0 10px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+#ghdn-root.ghdn-placement-release .ghdn-button-group {
+  display: inline-flex;
+  vertical-align: middle;
+  box-shadow: none;
+}
+
+.ghdn-build-docs > summary {
+  cursor: pointer;
+  list-style: none;
+  margin-bottom: 0;
+}
+
+.ghdn-build-docs > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ghdn-build-docs[open] > .ghdn-build-docs-heading {
+  margin-bottom: 6px;
+}
+
+.ghdn-build-docs:not([open]) > .ghdn-build-docs-links {
+  display: none;
+}
