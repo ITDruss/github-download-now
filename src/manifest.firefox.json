@@ -43,6 +43,10 @@
         "url-policy.js",
         "asset-selector.js",
         "install-guides.js",
+        "content/repository-context.js",
+        "content/github-dom.js",
+        "content/placement.js",
+        "content/release/page-parser.js",
         "content.js"
       ],
       "css": [

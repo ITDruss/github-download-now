@@ -10,17 +10,15 @@
   const settingsApi = globalThis.GHDNSettings;
   const i18n = globalThis.GHDNI18n;
   const installGuides = globalThis.GHDNInstallGuides;
+  const repositoryContext = globalThis.GHDNRepositoryContext;
+  const githubDom = globalThis.GHDNGitHubDom;
+  const placementApi = globalThis.GHDNPlacement;
+  const releasePageParser = globalThis.GHDNReleasePageParser;
   const ROOT_ID = "ghdn-root";
   const MENU_ID = "ghdn-menu";
   const NOTICE_STACK_ID = "ghdn-notice-stack";
   const TOOLBAR_BREAKPOINT = 760;
   const MAX_VISIBLE_ASSETS = 18;
-  const RESERVED_ROOTS = new Set([
-    "about", "account", "apps", "codespaces", "collections", "contact", "customer-stories",
-    "enterprise", "enterprises", "events", "explore", "features", "gist", "issues", "login",
-    "marketplace", "new", "notifications", "orgs", "organizations", "pricing", "pulls", "search",
-    "security", "settings", "site", "sponsors", "stars", "topics", "trending"
-  ]);
 
   let settings = { ...(settingsApi ? settingsApi.DEFAULT_SETTINGS : {}) };
   let strings = createStrings(settings.language);
@@ -47,8 +45,17 @@
   const pageReleaseCache = new Map();
   const releaseTagsCache = new Map();
   const MAX_PAGE_CACHE_ENTRIES = 40;
-  const MAX_RELEASE_ASSETS = 500;
   const MAX_GITHUB_PAGE_CHARS = 8_000_000;
+  const placement = placementApi.create({
+    documentObject: document,
+    windowObject: window,
+    getComputedStyle,
+    rootId: ROOT_ID,
+    toolbarBreakpoint: TOOLBAR_BREAKPOINT,
+    repositoryContext,
+    dom: githubDom,
+    urlPolicy
+  });
 
   function setLimitedCache(cache, key, value) {
     if (cache.has(key)) cache.delete(key);
@@ -161,428 +168,6 @@
     return settings;
   }
 
-  function parseRepository() {
-    const testRepository = globalThis.__GHDN_TEST_REPOSITORY__;
-    if (testRepository) {
-      if (testRepository.public === false) return null;
-      const owner = String(testRepository.owner || "test-owner");
-      const repo = String(testRepository.repo || "test-repository");
-      const parts = Array.isArray(testRepository.parts) && testRepository.parts.length >= 2
-        ? testRepository.parts.map((part) => String(part))
-        : [owner, repo];
-      return { owner, repo, key: `${owner.toLowerCase()}/${repo.toLowerCase()}`, parts };
-    }
-
-    const parts = location.pathname.split("/").filter(Boolean);
-    if (parts.length < 2 || RESERVED_ROOTS.has(parts[0].toLowerCase())) return null;
-    const owner = parts[0];
-    const repo = parts[1].replace(/\.git$/i, "");
-    if (!/^[A-Za-z0-9_.-]+$/.test(owner) || !/^[A-Za-z0-9_.-]+$/.test(repo)) return null;
-    const repositoryNwo = document
-      .querySelector('meta[name="octolytics-dimension-repository_nwo"]')
-      ?.getAttribute("content");
-    const repositoryPublic = document
-      .querySelector('meta[name="octolytics-dimension-repository_public"]')
-      ?.getAttribute("content")
-      ?.trim()
-      .toLowerCase();
-    const visibilityLabels = [
-      ...document.querySelectorAll(
-        '[data-testid="repository-visibility-label"], #repository-container-header .Label, #repository-container-header span'
-      )
-    ]
-      .map((element) => String(element.textContent || "").trim().toLowerCase())
-      .filter((value) => value === "public" || value === "private");
-    const visibility = repositoryPublic === "true" || repositoryPublic === "false"
-      ? repositoryPublic
-      : visibilityLabels.includes("private")
-        ? "false"
-        : visibilityLabels.includes("public")
-          ? "true"
-          : "";
-
-    // Fail closed: without a positive public marker the content script stays inactive.
-    if (visibility !== "true") return null;
-    if (
-      repositoryNwo &&
-      repositoryNwo.toLowerCase() !== `${owner}/${repo}`.toLowerCase()
-    ) {
-      return null;
-    }
-
-    if (
-      !repositoryNwo &&
-      !document.querySelector("#repository-container-header")
-    ) {
-      return null;
-    }
-    return { owner, repo, key: `${owner.toLowerCase()}/${repo.toLowerCase()}`, parts };
-  }
-
-  function shouldShow(repo) {
-    if (!settings.enabled) return false;
-    if (settings.showOn === "main") return repo.parts.length === 2;
-    if (settings.showOn === "main_releases") return repo.parts.length === 2 || repo.parts[2] === "releases";
-    return true;
-  }
-
-  function isVisibleElement(element) {
-    if (!element || !element.isConnected || element.closest(`#${ROOT_ID}`)) return false;
-
-    const style = getComputedStyle(element);
-    if (
-      style.display === "none" ||
-      style.visibility === "hidden" ||
-      style.visibility === "collapse" ||
-      Number(style.opacity) === 0
-    ) {
-      return false;
-    }
-
-    const rect = element.getBoundingClientRect();
-    return rect.width > 0 && rect.height > 0;
-  }
-
-  function normalizedActionText(element) {
-    return [
-      element.getAttribute("aria-label"),
-      element.getAttribute("title"),
-      element.textContent
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .replace(/\s+/g, " ")
-      .trim();
-  }
-
-  function actionKind(element) {
-    if (!element) return "";
-    const label = normalizedActionText(element);
-    const aria = element.getAttribute("aria-label") || "";
-    const href = element.getAttribute("href") || "";
-
-    if (/\/stargazers(?:[/?#]|$)/i.test(href) || /(^|\s)Star(?:\s|$)/i.test(label) || /star/i.test(aria)) {
-      return "star";
-    }
-    if (/\/forks(?:[/?#]|$)/i.test(href) || /(^|\s)Fork(?:\s|$)/i.test(label) || /fork/i.test(aria)) {
-      return "fork";
-    }
-    if (/(^|\s)Watch(?:\s|$)/i.test(label) || /watch/i.test(aria)) {
-      return "watch";
-    }
-    if (/(^|\s)Sponsor(?:\s|$)/i.test(label) || /sponsor/i.test(aria)) {
-      return "sponsor";
-    }
-    return "";
-  }
-
-  function isStarActionControl(element) {
-    return actionKind(element) === "star";
-  }
-
-  function collectVisibleActionControls() {
-    const selectors = [
-      'a[href$="/stargazers"]',
-      'a[href*="/stargazers?"]',
-      'a[href$="/forks"]',
-      'a[href*="/forks?"]',
-      'button[aria-label*="Star" i]',
-      'button[aria-label*="Fork" i]',
-      'button[aria-label*="Watch" i]',
-      'summary[aria-label*="Star" i]',
-      'summary[aria-label*="Fork" i]',
-      'summary[aria-label*="Watch" i]',
-      'a[aria-label*="Sponsor" i]'
-    ];
-
-    const controls = new Set();
-    for (const element of document.querySelectorAll(selectors.join(","))) {
-      if (isVisibleElement(element) && actionKind(element)) controls.add(element);
-    }
-
-    for (const element of document.querySelectorAll("a, button, summary")) {
-      if (!isVisibleElement(element)) continue;
-      if (actionKind(element)) controls.add(element);
-    }
-
-    return [...controls];
-  }
-
-  function directChildWithin(container, descendant) {
-    let node = descendant;
-    while (node && node.parentElement !== container) node = node.parentElement;
-    return node && node.parentElement === container ? node : null;
-  }
-
-  function actionKindsWithin(container, controls) {
-    return new Set(
-      controls
-        .filter((control) => container.contains(control))
-        .map(actionKind)
-        .filter(Boolean)
-    );
-  }
-
-  function findCompleteActionGroup(control, controls) {
-    const kind = actionKind(control);
-    if (!kind) return null;
-
-    let node = control;
-    let best = control;
-    let depth = 0;
-
-    while (node.parentElement && node.parentElement !== document.body && depth < 8) {
-      const parent = node.parentElement;
-      if (!isVisibleElement(parent)) break;
-
-      const rect = parent.getBoundingClientRect();
-      if (rect.height < 20 || rect.height > 88) break;
-
-      const kinds = actionKindsWithin(parent, controls);
-      if (kinds.size !== 1 || !kinds.has(kind)) break;
-
-      best = parent;
-      node = parent;
-      depth += 1;
-    }
-
-    return best;
-  }
-
-  function findToolbarForActionGroup(group, controls) {
-    let node = group && group.parentElement;
-    let depth = 0;
-
-    while (node && node !== document.body && depth < 6) {
-      if (isVisibleElement(node)) {
-        const style = getComputedStyle(node);
-        const rect = node.getBoundingClientRect();
-        const layout = style.display;
-        const groupChild = directChildWithin(node, group);
-        const kinds = actionKindsWithin(node, controls);
-
-        if (
-          groupChild &&
-          kinds.size >= 2 &&
-          ["flex", "inline-flex", "grid", "inline-grid"].includes(layout) &&
-          rect.height >= 24 &&
-          rect.height <= 88 &&
-          rect.width >= 120
-        ) {
-          return { element: node, group: groupChild, depth };
-        }
-      }
-
-      node = node.parentElement;
-      depth += 1;
-    }
-
-    return null;
-  }
-
-  function findToolbarTarget() {
-    const controls = collectVisibleActionControls();
-    if (controls.length < 2) return null;
-
-    const seenGroups = new Set();
-    const candidates = [];
-
-    for (const starControl of controls.filter(isStarActionControl)) {
-      const completeGroup = findCompleteActionGroup(starControl, controls);
-      if (!completeGroup || seenGroups.has(completeGroup)) continue;
-      seenGroups.add(completeGroup);
-
-      const toolbar = findToolbarForActionGroup(completeGroup, controls);
-      if (!toolbar) continue;
-
-      const hostRect = toolbar.element.getBoundingClientRect();
-      const groupRect = toolbar.group.getBoundingClientRect();
-      const flexDirection = getComputedStyle(toolbar.element).flexDirection || "row";
-
-      candidates.push({
-        mode: "toolbar",
-        element: toolbar.element,
-        insertBefore: /-reverse$/.test(flexDirection),
-        anchor: toolbar.group,
-        listMode: toolbar.element.tagName === "UL",
-        score:
-          toolbar.depth * -40 -
-          hostRect.height * 0.2 -
-          hostRect.width * 0.001 +
-          groupRect.right * 0.0001
-      });
-    }
-
-    if (!candidates.length) return null;
-    return candidates.sort((a, b) => b.score - a.score)[0];
-  }
-
-  function isReleasesRoute(repo) {
-    return Boolean(repo && String(repo.parts[2] || "").toLowerCase() === "releases");
-  }
-
-  function decodeReleaseTag(value) {
-    const raw = String(value || "").trim();
-    if (!raw) return "";
-    try {
-      return decodeURIComponent(raw);
-    } catch (_error) {
-      return raw;
-    }
-  }
-
-  function releaseTagFromLink(link) {
-    if (!link || !urlPolicy) return "";
-    const repo = parseRepository();
-    if (!repo) return "";
-    const parsed = urlPolicy.releaseTag(
-      link.getAttribute("href") || "",
-      repo.owner,
-      repo.repo
-    );
-    return parsed ? parsed.tag : "";
-  }
-
-  function releaseTagForSection(section) {
-    if (!section) return "";
-    const link = [...section.querySelectorAll('a[href*="/releases/tag/"]')]
-      .find((candidate) => isVisibleElement(candidate) && releaseTagFromLink(candidate));
-    return link ? releaseTagFromLink(link) : "";
-  }
-
-  function findReleaseTitleGroup(section, preferredTag = "") {
-    if (!section) return null;
-
-    const links = [...section.querySelectorAll('a[href*="/releases/tag/"]')]
-      .filter((link) => isVisibleElement(link))
-      .map((link) => ({ link, tag: releaseTagFromLink(link) }))
-      .filter((entry) => entry.tag);
-
-    const selected = links.find((entry) => !preferredTag || entry.tag === preferredTag) || links[0];
-    if (!selected) return null;
-
-    // GitHub's Releases header contains a wide flex row whose right side holds
-    // the Compare control. Mounting into that row can push our button far away
-    // from the version. Anchor to the smallest visible text wrapper instead.
-    const wrapper = selected.link.closest("span, h1, h2, h3") || selected.link.parentElement;
-    if (!wrapper || !section.contains(wrapper) || wrapper === section) return null;
-
-    const containsCompare = [...wrapper.querySelectorAll("button, summary")]
-      .some((element) => /compare/i.test(normalizedActionText(element)));
-    if (containsCompare) return null;
-
-    return {
-      element: wrapper,
-      anchor: selected.link,
-      insertBefore: false,
-      tag: selected.tag
-    };
-  }
-
-  function findReleaseTarget(repo) {
-    if (!isReleasesRoute(repo)) return null;
-
-    const explicitTag = String(repo.parts[3] || "").toLowerCase() === "tag"
-      ? decodeReleaseTag(repo.parts.slice(4).join("/"))
-      : "";
-    const sections = [
-      ...document.querySelectorAll('section[data-release-anchor], section[id^="release-"]')
-    ].filter(isVisibleElement);
-
-    const candidates = [];
-    for (const section of sections) {
-      const tag = releaseTagForSection(section);
-      if (!tag || (explicitTag && tag !== explicitTag)) continue;
-      const title = findReleaseTitleGroup(section, tag);
-      if (!title) continue;
-      const rect = section.getBoundingClientRect();
-      const viewportAnchor = Math.min(180, window.innerHeight * 0.25);
-      const visible = rect.bottom > 80 && rect.top < window.innerHeight - 40;
-      candidates.push({
-        mode: "release",
-        element: title.element,
-        anchor: title.anchor,
-        insertBefore: false,
-        releaseTag: title.tag,
-        listMode: false,
-        score: explicitTag ? 100000 : (visible ? 10000 : 0) - Math.abs(rect.top - viewportAnchor)
-      });
-    }
-
-    if (candidates.length) return candidates.sort((a, b) => b.score - a.score)[0];
-
-    const main = document.querySelector("main");
-    if (!main || !isVisibleElement(main)) return null;
-    const title = findReleaseTitleGroup(main, explicitTag);
-    if (!title) return null;
-    return {
-      mode: "release",
-      element: title.element,
-      anchor: title.anchor,
-      insertBefore: false,
-      releaseTag: title.tag,
-      listMode: false
-    };
-  }
-
-  function isFlowEligibleRoute(repo) {
-    return Boolean(repo && repo.parts.length === 2);
-  }
-
-  function findFlowTarget(repo) {
-    if (!isFlowEligibleRoute(repo)) return null;
-
-    const candidates = [
-      document.querySelector("#repo-content-pjax-container"),
-      document.querySelector("main#js-repo-pjax-container"),
-      document.querySelector("main .Layout-main"),
-      document.querySelector("main")
-    ];
-
-    const element = candidates.find((candidate) => candidate && isVisibleElement(candidate));
-    if (!element) return null;
-    return { mode: "flow", element, prepend: true, listMode: false };
-  }
-
-  function findMountTarget(repo, options = {}) {
-    if (isReleasesRoute(repo)) return findReleaseTarget(repo);
-
-    if (!options.preferFlow && window.innerWidth >= TOOLBAR_BREAKPOINT) {
-      const toolbar = findToolbarTarget();
-      if (toolbar) {
-        const currentWidth = toolbar.element.clientWidth;
-        const stillRejected =
-          rejectedToolbarHost === toolbar.element &&
-          Math.abs(rejectedToolbarWidth - currentWidth) < 4;
-        if (!stillRejected) return toolbar;
-      }
-    }
-
-    const flow = findFlowTarget(repo);
-    if (flow) return flow;
-
-    return {
-      mode: "floating",
-      element: document.body,
-      listMode: false
-    };
-  }
-
-  function insertRoot(root, target) {
-    if (target.anchor && target.anchor.parentElement === target.element) {
-      if (target.insertBefore) {
-        target.element.insertBefore(root, target.anchor);
-      } else {
-        target.element.insertBefore(root, target.anchor.nextSibling);
-      }
-    } else if (target.prepend) {
-      target.element.prepend(root);
-    } else {
-      target.element.append(root);
-    }
-    root.__ghdnLayoutHost = target.element;
-  }
-
   function observeLayoutHost(element) {
     if (observedLayoutHost === element) return;
     if (resizeObserver) resizeObserver.disconnect();
@@ -595,14 +180,14 @@
   function toolbarFits(root) {
     if (!root || !root.isConnected) return false;
     const host = root.__ghdnLayoutHost || root.parentElement;
-    if (!host || !isVisibleElement(host)) return false;
+    if (!host || !githubDom.isVisibleElement(host)) return false;
 
     const rootRect = root.getBoundingClientRect();
     if (rootRect.width <= 0 || rootRect.height <= 0) return false;
     if (rootRect.right > window.innerWidth - 8) return false;
     if (host.scrollWidth > host.clientWidth + 3) return false;
 
-    const sibling = [...host.children].find((child) => child !== root && isVisibleElement(child));
+    const sibling = [...host.children].find((child) => child !== root && githubDom.isVisibleElement(child));
     if (sibling) {
       const siblingRect = sibling.getBoundingClientRect();
       if (Math.abs(rootRect.top - siblingRect.top) > 10) return false;
@@ -746,10 +331,10 @@
     placementBusy = true;
     try {
       await settingsReady;
-      const repo = parseRepository();
+      const repo = repositoryContext.parse();
       let existing = document.getElementById(ROOT_ID);
 
-      if (!repo || !shouldShow(repo)) {
+      if (!repo || !repositoryContext.shouldShow(repo, settings)) {
         if (existing) existing.remove();
         setMenuOpen(false);
         activeRepoKey = "";
@@ -762,7 +347,7 @@
         return;
       }
 
-      const target = findMountTarget(repo, options);
+      const target = placement.findMountTarget(repo, { ...options, rejectedToolbarHost, rejectedToolbarWidth });
       if (!target) {
         if (existing) existing.remove();
         setMenuOpen(false);
@@ -794,7 +379,7 @@
       if (!sameTarget) {
         if (existing) existing.remove();
         existing = createRoot(target);
-        insertRoot(existing, target);
+        placement.insertRoot(existing, target);
         installCloseListeners();
         getDetectedPlatform().then((platform) => updatePrimaryPresentation(releaseState && releaseState.response, platform));
       }
@@ -808,9 +393,9 @@
           rejectedToolbarWidth = target.element.clientWidth;
           existing.remove();
           existing = null;
-          const fallback = findMountTarget(repo, { preferFlow: true });
+          const fallback = placement.findMountTarget(repo, { preferFlow: true, rejectedToolbarHost, rejectedToolbarWidth });
           const flowRoot = createRoot(fallback);
-          insertRoot(flowRoot, fallback);
+          placement.insertRoot(flowRoot, fallback);
           observeLayoutHost(fallback.element);
           getDetectedPlatform().then((platform) => updatePrimaryPresentation(releaseState && releaseState.response, platform));
         } else {
@@ -833,7 +418,7 @@
   }
 
   function configurePageObserver() {
-    const repo = parseRepository();
+    const repo = repositoryContext.parse();
     const nextHost = repo
       ? (document.querySelector("main") || document.querySelector("#js-repo-pjax-container") || document.body)
       : null;
@@ -958,133 +543,6 @@
     scheduleLayoutRefresh();
   }
 
-  function encodeGitHubPath(value) {
-    return encodeURIComponent(String(value || ""));
-  }
-
-  function assetContentType(name) {
-    const lower = String(name || "").toLowerCase();
-    if (lower.endsWith(".apk")) return "application/vnd.android.package-archive";
-    if (lower.endsWith(".zip")) return "application/zip";
-    if (lower.endsWith(".json")) return "application/json";
-    return "application/octet-stream";
-  }
-
-  function parseHumanSize(text) {
-    const matches = [...String(text || "").matchAll(/(\d+(?:[.,]\d+)?)\s*(B|KB|KiB|MB|MiB|GB|GiB)\b/gi)];
-    if (!matches.length) return 0;
-    const match = matches[matches.length - 1];
-    const amount = Number(String(match[1]).replace(",", ".")) || 0;
-    const unit = match[2].toLowerCase();
-    const factors = { b: 1, kb: 1000, kib: 1024, mb: 1000 ** 2, mib: 1024 ** 2, gb: 1000 ** 3, gib: 1024 ** 3 };
-    return Math.round(amount * (factors[unit] || 1));
-  }
-
-  function stableAssetId(url, index) {
-    let hash = 2166136261;
-    const value = String(url || "");
-    for (let i = 0; i < value.length; i += 1) {
-      hash ^= value.charCodeAt(i);
-      hash = Math.imul(hash, 16777619);
-    }
-    return Math.abs(hash || index + 1);
-  }
-
-  function releaseAssetsFromDocument(doc, repo, tag) {
-    if (!doc || !urlPolicy) return [];
-    const assets = [];
-    const seen = new Set();
-    for (const link of doc.querySelectorAll('a[href*="/releases/download/"]')) {
-      const parsed = urlPolicy.releaseAsset(
-        link.getAttribute("href") || "",
-        repo.owner,
-        repo.repo,
-        tag || ""
-      );
-      if (!parsed || seen.has(parsed.href)) continue;
-      seen.add(parsed.href);
-      let container = link;
-      for (let depth = 0; depth < 4 && container.parentElement; depth += 1) {
-        container = container.parentElement;
-        if (/\b(B|KB|KiB|MB|MiB|GB|GiB)\b/i.test(container.textContent || "")) break;
-      }
-      if (assets.length >= MAX_RELEASE_ASSETS) break;
-      assets.push({
-        id: stableAssetId(parsed.href, assets.length),
-        name: parsed.name,
-        size: parseHumanSize(container.textContent || ""),
-        state: "uploaded",
-        content_type: assetContentType(parsed.name),
-        download_count: 0,
-        browser_download_url: parsed.href,
-        created_at: "",
-        updated_at: ""
-      });
-    }
-    return assets;
-  }
-
-  function releaseSectionByTag(tag) {
-    if (!tag) return null;
-    return [...document.querySelectorAll('section[data-release-anchor], section[id^="release-"]')]
-      .find((section) => releaseTagForSection(section) === tag) || null;
-  }
-
-  function releaseNameFromSection(section, tag) {
-    if (!section) return tag;
-    const heading = [...section.querySelectorAll("h1, h2, h3")]
-      .find((element) => String(element.textContent || "").includes(tag));
-    return String(heading && heading.textContent || tag).replace(/\s+/g, " ").trim() || tag;
-  }
-
-  function releaseDateFromSection(section) {
-    const time = section && section.querySelector("relative-time[datetime], time[datetime]");
-    return time ? String(time.getAttribute("datetime") || "") : "";
-  }
-
-  function releaseResponseFromPage(repo, tag, assets, platform, section = null) {
-    const encodedTag = encodeGitHubPath(tag);
-    const release = {
-      id: stableAssetId(`${repo.key}:${tag}`, 0),
-      tag_name: tag,
-      name: releaseNameFromSection(section, tag),
-      html_url: `https://github.com/${repo.owner}/${repo.repo}/releases/tag/${encodedTag}`,
-      published_at: releaseDateFromSection(section),
-      created_at: releaseDateFromSection(section),
-      draft: false,
-      prerelease: Boolean(section && /pre-release/i.test(section.textContent || "")),
-      assets,
-      zipball_url: `https://github.com/${repo.owner}/${repo.repo}/archive/refs/tags/${encodedTag}.zip`,
-      tarball_url: `https://github.com/${repo.owner}/${repo.repo}/archive/refs/tags/${encodedTag}.tar.gz`
-    };
-    const selection = selector.recommendation(assets, platform || {});
-    return {
-      ok: true,
-      release,
-      rankedAssets: selection.ranked,
-      recommendation: { best: selection.best, confidence: selection.confidence, gap: Number.isFinite(selection.gap) ? selection.gap : null },
-      fromPage: true
-    };
-  }
-
-  function collectReleaseTags(doc, repo) {
-    const tags = [];
-    const seen = new Set();
-    if (!doc || !urlPolicy) return tags;
-    for (const link of doc.querySelectorAll('a[href*="/releases/tag/"]')) {
-      const parsed = urlPolicy.releaseTag(
-        link.getAttribute("href") || "",
-        repo.owner,
-        repo.repo
-      );
-      if (!parsed || seen.has(parsed.tag)) continue;
-      seen.add(parsed.tag);
-      tags.push(parsed.tag);
-      if (tags.length >= 20) break;
-    }
-    return tags;
-  }
-
   async function fetchGitHubDocument(path, repo) {
     const trusted = urlPolicy && urlPolicy.repositoryWebUrl(path, repo.owner, repo.repo);
     if (!trusted) throw new Error("Untrusted GitHub page URL");
@@ -1110,34 +568,20 @@
   async function getReleaseTags(repo) {
     const cached = releaseTagsCache.get(repo.key);
     if (cached && Date.now() - cached.timestamp < 10 * 60 * 1000) return cached.tags;
-    let tags = collectReleaseTags(document, repo);
+    let tags = releasePageParser.collectReleaseTags(document, repo, { urlPolicy });
     if (tags.length < 5) {
       try {
         const doc = await fetchGitHubDocument(`/${repo.owner}/${repo.repo}/releases`, repo);
-        tags = collectReleaseTags(doc, repo);
+        tags = releasePageParser.collectReleaseTags(doc, repo, { urlPolicy });
       } catch (_error) {}
     }
     setLimitedCache(releaseTagsCache, repo.key, { timestamp: Date.now(), tags });
     return tags;
   }
 
-  function latestReleaseTagFromPage(repo) {
-    const links = [...document.querySelectorAll('a[href*="/releases/tag/"]')]
-      .filter((link) => Boolean(urlPolicy && urlPolicy.releaseTag(
-        link.getAttribute("href") || "",
-        repo.owner,
-        repo.repo
-      )));
-    const preferred = links.find((link) => {
-      const context = String(link.closest("aside, section, div")?.textContent || "");
-      return /latest|releases?/i.test(context);
-    }) || links[0];
-    return preferred ? releaseTagFromLink(preferred) : "";
-  }
-
   async function loadReleaseFromPage(repo, requestedTag, platform) {
     let tag = String(requestedTag || "");
-    if (!tag) tag = latestReleaseTagFromPage(repo);
+    if (!tag) tag = releasePageParser.latestReleaseTagFromDocument(document, repo, { urlPolicy });
     if (!tag) {
       const tags = await getReleaseTags(repo);
       tag = tags[0] || "";
@@ -1147,13 +591,13 @@
     const key = `${repo.key}:${tag}`;
     let release = pageReleaseCache.get(key);
     if (!release) {
-      const section = releaseSectionByTag(tag);
-      let assets = releaseAssetsFromDocument(section || document, repo, tag);
+      const section = releasePageParser.releaseSectionByTag(document, tag, repo, { urlPolicy, isVisible: (element) => githubDom.isVisibleElement(element, { rootId: ROOT_ID, getComputedStyle }) });
+      let assets = releasePageParser.releaseAssetsFromDocument(section || document, repo, tag, { urlPolicy });
       if (!assets.length) {
-        const doc = await fetchGitHubDocument(`/${repo.owner}/${repo.repo}/releases/expanded_assets/${encodeGitHubPath(tag)}`, repo);
-        assets = releaseAssetsFromDocument(doc, repo, tag);
+        const doc = await fetchGitHubDocument(`/${repo.owner}/${repo.repo}/releases/expanded_assets/${releasePageParser.encodeGitHubPath(tag)}`, repo);
+        assets = releasePageParser.releaseAssetsFromDocument(doc, repo, tag, { urlPolicy });
       }
-      release = releaseResponseFromPage(repo, tag, assets, platform, section).release;
+      release = releasePageParser.releaseFromPage(repo, tag, assets, section);
       setLimitedCache(pageReleaseCache, key, release);
     }
     const selection = selector.recommendation(release.assets, platform || {});
@@ -1169,7 +613,7 @@
   async function loadRelease() {
     if (releaseState) return releaseState;
     if (loadingPromise) return loadingPromise;
-    const repo = parseRepository();
+    const repo = repositoryContext.parse();
     if (!repo) throw new Error("Repository not found");
     setLoading(true);
 
@@ -1268,7 +712,7 @@
   }
 
   async function loadBuildInstructions(release) {
-    const repo = parseRepository();
+    const repo = repositoryContext.parse();
     if (!repo) throw new Error("Repository not found");
     const ref = String(release && release.tag_name || "");
     const platform = await getDetectedPlatform();
@@ -1381,7 +825,7 @@
   }
 
   function createVersionSelector(release) {
-    const repo = parseRepository();
+    const repo = repositoryContext.parse();
     if (!repo) return null;
     const row = createElement("label", "ghdn-version-row");
     const label = createElement("span", "ghdn-version-label", strings.versionLabel);
@@ -1745,7 +1189,7 @@
   }
 
   async function startDownload(url, asset = null, release = null, platform = null) {
-    const repo = parseRepository();
+    const repo = repositoryContext.parse();
     const trusted = repo && urlPolicy
       ? asset && release && release.tag_name
         ? urlPolicy.releaseAsset(url, repo.owner, repo.repo, release.tag_name)
@@ -1822,7 +1266,7 @@
   }
 
   function openExternal(url) {
-    const repo = parseRepository();
+    const repo = repositoryContext.parse();
     const trusted = repo && urlPolicy
       ? urlPolicy.repositoryWebUrl(url, repo.owner, repo.repo)
       : null;
@@ -1955,8 +1399,8 @@
     const menu = document.getElementById(MENU_ID);
     if (menu && !menu.hidden) requestAnimationFrame(positionMenu);
     if (!observedPageHost || releaseScrollFrame) return;
-    const repo = parseRepository();
-    if (!isReleasesRoute(repo)) return;
+    const repo = repositoryContext.parse();
+    if (!repositoryContext.isReleasesRoute(repo)) return;
     releaseScrollFrame = requestAnimationFrame(() => {
       releaseScrollFrame = null;
       scheduleMount();

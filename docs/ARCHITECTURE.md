@@ -10,7 +10,7 @@ The extension runs in four isolated contexts:
 
 | Context | Entry point | Responsibility |
 |---|---|---|
-| GitHub page | `src/content.js` | Detect a supported public repository, render the download UI, parse release pages and send privileged work to the background context. |
+| GitHub page | `src/content.js` plus `src/content/` modules | Coordinate repository detection, placement, release-page parsing, UI rendering and privileged background requests. |
 | Background | `src/background.js` | GitHub API access, OAuth Device Flow, local tracking state, update checks, notifications and trusted navigation. |
 | Popup | `src/popup.js` | Show updates, watched repositories, history and common settings. |
 | Options | `src/options.js` | Full settings editor and optional GitHub connection. |
@@ -67,6 +67,26 @@ Direct access to `browser` or `chrome` remains acceptable only for event registr
 
 Reusable formatting belongs in `src/shared/formatting.js`. Feature-specific labels and translated sentences remain in the locale catalogs.
 
+## Content-page modules
+
+The first content decomposition stage is now active. `src/content.js` remains the coordinator and UI owner, while page-specific data and placement responsibilities live in focused modules:
+
+| Module | Responsibility |
+|---|---|
+| `content/repository-context.js` | Parse GitHub repository routes, require a positive public marker, enforce page-visibility settings and decode release tags. |
+| `content/github-dom.js` | Classify GitHub action controls, centralize visibility checks and locate release-title wrappers. |
+| `content/placement.js` | Select toolbar, release, flow or floating mount targets and insert the extension root. |
+| `content/release/page-parser.js` | Extract trusted release tags, assets, sizes and release metadata from GitHub HTML. |
+
+These files expose `GHDNRepositoryContext`, `GHDNGitHubDom`, `GHDNPlacement` and `GHDNReleasePageParser`. They contain no product-state ownership and can be loaded directly by Node tests.
+
+### Content boundary rules
+
+- GitHub route and public-visibility parsing belongs only in `repository-context.js`.
+- GitHub toolbar/release DOM knowledge belongs only in `github-dom.js` and `placement.js`.
+- Release HTML-to-data conversion belongs only in `release/page-parser.js`.
+- `content.js` may coordinate these modules, fetch trusted GitHub pages and render UI, but must not reintroduce duplicate parsers or selector sets.
+
 ## Existing domain modules
 
 The following files already represent reasonably focused domains and should stay independent during decomposition:
@@ -89,7 +109,11 @@ A typical release recommendation follows this path:
 ```text
 GitHub repository page
         ↓
-content.js parses repository context
+repository-context.js validates the public repository
+        ↓
+placement.js selects the mount target
+        ↓
+content.js coordinates loading and UI
         ↓
 GHDN_GET_LATEST_RELEASE
         ↓
@@ -150,7 +174,8 @@ When adding a source file, update all applicable places:
 
 ## Testing layers
 
-- `tests/*.test.js` — isolated Node unit/integration tests;
+- `tests/*.test.js` — shared/domain Node unit and integration tests;
+- `tests/content/` — repository, GitHub DOM, placement and release-page parser tests;
 - `tests/helpers/` — reusable WebExtension mocks and fixtures;
 - `tests/ui_smoke.py` — content-script behavior in Chromium;
 - `tests/settings_ui_smoke.py` — popup, options, settings and auth UI;
@@ -163,20 +188,20 @@ Every behavior-preserving extraction must keep all existing tests green. New sha
 
 The current `content.js`, `background.js` and `styles.css` are still large. They will be split in behavior-preserving local commits.
 
-Target content structure:
+Current and target content structure:
 
 ```text
 src/content/
-├── entry.js
-├── state.js
-├── repository-context.js
-├── github-dom.js
-├── placement.js
-├── lifecycle.js
+├── repository-context.js      # extracted
+├── github-dom.js              # extracted
+├── placement.js               # extracted
+├── entry.js                   # planned replacement for content.js
+├── state.js                   # planned
+├── lifecycle.js               # planned
 ├── release/
-│   ├── page-parser.js
-│   ├── page-client.js
-│   └── release-controller.js
+│   ├── page-parser.js         # extracted
+│   ├── page-client.js         # planned
+│   └── release-controller.js  # planned
 └── ui/
     ├── button.js
     ├── menu.js

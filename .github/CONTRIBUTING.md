@@ -14,6 +14,8 @@ Keep the extension privacy-friendly: no telemetry, remote code, broad host permi
 
 Read [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) before changing runtime messages, browser API wrappers, script loading order or security boundaries. Shared runtime message names belong in `src/shared/messages.js`; Chrome/Firefox compatibility wrappers belong in `src/shared/browser-api.js`.
 
+Content-page changes must respect the current module boundaries: repository parsing in `src/content/repository-context.js`, GitHub DOM knowledge in `src/content/github-dom.js`, mount selection in `src/content/placement.js`, and release HTML parsing in `src/content/release/page-parser.js`. Do not add duplicate route parsers or GitHub selector sets back to `src/content.js`.
+
 ## Translations
 
 Translations live in `src/_locales/<locale>/messages.json`. See [`docs/TRANSLATING.md`](../docs/TRANSLATING.md) for the complete workflow. Do not add user-facing strings directly to JavaScript when a locale message can be used.

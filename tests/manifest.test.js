@@ -26,6 +26,16 @@ for (const file of ["manifest.chromium.json", "manifest.firefox.json"]) {
   ]);
   assert.ok(manifest.content_scripts[0].js.indexOf("url-policy.js") < manifest.content_scripts[0].js.indexOf("content.js"));
   assert.ok(manifest.content_scripts[0].js.indexOf("install-guides.js") < manifest.content_scripts[0].js.indexOf("content.js"));
+  assert.deepEqual(
+    manifest.content_scripts[0].js.slice(-5),
+    [
+      "content/repository-context.js",
+      "content/github-dom.js",
+      "content/placement.js",
+      "content/release/page-parser.js",
+      "content.js"
+    ]
+  );
   assert.equal(manifest.content_security_policy.extension_pages, "script-src 'self'; object-src 'none'");
   assert.ok(!manifest.permissions.includes("tabs"));
   assert.ok(!manifest.permissions.includes("cookies"));

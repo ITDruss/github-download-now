@@ -71,6 +71,16 @@ for (const manifest of [chromium, firefox]) {
     "i18n-catalogs.js", "i18n.js", "settings.js"
   ]), "Shared contracts, browser adapter, formatting, locales and settings must load first in content scripts");
   assert(scripts.includes("url-policy.js") && scripts.indexOf("url-policy.js") < scripts.indexOf("content.js"), "URL policy must load before content.js");
+  const contentModules = [
+    "content/repository-context.js",
+    "content/github-dom.js",
+    "content/placement.js",
+    "content/release/page-parser.js"
+  ];
+  for (const contentModule of contentModules) {
+    assert(scripts.includes(contentModule), `${contentModule} must be included in content scripts`);
+    assert(scripts.indexOf(contentModule) < scripts.indexOf("content.js"), `${contentModule} must load before content.js`);
+  }
   if (manifest.background?.scripts) {
     assert(JSON.stringify(manifest.background.scripts.slice(0, 5)) === JSON.stringify([
       "shared/messages.js", "shared/browser-api.js",
