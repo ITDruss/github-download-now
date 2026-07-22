@@ -1,6 +1,9 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+require("../src/shared/browser-api.js");
+require("../src/i18n-catalogs.js");
+require("../src/i18n.js");
 const settingsApi = require("../src/settings.js");
 
 {
@@ -13,7 +16,8 @@ const settingsApi = require("../src/settings.js");
     afterDownload: "always",
     updateCheckInterval: "6h",
     historyEnabled: false,
-    installGuidance: "compact"
+    installGuidance: "compact",
+    language: "ru"
   });
   assert.equal(normalized.enabled, false);
   assert.equal(normalized.preferredLinux, "deb");
@@ -24,6 +28,11 @@ const settingsApi = require("../src/settings.js");
   assert.equal(normalized.updateCheckInterval, "6h");
   assert.equal(normalized.historyEnabled, false);
   assert.equal(normalized.installGuidance, "compact");
+  assert.equal(normalized.language, "ru");
+}
+
+{
+  assert.equal(settingsApi.normalize({ language: "de" }).language, "auto");
 }
 
 {

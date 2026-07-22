@@ -1,13 +1,15 @@
 (function initSettings(root, factory) {
-  const api = factory();
+  const api = factory(root);
   root.GHDNSettings = api;
   if (typeof module !== "undefined" && module.exports) {
     module.exports = api;
   }
-})(typeof globalThis !== "undefined" ? globalThis : this, function createSettingsApi() {
+})(typeof globalThis !== "undefined" ? globalThis : this, function createSettingsApi(root) {
   "use strict";
 
-  const extensionApi = typeof browser !== "undefined" ? browser : (typeof chrome !== "undefined" ? chrome : null);
+  const browserApi = root.GHDNBrowser;
+  const extensionApi = browserApi?.api || (typeof browser !== "undefined" ? browser : (typeof chrome !== "undefined" ? chrome : null));
+  const i18n = root.GHDNI18n;
 
   const DEFAULT_SETTINGS = Object.freeze({
     enabled: true,
@@ -36,7 +38,6 @@
   });
 
   const ALLOWED = Object.freeze({
-    language: new Set(["auto", "ru", "en"]),
     osOverride: new Set(["auto", "windows", "linux", "macos", "android"]),
     archOverride: new Set(["auto", "x64", "arm64", "x86", "arm"]),
     preferredLinux: new Set(["auto", "appimage", "deb", "rpm", "flatpak", "snap", "archive"]),
@@ -69,6 +70,12 @@
       if (values.has(source[key])) result[key] = source[key];
     }
 
+    if (source.language === "auto") result.language = "auto";
+    else {
+      const supported = i18n?.supportedLocale?.(source.language) || (new Set(["en", "ru"]).has(source.language) ? source.language : "");
+      if (supported) result.language = supported;
+    }
+
     const months = Number(source.staleReleaseMonths);
     if (Number.isFinite(months)) {
       result.staleReleaseMonths = Math.max(0, Math.min(120, Math.round(months)));
@@ -77,36 +84,10 @@
     return result;
   }
 
-  function chromeStorageGet(defaults) {
-    return new Promise((resolve, reject) => {
-      extensionApi.storage.sync.get(defaults, (items) => {
-        const error = extensionApi.runtime && extensionApi.runtime.lastError;
-        if (error) reject(new Error(error.message));
-        else resolve(items);
-      });
-    });
-  }
-
-  function chromeStorageSet(values) {
-    return new Promise((resolve, reject) => {
-      extensionApi.storage.sync.set(values, () => {
-        const error = extensionApi.runtime && extensionApi.runtime.lastError;
-        if (error) reject(new Error(error.message));
-        else resolve();
-      });
-    });
-  }
-
   async function get() {
-    if (!extensionApi || !extensionApi.storage || !extensionApi.storage.sync) {
-      return { ...DEFAULT_SETTINGS };
-    }
-
+    if (!browserApi?.storage?.sync) return { ...DEFAULT_SETTINGS };
     try {
-      const values = typeof browser !== "undefined"
-        ? await extensionApi.storage.sync.get(DEFAULT_SETTINGS)
-        : await chromeStorageGet(DEFAULT_SETTINGS);
-      return normalize(values);
+      return normalize(await browserApi.storage.sync.get(DEFAULT_SETTINGS));
     } catch (_error) {
       return { ...DEFAULT_SETTINGS };
     }
@@ -115,28 +96,12 @@
   async function set(patch) {
     const current = await get();
     const next = normalize({ ...current, ...(patch || {}) });
-    if (!extensionApi || !extensionApi.storage || !extensionApi.storage.sync) return next;
-
-    if (typeof browser !== "undefined") await extensionApi.storage.sync.set(next);
-    else await chromeStorageSet(next);
+    if (browserApi?.storage?.sync) await browserApi.storage.sync.set(next);
     return next;
   }
 
   async function reset() {
-    if (!extensionApi || !extensionApi.storage || !extensionApi.storage.sync) {
-      return { ...DEFAULT_SETTINGS };
-    }
-
-    if (typeof browser !== "undefined") await extensionApi.storage.sync.clear();
-    else {
-      await new Promise((resolve, reject) => {
-        extensionApi.storage.sync.clear(() => {
-          const error = extensionApi.runtime && extensionApi.runtime.lastError;
-          if (error) reject(new Error(error.message));
-          else resolve();
-        });
-      });
-    }
+    if (browserApi?.storage?.sync) await browserApi.storage.sync.clear();
     return { ...DEFAULT_SETTINGS };
   }
 

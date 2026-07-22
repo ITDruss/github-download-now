@@ -1,0 +1,1462 @@
+{
+  "commonArchive": {
+    "message": "Archive",
+    "description": "User-facing extension text: commonArchive."
+  },
+  "commonAutomatic": {
+    "message": "Automatic",
+    "description": "User-facing extension text: commonAutomatic."
+  },
+  "commonError": {
+    "message": "Error",
+    "description": "User-facing extension text: commonError."
+  },
+  "commonRelease": {
+    "message": "Release",
+    "description": "User-facing extension text: commonRelease."
+  },
+  "commonSaved": {
+    "message": "Saved",
+    "description": "User-facing extension text: commonSaved."
+  },
+  "contentApiError": {
+    "message": "GitHub API is temporarily unavailable.",
+    "description": "User-facing extension text: contentApiError."
+  },
+  "contentBuildError": {
+    "message": "Could not load build documentation.",
+    "description": "User-facing extension text: contentBuildError."
+  },
+  "contentBuildFallbackNotice": {
+    "message": "Links point to the default branch because documentation for the release tag is unavailable.",
+    "description": "User-facing extension text: contentBuildFallbackNotice."
+  },
+  "contentBuildFromSource": {
+    "message": "Build documentation",
+    "description": "User-facing extension text: contentBuildFromSource."
+  },
+  "contentBuildLoadAction": {
+    "message": "Show build documentation",
+    "description": "User-facing extension text: contentBuildLoadAction."
+  },
+  "contentBuildLoading": {
+    "message": "Looking for build documentation…",
+    "description": "User-facing extension text: contentBuildLoading."
+  },
+  "contentBuildNotFound": {
+    "message": "No build documentation was found.",
+    "description": "User-facing extension text: contentBuildNotFound."
+  },
+  "contentChooseDownload": {
+    "message": "Choose a file",
+    "description": "User-facing extension text: contentChooseDownload."
+  },
+  "contentCopied": {
+    "message": "Link copied",
+    "description": "User-facing extension text: contentCopied."
+  },
+  "contentCopyLink": {
+    "message": "Copy direct link",
+    "description": "User-facing extension text: contentCopyLink."
+  },
+  "contentDetecting": {
+    "message": "Detecting your system…",
+    "description": "User-facing extension text: contentDetecting."
+  },
+  "contentDownloadCompact": {
+    "message": "Download",
+    "description": "User-facing extension text: contentDownloadCompact."
+  },
+  "contentDownloadFormat": {
+    "message": "Download $FORMAT$",
+    "placeholders": {
+      "format": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: contentDownloadFormat."
+  },
+  "contentDownloadNow": {
+    "message": "Download now",
+    "description": "User-facing extension text: contentDownloadNow."
+  },
+  "contentDownloads": {
+    "message": "downloads",
+    "description": "User-facing extension text: contentDownloads."
+  },
+  "contentFormatHintAab": {
+    "message": "Android App Bundle",
+    "description": "User-facing extension text: contentFormatHintAab."
+  },
+  "contentFormatHintApk": {
+    "message": "Android application",
+    "description": "User-facing extension text: contentFormatHintApk."
+  },
+  "contentFormatHintApks": {
+    "message": "Android split APK set",
+    "description": "User-facing extension text: contentFormatHintApks."
+  },
+  "contentFormatHintAppimage": {
+    "message": "Portable Linux app without installation",
+    "description": "User-facing extension text: contentFormatHintAppimage."
+  },
+  "contentFormatHintCrx": {
+    "message": "Chromium extension",
+    "description": "User-facing extension text: contentFormatHintCrx."
+  },
+  "contentFormatHintDeb": {
+    "message": "Package for Debian, Ubuntu and derivatives",
+    "description": "User-facing extension text: contentFormatHintDeb."
+  },
+  "contentFormatHintDmg": {
+    "message": "macOS application image",
+    "description": "User-facing extension text: contentFormatHintDmg."
+  },
+  "contentFormatHintExe": {
+    "message": "Windows application or installer",
+    "description": "User-facing extension text: contentFormatHintExe."
+  },
+  "contentFormatHintFlatpak": {
+    "message": "Local Flatpak bundle",
+    "description": "User-facing extension text: contentFormatHintFlatpak."
+  },
+  "contentFormatHintFlatpakref": {
+    "message": "Install with Flatpak",
+    "description": "User-facing extension text: contentFormatHintFlatpakref."
+  },
+  "contentFormatHintJar": {
+    "message": "Java application",
+    "description": "User-facing extension text: contentFormatHintJar."
+  },
+  "contentFormatHintMsi": {
+    "message": "Windows installer package",
+    "description": "User-facing extension text: contentFormatHintMsi."
+  },
+  "contentFormatHintMsix": {
+    "message": "Modern Windows package",
+    "description": "User-facing extension text: contentFormatHintMsix."
+  },
+  "contentFormatHintMsixbundle": {
+    "message": "Multi-architecture Windows package",
+    "description": "User-facing extension text: contentFormatHintMsixbundle."
+  },
+  "contentFormatHintPkg": {
+    "message": "macOS installer package",
+    "description": "User-facing extension text: contentFormatHintPkg."
+  },
+  "contentFormatHintRpm": {
+    "message": "Package for Fedora, RHEL and derivatives",
+    "description": "User-facing extension text: contentFormatHintRpm."
+  },
+  "contentFormatHintRun": {
+    "message": "Executable Linux installer",
+    "description": "User-facing extension text: contentFormatHintRun."
+  },
+  "contentFormatHintSevenZip": {
+    "message": "7-Zip archive",
+    "description": "User-facing extension text: contentFormatHintSevenZip."
+  },
+  "contentFormatHintSh": {
+    "message": "Shell script — review before running",
+    "description": "User-facing extension text: contentFormatHintSh."
+  },
+  "contentFormatHintSnap": {
+    "message": "Snap package",
+    "description": "User-facing extension text: contentFormatHintSnap."
+  },
+  "contentFormatHintTarGz": {
+    "message": "Archive for manual installation",
+    "description": "User-facing extension text: contentFormatHintTarGz."
+  },
+  "contentFormatHintTarXz": {
+    "message": "Archive for manual installation",
+    "description": "User-facing extension text: contentFormatHintTarXz."
+  },
+  "contentFormatHintTarZst": {
+    "message": "Archive for manual installation",
+    "description": "User-facing extension text: contentFormatHintTarZst."
+  },
+  "contentFormatHintTgz": {
+    "message": "Archive for manual installation",
+    "description": "User-facing extension text: contentFormatHintTgz."
+  },
+  "contentFormatHintVsix": {
+    "message": "VS Code extension",
+    "description": "User-facing extension text: contentFormatHintVsix."
+  },
+  "contentFormatHintXpi": {
+    "message": "Firefox extension",
+    "description": "User-facing extension text: contentFormatHintXpi."
+  },
+  "contentFormatHintZip": {
+    "message": "ZIP archive",
+    "description": "User-facing extension text: contentFormatHintZip."
+  },
+  "contentInstallAfterDownload": {
+    "message": "The file is downloading — what to do next",
+    "description": "User-facing extension text: contentInstallAfterDownload."
+  },
+  "contentInstallClose": {
+    "message": "Close",
+    "description": "User-facing extension text: contentInstallClose."
+  },
+  "contentInstallCopied": {
+    "message": "Command copied",
+    "description": "User-facing extension text: contentInstallCopied."
+  },
+  "contentInstallCopyAll": {
+    "message": "Copy all commands",
+    "description": "User-facing extension text: contentInstallCopyAll."
+  },
+  "contentInstallCopyCommand": {
+    "message": "Copy command",
+    "description": "User-facing extension text: contentInstallCopyCommand."
+  },
+  "contentInstallHelp": {
+    "message": "How to install or run",
+    "description": "User-facing extension text: contentInstallHelp."
+  },
+  "contentLatestVersion": {
+    "message": "latest",
+    "description": "User-facing extension text: contentLatestVersion."
+  },
+  "contentLoading": {
+    "message": "Finding a release…",
+    "description": "User-facing extension text: contentLoading."
+  },
+  "contentMoreOnRelease": {
+    "message": "$COUNT$ more files on the release page",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: contentMoreOnRelease."
+  },
+  "contentNetworkError": {
+    "message": "Could not load release information.",
+    "description": "User-facing extension text: contentNetworkError."
+  },
+  "contentNoAssets": {
+    "message": "The release has no uploaded binaries. You can download its source code.",
+    "description": "User-facing extension text: contentNoAssets."
+  },
+  "contentNoRelease": {
+    "message": "This repository has no suitable published release.",
+    "description": "User-facing extension text: contentNoRelease."
+  },
+  "contentOpenRelease": {
+    "message": "Open release page",
+    "description": "User-facing extension text: contentOpenRelease."
+  },
+  "contentOpenSettings": {
+    "message": "Extension settings",
+    "description": "User-facing extension text: contentOpenSettings."
+  },
+  "contentOtherPlatforms": {
+    "message": "Other platforms",
+    "description": "User-facing extension text: contentOtherPlatforms."
+  },
+  "contentPreferred": {
+    "message": "Your choice",
+    "description": "User-facing extension text: contentPreferred."
+  },
+  "contentPrerelease": {
+    "message": "Pre-release",
+    "description": "User-facing extension text: contentPrerelease."
+  },
+  "contentPublished": {
+    "message": "Published",
+    "description": "User-facing extension text: contentPublished."
+  },
+  "contentRateLimited": {
+    "message": "GitHub API rate limit reached.",
+    "description": "User-facing extension text: contentRateLimited."
+  },
+  "contentRateLimitedUntil": {
+    "message": "GitHub API rate limit reached. Try again after $TIME$.",
+    "placeholders": {
+      "time": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: contentRateLimitedUntil."
+  },
+  "contentReasonArch": {
+    "message": "Matches your architecture: $ARCH$",
+    "placeholders": {
+      "arch": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: contentReasonArch."
+  },
+  "contentReasonFormat": {
+    "message": "Suitable format: $FORMAT$",
+    "placeholders": {
+      "format": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: contentReasonFormat."
+  },
+  "contentReasonOs": {
+    "message": "Matches your system: $OS$",
+    "placeholders": {
+      "os": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: contentReasonOs."
+  },
+  "contentReasonPopularity": {
+    "message": "Popular choice among users",
+    "description": "User-facing extension text: contentReasonPopularity."
+  },
+  "contentReasonPreference": {
+    "message": "Matches your preference: $FORMAT$",
+    "placeholders": {
+      "format": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: contentReasonPreference."
+  },
+  "contentReasonUniversal": {
+    "message": "Universal build",
+    "description": "User-facing extension text: contentReasonUniversal."
+  },
+  "contentRecommended": {
+    "message": "Recommended",
+    "description": "User-facing extension text: contentRecommended."
+  },
+  "contentSelectVersion": {
+    "message": "Choose a release version",
+    "description": "User-facing extension text: contentSelectVersion."
+  },
+  "contentSourceCode": {
+    "message": "Source code",
+    "description": "User-facing extension text: contentSourceCode."
+  },
+  "contentSourceTar": {
+    "message": "Source code (TAR.GZ)",
+    "description": "User-facing extension text: contentSourceTar."
+  },
+  "contentSourceZip": {
+    "message": "Source code (ZIP)",
+    "description": "User-facing extension text: contentSourceZip."
+  },
+  "contentStaleText": {
+    "message": "It was published $DATE$. Check whether the project is still maintained before downloading.",
+    "placeholders": {
+      "date": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: contentStaleText."
+  },
+  "contentStaleTitle": {
+    "message": "This release may be outdated",
+    "description": "User-facing extension text: contentStaleTitle."
+  },
+  "contentSuitable": {
+    "message": "Suitable for your device",
+    "description": "User-facing extension text: contentSuitable."
+  },
+  "contentUniversal": {
+    "message": "universal",
+    "description": "User-facing extension text: contentUniversal."
+  },
+  "contentUnknownPlatform": {
+    "message": "other platform",
+    "description": "User-facing extension text: contentUnknownPlatform."
+  },
+  "contentVersionLabel": {
+    "message": "Version",
+    "description": "User-facing extension text: contentVersionLabel."
+  },
+  "contentWatchEnable": {
+    "message": "Watch",
+    "description": "User-facing extension text: contentWatchEnable."
+  },
+  "contentWatchLater": {
+    "message": "Not now",
+    "description": "User-facing extension text: contentWatchLater."
+  },
+  "contentWatchQuestion": {
+    "message": "Watch $REPOSITORY$ for updates?",
+    "placeholders": {
+      "repository": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: contentWatchQuestion."
+  },
+  "contentWatchText": {
+    "message": "The extension will check new GitHub Releases locally.",
+    "description": "User-facing extension text: contentWatchText."
+  },
+  "contentWatchingEnabled": {
+    "message": "Update tracking enabled",
+    "description": "User-facing extension text: contentWatchingEnabled."
+  },
+  "contentWatchingUpdated": {
+    "message": "Download recorded and tracking updated",
+    "description": "User-facing extension text: contentWatchingUpdated."
+  },
+  "contentWhyRecommended": {
+    "message": "Why this file was selected",
+    "description": "User-facing extension text: contentWhyRecommended."
+  },
+  "extensionDescription": {
+    "message": "Adds a smart GitHub release download button, remembers downloads, and optionally watches repositories for new releases.",
+    "description": "User-facing extension text: extensionDescription."
+  },
+  "extensionName": {
+    "message": "GitHub Download Now",
+    "description": "User-facing extension text: extensionName."
+  },
+  "guideAabSummary": {
+    "message": "An AAB is intended for publishing and build tools, not direct installation on a phone.",
+    "description": "User-facing extension text: guideAabSummary."
+  },
+  "guideAabTitle": {
+    "message": "Android App Bundle",
+    "description": "User-facing extension text: guideAabTitle."
+  },
+  "guideAllowExecution": {
+    "message": "Allow execution",
+    "description": "User-facing extension text: guideAllowExecution."
+  },
+  "guideApkSummary": {
+    "message": "Open the file on Android. The system may ask you to allow installs from the source app.",
+    "description": "User-facing extension text: guideApkSummary."
+  },
+  "guideApkTitle": {
+    "message": "How to install the APK",
+    "description": "User-facing extension text: guideApkTitle."
+  },
+  "guideApkWarning": {
+    "message": "Installing apps outside Google Play increases malware risk.",
+    "description": "User-facing extension text: guideApkWarning."
+  },
+  "guideApksSummary": {
+    "message": "This is a split-APK bundle and cannot be installed like a normal APK. A compatible split-APK installer is required.",
+    "description": "User-facing extension text: guideApksSummary."
+  },
+  "guideApksTitle": {
+    "message": "How to install the APKS bundle",
+    "description": "User-facing extension text: guideApksTitle."
+  },
+  "guideAppimageSummary": {
+    "message": "An AppImage does not need installation, but the file must be executable.",
+    "description": "User-facing extension text: guideAppimageSummary."
+  },
+  "guideAppimageTitle": {
+    "message": "How to run the AppImage",
+    "description": "User-facing extension text: guideAppimageTitle."
+  },
+  "guideArchiveSummary": {
+    "message": "This is an archive, not a universal installer. Read the project documentation after extracting it.",
+    "description": "User-facing extension text: guideArchiveSummary."
+  },
+  "guideCheckAppSource": {
+    "message": "Check the app name, permissions and source",
+    "description": "User-facing extension text: guideCheckAppSource."
+  },
+  "guideCheckDeveloper": {
+    "message": "Check the developer name before confirming",
+    "description": "User-facing extension text: guideCheckDeveloper."
+  },
+  "guideCheckWindowsPublisher": {
+    "message": "Check the project and publisher shown by Windows",
+    "description": "User-facing extension text: guideCheckWindowsPublisher."
+  },
+  "guideCrxSummary": {
+    "message": "Chrome normally blocks direct CRX installation from arbitrary sites. Use the official store or an unpacked build in developer mode.",
+    "description": "User-facing extension text: guideCrxSummary."
+  },
+  "guideCrxTitle": {
+    "message": "Chromium extension",
+    "description": "User-facing extension text: guideCrxTitle."
+  },
+  "guideCrxWarning": {
+    "message": "Do not disable browser protections for an unknown CRX",
+    "description": "User-facing extension text: guideCrxWarning."
+  },
+  "guideDebSummary": {
+    "message": "This command is suitable for Debian, Ubuntu, Linux Mint and most derivatives.",
+    "description": "User-facing extension text: guideDebSummary."
+  },
+  "guideDebTitle": {
+    "message": "How to install the DEB package",
+    "description": "User-facing extension text: guideDebTitle."
+  },
+  "guideDmgSummary": {
+    "message": "Open the disk image. Usually, drag the application into the Applications folder.",
+    "description": "User-facing extension text: guideDmgSummary."
+  },
+  "guideDmgTitle": {
+    "message": "How to install from the DMG",
+    "description": "User-facing extension text: guideDmgTitle."
+  },
+  "guideEjectDmg": {
+    "message": "Eject the disk image in Finder after installation",
+    "description": "User-facing extension text: guideEjectDmg."
+  },
+  "guideExeSummary": {
+    "message": "Open the downloaded file and follow the installer. Portable builds may not require installation.",
+    "description": "User-facing extension text: guideExeSummary."
+  },
+  "guideExeTitle": {
+    "message": "How to run the EXE",
+    "description": "User-facing extension text: guideExeTitle."
+  },
+  "guideExplorerExtractAll": {
+    "message": "In File Explorer, choose Extract all",
+    "description": "User-facing extension text: guideExplorerExtractAll."
+  },
+  "guideExtractArchive": {
+    "message": "Extract the archive",
+    "description": "User-facing extension text: guideExtractArchive."
+  },
+  "guideFindApk": {
+    "message": "For normal installation, look for an APK or APKS asset in this release",
+    "description": "User-facing extension text: guideFindApk."
+  },
+  "guideFlatpakSummary": {
+    "message": "Flatpak must already be installed.",
+    "description": "User-facing extension text: guideFlatpakSummary."
+  },
+  "guideFlatpakTitle": {
+    "message": "How to install the Flatpak",
+    "description": "User-facing extension text: guideFlatpakTitle."
+  },
+  "guideFollowInstaller": {
+    "message": "Follow the system installer prompts",
+    "description": "User-facing extension text: guideFollowInstaller."
+  },
+  "guideInstallDownloadedFile": {
+    "message": "Install the downloaded file",
+    "description": "User-facing extension text: guideInstallDownloadedFile."
+  },
+  "guideInstallLocalPackage": {
+    "message": "Install the local package and its dependencies",
+    "description": "User-facing extension text: guideInstallLocalPackage."
+  },
+  "guideInstallTrustedFile": {
+    "message": "Install only a file from a publisher you trust",
+    "description": "User-facing extension text: guideInstallTrustedFile."
+  },
+  "guideInstallVsix": {
+    "message": "Install with the VS Code command line",
+    "description": "User-facing extension text: guideInstallVsix."
+  },
+  "guideJarSummary": {
+    "message": "A compatible Java Runtime Environment must be installed.",
+    "description": "User-facing extension text: guideJarSummary."
+  },
+  "guideJarTitle": {
+    "message": "How to run the JAR",
+    "description": "User-facing extension text: guideJarTitle."
+  },
+  "guideMakeExecutable": {
+    "message": "Make the file executable",
+    "description": "User-facing extension text: guideMakeExecutable."
+  },
+  "guideMsiAlternative": {
+    "message": "Alternative Windows Installer command",
+    "description": "User-facing extension text: guideMsiAlternative."
+  },
+  "guideMsiSummary": {
+    "message": "Normally, double-clicking the file is sufficient.",
+    "description": "User-facing extension text: guideMsiSummary."
+  },
+  "guideMsiTitle": {
+    "message": "How to install the MSI package",
+    "description": "User-facing extension text: guideMsiTitle."
+  },
+  "guidePkgSummary": {
+    "message": "Double-click the package and follow the macOS installer prompts.",
+    "description": "User-facing extension text: guidePkgSummary."
+  },
+  "guidePkgTitle": {
+    "message": "How to install the PKG",
+    "description": "User-facing extension text: guidePkgTitle."
+  },
+  "guideReadAfterExtract": {
+    "message": "Read README or INSTALL after extracting it.",
+    "description": "User-facing extension text: guideReadAfterExtract."
+  },
+  "guideRpmFedora": {
+    "message": "Fedora / RHEL / Rocky / AlmaLinux",
+    "description": "RPM installation option for Fedora-family distributions."
+  },
+  "guideRpmOpenSuse": {
+    "message": "openSUSE / SLES",
+    "description": "RPM installation option for openSUSE-family distributions."
+  },
+  "guideRpmSummary": {
+    "message": "Choose the command for your distribution.",
+    "description": "User-facing extension text: guideRpmSummary."
+  },
+  "guideRpmTitle": {
+    "message": "How to install the RPM package",
+    "description": "User-facing extension text: guideRpmTitle."
+  },
+  "guideRunFromDownloads": {
+    "message": "Run it from the download folder",
+    "description": "User-facing extension text: guideRunFromDownloads."
+  },
+  "guideRunSummary": {
+    "message": "Review the file first and make sure you trust the project.",
+    "description": "User-facing extension text: guideRunSummary."
+  },
+  "guideRunTitle": {
+    "message": "How to run the file",
+    "description": "User-facing extension text: guideRunTitle."
+  },
+  "guideRunTrustedOnly": {
+    "message": "Run files only from a project you trust",
+    "description": "User-facing extension text: guideRunTrustedOnly."
+  },
+  "guideRunWithJava": {
+    "message": "Run the application with Java",
+    "description": "User-facing extension text: guideRunWithJava."
+  },
+  "guideRunWithoutSudo": {
+    "message": "Run it without sudo",
+    "description": "User-facing extension text: guideRunWithoutSudo."
+  },
+  "guideScriptWarning": {
+    "message": "A script can change files and system settings. Do not add sudo unless the project explicitly requires it.",
+    "description": "User-facing extension text: guideScriptWarning."
+  },
+  "guideSevenZipSummary": {
+    "message": "7-Zip or p7zip is required.",
+    "description": "User-facing extension text: guideSevenZipSummary."
+  },
+  "guideSevenZipTitle": {
+    "message": "How to extract the 7Z archive",
+    "description": "User-facing extension text: guideSevenZipTitle."
+  },
+  "guideSnapSummary": {
+    "message": "Local Snap files from GitHub usually do not include a Snap Store assertion.",
+    "description": "User-facing extension text: guideSnapSummary."
+  },
+  "guideSnapTitle": {
+    "message": "How to install the local Snap",
+    "description": "User-facing extension text: guideSnapTitle."
+  },
+  "guideSnapWarning": {
+    "message": "The --dangerous option disables Snap Store assertion and signature validation.",
+    "description": "User-facing extension text: guideSnapWarning."
+  },
+  "guideTarBz2Title": {
+    "message": "How to extract the TAR.BZ2 archive",
+    "description": "User-facing extension text: guideTarBz2Title."
+  },
+  "guideTarGzTitle": {
+    "message": "How to extract the TAR.GZ archive",
+    "description": "User-facing extension text: guideTarGzTitle."
+  },
+  "guideTarXzTitle": {
+    "message": "How to extract the TAR.XZ archive",
+    "description": "User-facing extension text: guideTarXzTitle."
+  },
+  "guideTarZstTitle": {
+    "message": "How to extract the TAR.ZST archive",
+    "description": "User-facing extension text: guideTarZstTitle."
+  },
+  "guideTrustedExtensions": {
+    "message": "Install extensions only from trusted sources",
+    "description": "User-facing extension text: guideTrustedExtensions."
+  },
+  "guideUseTrustedInstaller": {
+    "message": "Check the project documentation and use a trusted installer",
+    "description": "User-facing extension text: guideUseTrustedInstaller."
+  },
+  "guideVsixSummary": {
+    "message": "The package is intended for Visual Studio Code and compatible editors.",
+    "description": "User-facing extension text: guideVsixSummary."
+  },
+  "guideVsixTitle": {
+    "message": "How to install the VSIX",
+    "description": "User-facing extension text: guideVsixTitle."
+  },
+  "guideWindowsPackageSummary": {
+    "message": "Open the file in App Installer and check the publisher details before installing.",
+    "description": "User-facing extension text: guideWindowsPackageSummary."
+  },
+  "guideWindowsPackageTitle": {
+    "message": "How to install the Windows package",
+    "description": "User-facing extension text: guideWindowsPackageTitle."
+  },
+  "guideXpiSummary": {
+    "message": "Open the file in Firefox and confirm the add-on installation.",
+    "description": "User-facing extension text: guideXpiSummary."
+  },
+  "guideXpiTitle": {
+    "message": "How to install the XPI",
+    "description": "User-facing extension text: guideXpiTitle."
+  },
+  "guideZipSummary": {
+    "message": "After extracting, read README or INSTALL inside the archive.",
+    "description": "User-facing extension text: guideZipSummary."
+  },
+  "guideZipTitle": {
+    "message": "How to extract the ZIP archive",
+    "description": "User-facing extension text: guideZipTitle."
+  },
+  "guideZipWindowsSummary": {
+    "message": "Extract the archive, then look for an EXE file or README.",
+    "description": "User-facing extension text: guideZipWindowsSummary."
+  },
+  "guideZipWindowsTitle": {
+    "message": "How to use the ZIP archive",
+    "description": "User-facing extension text: guideZipWindowsTitle."
+  },
+  "localeName": {
+    "message": "English",
+    "description": "User-facing extension text: localeName."
+  },
+  "notificationBadgeOne": {
+    "message": "$COUNT$ update available",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: notificationBadgeOne."
+  },
+  "notificationBadgeOther": {
+    "message": "$COUNT$ updates available",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: notificationBadgeOther."
+  },
+  "notificationNewRelease": {
+    "message": "new release",
+    "description": "User-facing extension text: notificationNewRelease."
+  },
+  "notificationNewReleaseLabel": {
+    "message": "New release",
+    "description": "User-facing extension text: notificationNewReleaseLabel."
+  },
+  "notificationNoAsset": {
+    "message": "No matching asset found",
+    "description": "User-facing extension text: notificationNoAsset."
+  },
+  "notificationPreviousRelease": {
+    "message": "Previous release",
+    "description": "User-facing extension text: notificationPreviousRelease."
+  },
+  "notificationUpdatesAvailable": {
+    "message": "$COUNT$ GitHub updates available",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: notificationUpdatesAvailable."
+  },
+  "optionsActionDownload": {
+    "message": "Download recommendation",
+    "description": "User-facing extension text: optionsActionDownload."
+  },
+  "optionsActionMenu": {
+    "message": "Always open menu",
+    "description": "User-facing extension text: optionsActionMenu."
+  },
+  "optionsActionRelease": {
+    "message": "Open Releases page",
+    "description": "User-facing extension text: optionsActionRelease."
+  },
+  "optionsAfterDownload": {
+    "message": "After a download",
+    "description": "User-facing extension text: optionsAfterDownload."
+  },
+  "optionsAlways": {
+    "message": "Always start watching",
+    "description": "User-facing extension text: optionsAlways."
+  },
+  "optionsArch": {
+    "message": "Architecture",
+    "description": "User-facing extension text: optionsArch."
+  },
+  "optionsAsk": {
+    "message": "Ask whether to watch",
+    "description": "User-facing extension text: optionsAsk."
+  },
+  "optionsAuthAccount": {
+    "message": "GitHub connected",
+    "description": "User-facing extension text: optionsAuthAccount."
+  },
+  "optionsAuthBenefitDiscovery": {
+    "message": "More reliable discovery of instructions in linked READMEs and checks for watched repositories.",
+    "description": "User-facing extension text: optionsAuthBenefitDiscovery."
+  },
+  "optionsAuthBenefitLimit": {
+    "message": "Up to 5,000 API requests per hour instead of the shared anonymous limit.",
+    "description": "User-facing extension text: optionsAuthBenefitLimit."
+  },
+  "optionsAuthBenefitPrivacy": {
+    "message": "No password or cookies. Private repositories are not read; the token stays local and is not synced. Disconnect removes the local copy.",
+    "description": "User-facing extension text: optionsAuthBenefitPrivacy."
+  },
+  "optionsAuthChecking": {
+    "message": "Waiting for approval on GitHub…",
+    "description": "User-facing extension text: optionsAuthChecking."
+  },
+  "optionsAuthCodeLabel": {
+    "message": "One-time code",
+    "description": "User-facing extension text: optionsAuthCodeLabel."
+  },
+  "optionsAuthConnect": {
+    "message": "Connect GitHub",
+    "description": "User-facing extension text: optionsAuthConnect."
+  },
+  "optionsAuthConnected": {
+    "message": "Connected",
+    "description": "User-facing extension text: optionsAuthConnected."
+  },
+  "optionsAuthConsentDenied": {
+    "message": "GitHub cannot be connected without permission to transmit authentication information.",
+    "description": "User-facing extension text: optionsAuthConsentDenied."
+  },
+  "optionsAuthDenied": {
+    "message": "Connection was cancelled on GitHub.",
+    "description": "User-facing extension text: optionsAuthDenied."
+  },
+  "optionsAuthDisconnect": {
+    "message": "Disconnect on this device",
+    "description": "User-facing extension text: optionsAuthDisconnect."
+  },
+  "optionsAuthDone": {
+    "message": "GitHub connected successfully.",
+    "description": "User-facing extension text: optionsAuthDone."
+  },
+  "optionsAuthError": {
+    "message": "GitHub could not be connected. Please try again.",
+    "description": "User-facing extension text: optionsAuthError."
+  },
+  "optionsAuthExpired": {
+    "message": "The one-time code expired. Start the connection again.",
+    "description": "User-facing extension text: optionsAuthExpired."
+  },
+  "optionsAuthNote": {
+    "message": "Optional. Official GitHub authorization raises the API limit and makes linked-instruction discovery and update checks more reliable.",
+    "description": "User-facing extension text: optionsAuthNote."
+  },
+  "optionsAuthOpen": {
+    "message": "Open GitHub",
+    "description": "User-facing extension text: optionsAuthOpen."
+  },
+  "optionsAuthOptional": {
+    "message": "Optional",
+    "description": "User-facing extension text: optionsAuthOptional."
+  },
+  "optionsAuthPendingNote": {
+    "message": "Enter the code on the official GitHub page. The extension will detect approval automatically.",
+    "description": "User-facing extension text: optionsAuthPendingNote."
+  },
+  "optionsAuthRate": {
+    "message": "GitHub API: $REMAINING$ of $LIMIT$ remaining",
+    "placeholders": {
+      "remaining": {
+        "content": "$1"
+      },
+      "limit": {
+        "content": "$2"
+      }
+    },
+    "description": "User-facing extension text: optionsAuthRate."
+  },
+  "optionsAuthRateFallback": {
+    "message": "GitHub API connected",
+    "description": "User-facing extension text: optionsAuthRateFallback."
+  },
+  "optionsAuthRemoved": {
+    "message": "The GitHub connection was removed from this device.",
+    "description": "User-facing extension text: optionsAuthRemoved."
+  },
+  "optionsAuthStarting": {
+    "message": "Requesting a one-time code…",
+    "description": "User-facing extension text: optionsAuthStarting."
+  },
+  "optionsAuthTitle": {
+    "message": "Connect GitHub",
+    "description": "User-facing extension text: optionsAuthTitle."
+  },
+  "optionsAuthWaiting": {
+    "message": "Waiting for approval",
+    "description": "User-facing extension text: optionsAuthWaiting."
+  },
+  "optionsBadge": {
+    "message": "Show toolbar badge",
+    "description": "User-facing extension text: optionsBadge."
+  },
+  "optionsBrowserLanguage": {
+    "message": "Browser language",
+    "description": "User-facing extension text: optionsBrowserLanguage."
+  },
+  "optionsButtonAccent": {
+    "message": "Green accent",
+    "description": "User-facing extension text: optionsButtonAccent."
+  },
+  "optionsButtonCompact": {
+    "message": "Compact",
+    "description": "User-facing extension text: optionsButtonCompact."
+  },
+  "optionsButtonNative": {
+    "message": "Native GitHub",
+    "description": "User-facing extension text: optionsButtonNative."
+  },
+  "optionsButtonStyle": {
+    "message": "Button style",
+    "description": "User-facing extension text: optionsButtonStyle."
+  },
+  "optionsChannel": {
+    "message": "Release selection",
+    "description": "User-facing extension text: optionsChannel."
+  },
+  "optionsCheckNow": {
+    "message": "Check for updates",
+    "description": "User-facing extension text: optionsCheckNow."
+  },
+  "optionsCheckProgress": {
+    "message": " · Checked: $CHECKED$ of $TOTAL$",
+    "placeholders": {
+      "checked": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    },
+    "description": "User-facing extension text: optionsCheckProgress."
+  },
+  "optionsCheckSummary": {
+    "message": "Found: $FOUND$ · Failed: $FAILED$",
+    "placeholders": {
+      "found": {
+        "content": "$1"
+      },
+      "failed": {
+        "content": "$2"
+      }
+    },
+    "description": "User-facing extension text: optionsCheckSummary."
+  },
+  "optionsChecking": {
+    "message": "Checking…",
+    "description": "User-facing extension text: optionsChecking."
+  },
+  "optionsClearHistory": {
+    "message": "Clear history",
+    "description": "User-facing extension text: optionsClearHistory."
+  },
+  "optionsClearTracking": {
+    "message": "Remove all watches",
+    "description": "User-facing extension text: optionsClearTracking."
+  },
+  "optionsDaily": {
+    "message": "Once a day",
+    "description": "User-facing extension text: optionsDaily."
+  },
+  "optionsEnabled": {
+    "message": "Extension enabled",
+    "description": "User-facing extension text: optionsEnabled."
+  },
+  "optionsEvery3Days": {
+    "message": "Every 3 days",
+    "description": "User-facing extension text: optionsEvery3Days."
+  },
+  "optionsEvery6Hours": {
+    "message": "Every 6 hours",
+    "description": "User-facing extension text: optionsEvery6Hours."
+  },
+  "optionsFormats": {
+    "message": "Preferred formats",
+    "description": "User-facing extension text: optionsFormats."
+  },
+  "optionsGeneral": {
+    "message": "General",
+    "description": "User-facing extension text: optionsGeneral."
+  },
+  "optionsGuidanceBeginner": {
+    "message": "Show after download and in the menu",
+    "description": "User-facing extension text: optionsGuidanceBeginner."
+  },
+  "optionsGuidanceCompact": {
+    "message": "Only on request in the menu",
+    "description": "User-facing extension text: optionsGuidanceCompact."
+  },
+  "optionsGuidanceOff": {
+    "message": "Do not show",
+    "description": "User-facing extension text: optionsGuidanceOff."
+  },
+  "optionsHistoryEnabled": {
+    "message": "Record downloads made through the extension",
+    "description": "User-facing extension text: optionsHistoryEnabled."
+  },
+  "optionsInstallGuidance": {
+    "message": "Installation guidance",
+    "description": "User-facing extension text: optionsInstallGuidance."
+  },
+  "optionsInterval": {
+    "message": "Check for updates",
+    "description": "User-facing extension text: optionsInterval."
+  },
+  "optionsLanguage": {
+    "message": "Language",
+    "description": "User-facing extension text: optionsLanguage."
+  },
+  "optionsManual": {
+    "message": "Manual only",
+    "description": "User-facing extension text: optionsManual."
+  },
+  "optionsMonthsFew": {
+    "message": "$COUNT$ months",
+    "description": "Localized month count for the few plural category.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "optionsMonthsMany": {
+    "message": "$COUNT$ months",
+    "description": "Localized month count for the many plural category.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "optionsMonthsOne": {
+    "message": "$COUNT$ month",
+    "description": "Localized month count for the one plural category.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "optionsMonthsOther": {
+    "message": "$COUNT$ months",
+    "description": "Localized month count for the other plural category.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "optionsNever": {
+    "message": "Never warn",
+    "description": "User-facing extension text: optionsNever."
+  },
+  "optionsNeverAsk": {
+    "message": "Never ask",
+    "description": "User-facing extension text: optionsNeverAsk."
+  },
+  "optionsNewest": {
+    "message": "Newest, including prerelease",
+    "description": "User-facing extension text: optionsNewest."
+  },
+  "optionsNotifications": {
+    "message": "Show system notifications",
+    "description": "User-facing extension text: optionsNotifications."
+  },
+  "optionsOs": {
+    "message": "Operating system",
+    "description": "User-facing extension text: optionsOs."
+  },
+  "optionsOtherPlatforms": {
+    "message": "Show other platforms",
+    "description": "User-facing extension text: optionsOtherPlatforms."
+  },
+  "optionsPageTitle": {
+    "message": "GitHub Download Now — Settings",
+    "description": "User-facing extension text: optionsPageTitle."
+  },
+  "optionsPermissionDenied": {
+    "message": "Notification permission was not granted",
+    "description": "User-facing extension text: optionsPermissionDenied."
+  },
+  "optionsPrimaryAction": {
+    "message": "Main button action",
+    "description": "User-facing extension text: optionsPrimaryAction."
+  },
+  "optionsRateLimited": {
+    "message": "GitHub API limit reached",
+    "description": "User-facing extension text: optionsRateLimited."
+  },
+  "optionsRateLimitedUntil": {
+    "message": "GitHub API limit reached until $TIME$",
+    "placeholders": {
+      "time": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: optionsRateLimitedUntil."
+  },
+  "optionsReasons": {
+    "message": "Explain recommendations",
+    "description": "User-facing extension text: optionsReasons."
+  },
+  "optionsReleases": {
+    "message": "Releases",
+    "description": "User-facing extension text: optionsReleases."
+  },
+  "optionsReset": {
+    "message": "Reset settings",
+    "description": "User-facing extension text: optionsReset."
+  },
+  "optionsResetDone": {
+    "message": "Settings reset",
+    "description": "User-facing extension text: optionsResetDone."
+  },
+  "optionsShowOn": {
+    "message": "Where to show the button",
+    "description": "User-facing extension text: optionsShowOn."
+  },
+  "optionsShowOnAll": {
+    "message": "All repository pages",
+    "description": "User-facing extension text: optionsShowOnAll."
+  },
+  "optionsShowOnMain": {
+    "message": "Repository home only",
+    "description": "User-facing extension text: optionsShowOnMain."
+  },
+  "optionsShowOnMainReleases": {
+    "message": "Repository home and Releases",
+    "description": "User-facing extension text: optionsShowOnMainReleases."
+  },
+  "optionsShowSubtitle": {
+    "message": "Show OS and architecture",
+    "description": "User-facing extension text: optionsShowSubtitle."
+  },
+  "optionsSourceCode": {
+    "message": "Show source code",
+    "description": "User-facing extension text: optionsSourceCode."
+  },
+  "optionsStable": {
+    "message": "Latest stable",
+    "description": "User-facing extension text: optionsStable."
+  },
+  "optionsStale": {
+    "message": "Warn when release is older than",
+    "description": "User-facing extension text: optionsStale."
+  },
+  "optionsSubtitle": {
+    "message": "Configure recommendations, interface and background update checks.",
+    "description": "User-facing extension text: optionsSubtitle."
+  },
+  "optionsSystem": {
+    "message": "System and architecture",
+    "description": "User-facing extension text: optionsSystem."
+  },
+  "optionsSystemNote": {
+    "message": "Keep automatic detection unless the extension identifies your device incorrectly.",
+    "description": "User-facing extension text: optionsSystemNote."
+  },
+  "optionsUpdatesNote": {
+    "message": "Download history and watched repositories are stored locally on this device.",
+    "description": "User-facing extension text: optionsUpdatesNote."
+  },
+  "optionsUpdatesTitle": {
+    "message": "History and updates",
+    "description": "User-facing extension text: optionsUpdatesTitle."
+  },
+  "optionsWeekly": {
+    "message": "Once a week",
+    "description": "User-facing extension text: optionsWeekly."
+  },
+  "popupAction": {
+    "message": "Main button action",
+    "description": "User-facing extension text: popupAction."
+  },
+  "popupAfterDownload": {
+    "message": "After a download",
+    "description": "User-facing extension text: popupAfterDownload."
+  },
+  "popupAlways": {
+    "message": "Always start watching",
+    "description": "User-facing extension text: popupAlways."
+  },
+  "popupAsk": {
+    "message": "Ask whether to watch",
+    "description": "User-facing extension text: popupAsk."
+  },
+  "popupBadge": {
+    "message": "Toolbar badge",
+    "description": "User-facing extension text: popupBadge."
+  },
+  "popupCheckNow": {
+    "message": "Check now",
+    "description": "User-facing extension text: popupCheckNow."
+  },
+  "popupCheckProgress": {
+    "message": "Repositories checked: $CHECKED$ of $TOTAL$",
+    "placeholders": {
+      "checked": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    },
+    "description": "User-facing extension text: popupCheckProgress."
+  },
+  "popupCheckSummary": {
+    "message": "Found: $FOUND$ · Failed: $FAILED$",
+    "placeholders": {
+      "found": {
+        "content": "$1"
+      },
+      "failed": {
+        "content": "$2"
+      }
+    },
+    "description": "User-facing extension text: popupCheckSummary."
+  },
+  "popupChecked": {
+    "message": "Checked",
+    "description": "User-facing extension text: popupChecked."
+  },
+  "popupChecking": {
+    "message": "Checking…",
+    "description": "User-facing extension text: popupChecking."
+  },
+  "popupClear": {
+    "message": "Clear",
+    "description": "User-facing extension text: popupClear."
+  },
+  "popupCurrent": {
+    "message": "Current",
+    "description": "User-facing extension text: popupCurrent."
+  },
+  "popupDaily": {
+    "message": "Once a day",
+    "description": "User-facing extension text: popupDaily."
+  },
+  "popupDaysAgo": {
+    "message": "$COUNT$d ago",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: popupDaysAgo."
+  },
+  "popupDetected": {
+    "message": "Detected",
+    "description": "User-facing extension text: popupDetected."
+  },
+  "popupDownload": {
+    "message": "Download",
+    "description": "User-facing extension text: popupDownload."
+  },
+  "popupDownloadAction": {
+    "message": "Download recommendation",
+    "description": "User-facing extension text: popupDownloadAction."
+  },
+  "popupEnabledLabel": {
+    "message": "Enable extension",
+    "description": "User-facing extension text: popupEnabledLabel."
+  },
+  "popupEvery3Days": {
+    "message": "Every 3 days",
+    "description": "User-facing extension text: popupEvery3Days."
+  },
+  "popupEvery6Hours": {
+    "message": "Every 6 hours",
+    "description": "User-facing extension text: popupEvery6Hours."
+  },
+  "popupFormat": {
+    "message": "Preferred format",
+    "description": "User-facing extension text: popupFormat."
+  },
+  "popupHistory": {
+    "message": "History",
+    "description": "User-facing extension text: popupHistory."
+  },
+  "popupHistoryEnabled": {
+    "message": "Keep download history",
+    "description": "User-facing extension text: popupHistoryEnabled."
+  },
+  "popupHistoryNote": {
+    "message": "Only downloads started through this extension.",
+    "description": "User-facing extension text: popupHistoryNote."
+  },
+  "popupHistoryTitle": {
+    "message": "Recent downloads",
+    "description": "User-facing extension text: popupHistoryTitle."
+  },
+  "popupHoursAgo": {
+    "message": "$COUNT$h ago",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: popupHoursAgo."
+  },
+  "popupInterval": {
+    "message": "Update checks",
+    "description": "User-facing extension text: popupInterval."
+  },
+  "popupJustNow": {
+    "message": "just now",
+    "description": "User-facing extension text: popupJustNow."
+  },
+  "popupLastChecked": {
+    "message": "Checked $VALUE$",
+    "placeholders": {
+      "value": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: popupLastChecked."
+  },
+  "popupManual": {
+    "message": "Manual only",
+    "description": "User-facing extension text: popupManual."
+  },
+  "popupMenuAction": {
+    "message": "Always open menu",
+    "description": "User-facing extension text: popupMenuAction."
+  },
+  "popupMinutesAgo": {
+    "message": "$COUNT$m ago",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: popupMinutesAgo."
+  },
+  "popupNever": {
+    "message": "Never ask",
+    "description": "User-facing extension text: popupNever."
+  },
+  "popupNeverChecked": {
+    "message": "Not checked yet",
+    "description": "User-facing extension text: popupNeverChecked."
+  },
+  "popupNoAsset": {
+    "message": "No matching asset found",
+    "description": "User-facing extension text: popupNoAsset."
+  },
+  "popupNoHistory": {
+    "message": "Download history is empty.",
+    "description": "User-facing extension text: popupNoHistory."
+  },
+  "popupNoTracking": {
+    "message": "Allow tracking after a download and the project will appear here.",
+    "description": "User-facing extension text: popupNoTracking."
+  },
+  "popupNoUpdates": {
+    "message": "No new releases yet.",
+    "description": "User-facing extension text: popupNoUpdates."
+  },
+  "popupNotifications": {
+    "message": "System notifications",
+    "description": "User-facing extension text: popupNotifications."
+  },
+  "popupOptions": {
+    "message": "Open all settings",
+    "description": "User-facing extension text: popupOptions."
+  },
+  "popupPermissionDenied": {
+    "message": "Notification permission was not granted",
+    "description": "User-facing extension text: popupPermissionDenied."
+  },
+  "popupPublished": {
+    "message": "published",
+    "description": "User-facing extension text: popupPublished."
+  },
+  "popupRateLimited": {
+    "message": "GitHub API limit reached",
+    "description": "User-facing extension text: popupRateLimited."
+  },
+  "popupRateLimitedUntil": {
+    "message": "GitHub API limit reached until $TIME$",
+    "placeholders": {
+      "time": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: popupRateLimitedUntil."
+  },
+  "popupRelease": {
+    "message": "Release",
+    "description": "User-facing extension text: popupRelease."
+  },
+  "popupReleaseAction": {
+    "message": "Open Releases page",
+    "description": "User-facing extension text: popupReleaseAction."
+  },
+  "popupSectionsAria": {
+    "message": "Sections",
+    "description": "User-facing extension text: popupSectionsAria."
+  },
+  "popupSettings": {
+    "message": "Settings",
+    "description": "User-facing extension text: popupSettings."
+  },
+  "popupSkip": {
+    "message": "Skip",
+    "description": "User-facing extension text: popupSkip."
+  },
+  "popupStop": {
+    "message": "Unwatch",
+    "description": "User-facing extension text: popupStop."
+  },
+  "popupTracking": {
+    "message": "Tracking",
+    "description": "User-facing extension text: popupTracking."
+  },
+  "popupTrackingNote": {
+    "message": "Only repositories you explicitly watch are checked.",
+    "description": "User-facing extension text: popupTrackingNote."
+  },
+  "popupTrackingTitle": {
+    "message": "Watched repositories",
+    "description": "User-facing extension text: popupTrackingTitle."
+  },
+  "popupUpdateFoundOne": {
+    "message": "$COUNT$ update found",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: popupUpdateFoundOne."
+  },
+  "popupUpdateFoundOther": {
+    "message": "$COUNT$ updates found",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: popupUpdateFoundOther."
+  },
+  "popupUpdates": {
+    "message": "Updates",
+    "description": "User-facing extension text: popupUpdates."
+  },
+  "popupUpdatesTitle": {
+    "message": "Available updates",
+    "description": "User-facing extension text: popupUpdatesTitle."
+  },
+  "popupWeekly": {
+    "message": "Once a week",
+    "description": "User-facing extension text: popupWeekly."
+  }
+}

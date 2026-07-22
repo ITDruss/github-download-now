@@ -17,6 +17,7 @@ From the source archive root:
 
 ```bash
 npm ci --ignore-scripts
+npm run i18n:generate
 npm test
 npm run package
 ```
@@ -32,11 +33,12 @@ github-download-now-firefox-v1.1.0.zip
 
 `npm run package` performs only these transformations:
 
-1. validates the explicit file allowlist in `scripts/build-files.mjs`;
-2. copies readable JavaScript, CSS, HTML and PNG files from `src/`;
-3. selects `manifest.chromium.json` or `manifest.firefox.json` and writes it as `manifest.json`;
-4. copies `README.md`, `LICENSE` and `THIRD_PARTY_NOTICES.md`;
-5. creates deterministic ZIP archives with sorted files and timestamps derived from `SOURCE_DATE_EPOCH` or the current Git commit.
+1. derives the explicit source allowlist from `scripts/project-structure.mjs` and validates it;
+2. validates that `src/i18n-catalogs.js` exactly matches the standard `_locales/*/messages.json` files;
+3. copies readable JavaScript, CSS, HTML, locale JSON and PNG files from `src/`;
+4. selects `manifest.chromium.json` or `manifest.firefox.json` and writes it as `manifest.json`;
+5. copies `README.md`, `LICENSE` and `THIRD_PARTY_NOTICES.md`;
+6. creates deterministic ZIP archives with sorted files and timestamps derived from `SOURCE_DATE_EPOCH` or the current Git commit.
 
 The build does **not** minify, obfuscate, transpile, concatenate or bundle JavaScript, HTML or CSS. It does not download or generate remote executable code.
 
@@ -46,7 +48,15 @@ The build does **not** minify, obfuscate, transpile, concatenate or bundle JavaS
 npm run verify
 ```
 
-This runs project validation, ESLint, unit tests, reproducible-build verification and Firefox add-on linting.
+This runs locale and project validation, architecture-boundary checks, ESLint, every automatically discovered Node test, JavaScript syntax checks, reproducible-build verification and Firefox add-on linting. Runtime file order, source lists and file-size budgets are defined once in `scripts/project-structure.mjs`.
+
+Useful focused checks during development:
+
+```bash
+npm run check:architecture
+npm run test:unit
+npm run check:syntax
+```
 
 For browser UI tests:
 

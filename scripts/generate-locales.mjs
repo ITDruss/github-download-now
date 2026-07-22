@@ -1,0 +1,115 @@
+import { readFile, readdir, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const localesRoot = path.join(root, "src", "_locales");
+const outputPath = path.join(root, "src", "i18n-catalogs.js");
+const checkOnly = process.argv.includes("--check");
+
+function assert(condition, message) {
+  if (!condition) throw new Error(message);
+}
+
+async function listFiles(directory, prefix = "") {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
+    const absolute = path.join(directory, entry.name);
+    if (entry.isDirectory()) files.push(...await listFiles(absolute, relative));
+    else if (entry.isFile()) files.push(relative);
+  }
+  return files.sort();
+}
+
+function normalizedPlaceholders(entry) {
+  const placeholders = entry && entry.placeholders && typeof entry.placeholders === "object"
+    ? entry.placeholders
+    : {};
+  return Object.fromEntries(Object.entries(placeholders)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([name, value]) => [name.toLowerCase(), { content: String(value?.content || "") }]));
+}
+
+function messagePlaceholders(message) {
+  return [...String(message || "").matchAll(/\$([A-Za-z][A-Za-z0-9_]*)\$/g)]
+    .map((match) => match[1].toLowerCase())
+    .sort();
+}
+
+const localeDirectories = (await readdir(localesRoot, { withFileTypes: true }))
+  .filter((entry) => entry.isDirectory())
+  .map((entry) => entry.name)
+  .sort();
+assert(localeDirectories.includes("en"), "The default English locale is required");
+
+const catalogs = {};
+for (const locale of localeDirectories) {
+  const file = path.join(localesRoot, locale, "messages.json");
+  let parsed;
+  try {
+    parsed = JSON.parse(await readFile(file, "utf8"));
+  } catch (error) {
+    throw new Error(`${locale}/messages.json is not valid JSON: ${error.message}`);
+  }
+  assert(parsed && typeof parsed === "object" && !Array.isArray(parsed), `${locale}/messages.json must contain an object`);
+  const catalog = {};
+  for (const key of Object.keys(parsed).sort()) {
+    const entry = parsed[key];
+    assert(/^[A-Za-z][A-Za-z0-9_]*$/.test(key), `${locale}: invalid message key ${key}`);
+    assert(entry && typeof entry === "object" && typeof entry.message === "string" && entry.message.length > 0, `${locale}: ${key} must have a non-empty message`);
+    const placeholders = normalizedPlaceholders(entry);
+    const referenced = messagePlaceholders(entry.message);
+    assert(JSON.stringify(referenced) === JSON.stringify(Object.keys(placeholders).sort()), `${locale}: ${key} placeholder definitions do not match the message`);
+    for (const [name, placeholder] of Object.entries(placeholders)) {
+      assert(/^\$[1-9][0-9]*$/.test(placeholder.content), `${locale}: ${key}.${name} must use positional placeholder content such as $1`);
+    }
+    catalog[key] = Object.keys(placeholders).length
+      ? { message: entry.message, placeholders }
+      : { message: entry.message };
+  }
+  catalogs[locale] = catalog;
+}
+
+const englishKeys = Object.keys(catalogs.en);
+for (const [locale, catalog] of Object.entries(catalogs)) {
+  const keys = Object.keys(catalog);
+  const missing = englishKeys.filter((key) => !keys.includes(key));
+  const extra = keys.filter((key) => !englishKeys.includes(key));
+  assert(!missing.length, `${locale}: missing messages: ${missing.join(", ")}`);
+  assert(!extra.length, `${locale}: unknown messages: ${extra.join(", ")}`);
+  for (const key of englishKeys) {
+    const expected = Object.keys(catalogs.en[key].placeholders || {}).sort();
+    const actual = Object.keys(catalog[key].placeholders || {}).sort();
+    assert(JSON.stringify(actual) === JSON.stringify(expected), `${locale}: ${key} placeholders differ from English`);
+  }
+}
+
+const sourceRoot = path.join(root, "src");
+const sourceFiles = (await listFiles(sourceRoot)).filter((file) =>
+  /\.(?:js|html|json)$/.test(file) &&
+  !file.startsWith("_locales/") &&
+  file !== "i18n-catalogs.js"
+);
+const referencedKeys = new Set();
+const keyPattern = /["'`]((?:extension|locale|common|content|options|popup|notification|guide)[A-Z][A-Za-z0-9_]*)["'`]/g;
+const manifestPattern = /__MSG_([A-Za-z][A-Za-z0-9_]*)__/g;
+for (const relative of sourceFiles) {
+  const text = await readFile(path.join(sourceRoot, relative), "utf8");
+  for (const match of text.matchAll(keyPattern)) referencedKeys.add(match[1]);
+  for (const match of text.matchAll(manifestPattern)) referencedKeys.add(match[1]);
+}
+const unknownReferences = [...referencedKeys].filter((key) => !englishKeys.includes(key)).sort();
+assert(!unknownReferences.length, `Source code references unknown locale messages: ${unknownReferences.join(", ")}`);
+
+const generated = `"use strict";\n\n// Generated by scripts/generate-locales.mjs from src/_locales/*/messages.json.\n// Do not edit this file directly.\n\n(function initLocaleCatalogs(root) {\n  root.GHDNLocaleCatalogs = Object.freeze(${JSON.stringify(catalogs, null, 2)});\n})(typeof globalThis !== "undefined" ? globalThis : this);\n`;
+
+if (checkOnly) {
+  const current = await readFile(outputPath, "utf8").catch(() => "");
+  assert(current === generated, "src/i18n-catalogs.js is stale; run npm run i18n:generate");
+  console.log(`Locale validation: OK (${localeDirectories.join(", ")}; ${englishKeys.length} messages)`);
+} else {
+  await writeFile(outputPath, generated, "utf8");
+  console.log(`Generated ${outputPath} (${localeDirectories.join(", ")}; ${englishKeys.length} messages)`);
+}
