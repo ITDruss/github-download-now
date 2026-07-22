@@ -6,6 +6,25 @@ GitHub Download Now — открытое расширение для Chromium и
 
 ![GitHub Download Now](assets/social-preview.png)
 
+<p align="center">
+  <a href="https://addons.mozilla.org/en-US/firefox/addon/github-download-now/">
+    <img
+      alt="Установить GitHub Download Now из Firefox Add-ons"
+      src="https://img.shields.io/amo/v/github-download-now?label=Firefox%20Add-ons&logo=firefoxbrowser"
+    >
+  </a>
+</p>
+
+## Установка
+
+### Firefox
+
+**[Установить GitHub Download Now из Firefox Add-ons →](https://addons.mozilla.org/en-US/firefox/addon/github-download-now/)**
+
+Официальная подписанная сборка доступна для настольного Firefox и Firefox для Android там, где поддерживаются дополнения.
+
+Для распакованных сборок разработчика см. раздел [Установка для разработки](#установка-для-разработки).
+
 ## Основные возможности
 
 - Определяет файлы для Windows, Linux, macOS и Android.
@@ -63,7 +82,7 @@ GitHub Download Now — открытое расширение для Chromium и
 3. Нажать **Загрузить временное дополнение**.
 4. Выбрать `manifest.json`.
 
-Для постоянной установки Firefox требуется подпись Mozilla AMO.
+Описанная выше временная установка предназначена для разработки. Для обычного использования установите подписанную сборку из [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/github-download-now/).
 
 ## Языки
 

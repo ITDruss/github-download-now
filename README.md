@@ -6,6 +6,25 @@ It adds a clear download control to repository pages, detects the current operat
 
 ![GitHub Download Now](assets/social-preview.png)
 
+<p align="center">
+  <a href="https://addons.mozilla.org/en-US/firefox/addon/github-download-now/">
+    <img
+      alt="Install GitHub Download Now from Firefox Add-ons"
+      src="https://img.shields.io/amo/v/github-download-now?label=Firefox%20Add-ons&logo=firefoxbrowser"
+    >
+  </a>
+</p>
+
+## Install
+
+### Firefox
+
+**[Install GitHub Download Now from Firefox Add-ons →](https://addons.mozilla.org/en-US/firefox/addon/github-download-now/)**
+
+The official signed build is available for Firefox Desktop and Firefox for Android where add-ons are supported.
+
+For unpacked development builds, see [Install for development](#install-for-development).
+
 ## Highlights
 
 - Detects Windows, Linux, macOS and Android release assets.
@@ -63,7 +82,7 @@ Android in the feature list means the extension can recognise APK/APKS/AAB relea
 3. Choose **Load Temporary Add-on**.
 4. Select `manifest.json`.
 
-A permanent Firefox installation requires Mozilla signing through AMO.
+The temporary installation above is intended for development. For normal use, install the signed build from [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/github-download-now/).
 
 ## Languages
 
