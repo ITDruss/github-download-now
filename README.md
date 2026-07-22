@@ -69,7 +69,7 @@ Android in the feature list means the extension can recognise APK/APKS/AAB relea
 
 ### Chromium
 
-1. Extract `github-download-now-chromium-v1.1.0.zip`.
+1. Extract `github-download-now-chromium-v1.2.0.zip`.
 2. Open `chrome://extensions`.
 3. Enable **Developer mode**.
 4. Choose **Load unpacked**.
@@ -77,7 +77,7 @@ Android in the feature list means the extension can recognise APK/APKS/AAB relea
 
 ### Firefox
 
-1. Extract `github-download-now-firefox-v1.1.0.zip`.
+1. Extract `github-download-now-firefox-v1.2.0.zip`.
 2. Open `about:debugging#/runtime/this-firefox`.
 3. Choose **Load Temporary Add-on**.
 4. Select `manifest.json`.
@@ -141,8 +141,8 @@ The extension does not request cookie, download-history or browsing-history perm
 Release workflows create SHA-256 checksums and signed GitHub artifact attestations. A downloaded release can be checked with:
 
 ```bash
-sha256sum -c SHA256SUMS-v1.1.0.txt
-gh attestation verify github-download-now-chromium-v1.1.0.zip -R ITDruss/github-download-now
+sha256sum -c SHA256SUMS-v1.2.0.txt
+gh attestation verify github-download-now-chromium-v1.2.0.zip -R ITDruss/github-download-now
 ```
 
 ## Contributing
