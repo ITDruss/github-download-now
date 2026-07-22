@@ -14,6 +14,11 @@
   const githubDom = globalThis.GHDNGitHubDom;
   const placementApi = globalThis.GHDNPlacement;
   const releasePageParser = globalThis.GHDNReleasePageParser;
+  const contentStateApi = globalThis.GHDNContentState;
+  const pageClientApi = globalThis.GHDNPageClient;
+  const releaseLoaderApi = globalThis.GHDNReleaseLoader;
+  const versionControllerApi = globalThis.GHDNVersionController;
+  const lifecycleApi = globalThis.GHDNContentLifecycle;
   const ROOT_ID = "ghdn-root";
   const MENU_ID = "ghdn-menu";
   const NOTICE_STACK_ID = "ghdn-notice-stack";
@@ -22,30 +27,12 @@
 
   let settings = { ...(settingsApi ? settingsApi.DEFAULT_SETTINGS : {}) };
   let strings = createStrings(settings.language);
-  let activeRepoKey = "";
-  let releaseState = null;
-  let buildInstructionsState = null;
-  let buildInstructionsPromise = null;
-  let loadingPromise = null;
-  let detectedPlatformPromise = null;
-  let mountTimer = null;
-  let prefetchTimer = null;
   let closeListenerInstalled = false;
-  let layoutFrame = null;
-  let resizeObserver = null;
-  let observedLayoutHost = null;
-  let pageObserver = null;
-  let observedPageHost = null;
   let placementBusy = false;
   let rejectedToolbarHost = null;
   let rejectedToolbarWidth = 0;
   let settingsReady = refreshSettings();
-  let selectedReleaseTag = "";
-  let releaseScrollFrame = null;
-  const pageReleaseCache = new Map();
-  const releaseTagsCache = new Map();
-  const MAX_PAGE_CACHE_ENTRIES = 40;
-  const MAX_GITHUB_PAGE_CHARS = 8_000_000;
+  const contentState = contentStateApi.create();
   const placement = placementApi.create({
     documentObject: document,
     windowObject: window,
@@ -56,14 +43,44 @@
     dom: githubDom,
     urlPolicy
   });
-
-  function setLimitedCache(cache, key, value) {
-    if (cache.has(key)) cache.delete(key);
-    cache.set(key, value);
-    while (cache.size > MAX_PAGE_CACHE_ENTRIES) {
-      cache.delete(cache.keys().next().value);
-    }
-  }
+  const pageClient = pageClientApi.create({
+    fetchImpl: fetch,
+    DOMParserClass: DOMParser,
+    urlPolicy
+  });
+  const releaseLoader = releaseLoaderApi.create({
+    documentObject: document,
+    pageParser: releasePageParser,
+    pageClient,
+    selector,
+    urlPolicy,
+    githubDom,
+    runtime: browserApi.runtime,
+    messages,
+    rootId: ROOT_ID,
+    getComputedStyleFn: getComputedStyle
+  });
+  const versionController = versionControllerApi.create({
+    state: contentState,
+    getRepository: () => repositoryContext.parse(),
+    getPlatform: getDetectedPlatform,
+    getReleaseChannel: () => settings.releaseChannel,
+    getMountedReleaseTag: () => document.getElementById(ROOT_ID)?.dataset.releaseTag || "",
+    releaseLoader,
+    onLoading: setLoading,
+    onLoaded: updatePrimaryPresentation
+  });
+  const lifecycle = lifecycleApi.create({
+    documentObject: document,
+    windowObject: window,
+    repositoryContext,
+    rootId: ROOT_ID,
+    menuId: MENU_ID,
+    mount,
+    refreshLayout: refreshPlacement,
+    loadRelease: () => versionController.load(),
+    positionMenu
+  });
 
   function createStrings(language) {
     const tr = i18n.create(language, navigator.language || "");
@@ -168,15 +185,6 @@
     return settings;
   }
 
-  function observeLayoutHost(element) {
-    if (observedLayoutHost === element) return;
-    if (resizeObserver) resizeObserver.disconnect();
-    observedLayoutHost = element || null;
-    if (!element || typeof ResizeObserver === "undefined") return;
-    resizeObserver = new ResizeObserver(scheduleLayoutRefresh);
-    resizeObserver.observe(element);
-  }
-
   function toolbarFits(root) {
     if (!root || !root.isConnected) return false;
     const host = root.__ghdnLayoutHost || root.parentElement;
@@ -204,16 +212,6 @@
     root.classList.remove("ghdn-density-full");
     root.classList.add("ghdn-density-compact");
     return toolbarFits(root);
-  }
-
-  function scheduleLayoutRefresh() {
-    if (layoutFrame) cancelAnimationFrame(layoutFrame);
-    layoutFrame = requestAnimationFrame(() => {
-      layoutFrame = null;
-      refreshPlacement().catch((error) => {
-        console.warn("[GHDN] layout refresh failed", error);
-      });
-    });
   }
 
   function createElement(tag, className, text) {
@@ -305,9 +303,9 @@
 
     primary.addEventListener("click", handlePrimaryClick);
     arrow.addEventListener("click", handleMenuClick);
-    group.addEventListener("mouseenter", schedulePrefetch);
-    group.addEventListener("mouseleave", cancelPrefetch);
-    group.addEventListener("focusin", schedulePrefetch);
+    group.addEventListener("mouseenter", lifecycle.schedulePrefetch);
+    group.addEventListener("mouseleave", lifecycle.cancelPrefetch);
+    group.addEventListener("focusin", lifecycle.schedulePrefetch);
     group.append(primary, arrow);
     root.append(group);
     return root;
@@ -337,13 +335,8 @@
       if (!repo || !repositoryContext.shouldShow(repo, settings)) {
         if (existing) existing.remove();
         setMenuOpen(false);
-        activeRepoKey = "";
-        releaseState = null;
-        buildInstructionsState = null;
-        buildInstructionsPromise = null;
-        loadingPromise = null;
-        detectedPlatformPromise = null;
-        observeLayoutHost(null);
+        versionController.resetAll();
+        lifecycle.observeLayoutHost(null);
         return;
       }
 
@@ -351,19 +344,12 @@
       if (!target) {
         if (existing) existing.remove();
         setMenuOpen(false);
-        observeLayoutHost(null);
+        lifecycle.observeLayoutHost(null);
         return;
       }
 
       const contextKey = `${repo.key}:${target.releaseTag || "latest"}`;
-      if (activeRepoKey !== contextKey) {
-        activeRepoKey = contextKey;
-        selectedReleaseTag = target.releaseTag || "";
-        releaseState = null;
-        buildInstructionsState = null;
-        buildInstructionsPromise = null;
-        loadingPromise = null;
-        detectedPlatformPromise = null;
+      if (versionController.setContext(contextKey, target.releaseTag || "")) {
         if (existing) existing.remove();
         existing = null;
         setMenuOpen(false);
@@ -381,10 +367,10 @@
         existing = createRoot(target);
         placement.insertRoot(existing, target);
         installCloseListeners();
-        getDetectedPlatform().then((platform) => updatePrimaryPresentation(releaseState && releaseState.response, platform));
+        getDetectedPlatform().then((platform) => updatePrimaryPresentation(contentState.releaseState && contentState.releaseState.response, platform));
       }
 
-      observeLayoutHost(target.element);
+      lifecycle.observeLayoutHost(target.element);
 
       if (target.mode === "toolbar") {
         await new Promise((resolve) => { requestAnimationFrame(resolve); });
@@ -396,8 +382,8 @@
           const fallback = placement.findMountTarget(repo, { preferFlow: true, rejectedToolbarHost, rejectedToolbarWidth });
           const flowRoot = createRoot(fallback);
           placement.insertRoot(flowRoot, fallback);
-          observeLayoutHost(fallback.element);
-          getDetectedPlatform().then((platform) => updatePrimaryPresentation(releaseState && releaseState.response, platform));
+          lifecycle.observeLayoutHost(fallback.element);
+          getDetectedPlatform().then((platform) => updatePrimaryPresentation(contentState.releaseState && contentState.releaseState.response, platform));
         } else {
           rejectedToolbarHost = null;
           rejectedToolbarWidth = 0;
@@ -415,45 +401,6 @@
 
   async function mount() {
     await refreshPlacement();
-  }
-
-  function configurePageObserver() {
-    const repo = repositoryContext.parse();
-    const nextHost = repo
-      ? (document.querySelector("main") || document.querySelector("#js-repo-pjax-container") || document.body)
-      : null;
-
-    if (nextHost === observedPageHost && pageObserver) return;
-    if (pageObserver) pageObserver.disconnect();
-    pageObserver = null;
-    observedPageHost = nextHost;
-
-    if (!nextHost) return;
-    pageObserver = new MutationObserver(scheduleMount);
-    pageObserver.observe(nextHost, { childList: true, subtree: true });
-  }
-
-  function handleNavigation() {
-    configurePageObserver();
-    scheduleMount();
-  }
-
-  function scheduleMount() {
-    clearTimeout(mountTimer);
-    mountTimer = setTimeout(() => {
-      mount().catch((error) => {
-        console.warn("[GHDN] mount failed", error);
-      });
-    }, 80);
-  }
-
-  function schedulePrefetch() {
-    clearTimeout(prefetchTimer);
-    prefetchTimer = setTimeout(() => { loadRelease().catch(() => {}); }, 140);
-  }
-
-  function cancelPrefetch() {
-    clearTimeout(prefetchTimer);
   }
 
   async function detectPlatform() {
@@ -503,8 +450,8 @@
   }
 
   function getDetectedPlatform() {
-    if (!detectedPlatformPromise) detectedPlatformPromise = detectPlatform();
-    return detectedPlatformPromise;
+    if (!contentState.detectedPlatformPromise) contentState.detectedPlatformPromise = detectPlatform();
+    return contentState.detectedPlatformPromise;
   }
 
   function osDisplayName(os) {
@@ -540,113 +487,11 @@
       root.dataset.placement === "toolbar" ||
       root.dataset.placement === "release";
     iconNode.replaceChildren(createSvgNode(svgIcon(iconName)));
-    scheduleLayoutRefresh();
+    lifecycle.scheduleLayoutRefresh();
   }
 
-  async function fetchGitHubDocument(path, repo) {
-    const trusted = urlPolicy && urlPolicy.repositoryWebUrl(path, repo.owner, repo.repo);
-    if (!trusted) throw new Error("Untrusted GitHub page URL");
-    const response = await fetch(trusted.href, {
-      method: "GET",
-      credentials: "omit",
-      cache: "no-store",
-      redirect: "error",
-      referrerPolicy: "no-referrer"
-    });
-    const finalUrl = urlPolicy.repositoryWebUrl(response.url || trusted.href, repo.owner, repo.repo);
-    if (!finalUrl) throw new Error("GitHub page redirected to an untrusted URL");
-    if (!response.ok) throw new Error(`GitHub page request failed: ${response.status}`);
-    const contentLength = Number(response.headers.get("content-length"));
-    if (Number.isFinite(contentLength) && contentLength > MAX_GITHUB_PAGE_CHARS) {
-      throw new Error("GitHub page response is too large");
-    }
-    const html = await response.text();
-    if (html.length > MAX_GITHUB_PAGE_CHARS) throw new Error("GitHub page response is too large");
-    return new DOMParser().parseFromString(html, "text/html");
-  }
-
-  async function getReleaseTags(repo) {
-    const cached = releaseTagsCache.get(repo.key);
-    if (cached && Date.now() - cached.timestamp < 10 * 60 * 1000) return cached.tags;
-    let tags = releasePageParser.collectReleaseTags(document, repo, { urlPolicy });
-    if (tags.length < 5) {
-      try {
-        const doc = await fetchGitHubDocument(`/${repo.owner}/${repo.repo}/releases`, repo);
-        tags = releasePageParser.collectReleaseTags(doc, repo, { urlPolicy });
-      } catch (_error) {}
-    }
-    setLimitedCache(releaseTagsCache, repo.key, { timestamp: Date.now(), tags });
-    return tags;
-  }
-
-  async function loadReleaseFromPage(repo, requestedTag, platform) {
-    let tag = String(requestedTag || "");
-    if (!tag) tag = releasePageParser.latestReleaseTagFromDocument(document, repo, { urlPolicy });
-    if (!tag) {
-      const tags = await getReleaseTags(repo);
-      tag = tags[0] || "";
-    }
-    if (!tag) throw new Error("Release tag not found in GitHub page");
-
-    const key = `${repo.key}:${tag}`;
-    let release = pageReleaseCache.get(key);
-    if (!release) {
-      const section = releasePageParser.releaseSectionByTag(document, tag, repo, { urlPolicy, isVisible: (element) => githubDom.isVisibleElement(element, { rootId: ROOT_ID, getComputedStyle }) });
-      let assets = releasePageParser.releaseAssetsFromDocument(section || document, repo, tag, { urlPolicy });
-      if (!assets.length) {
-        const doc = await fetchGitHubDocument(`/${repo.owner}/${repo.repo}/releases/expanded_assets/${releasePageParser.encodeGitHubPath(tag)}`, repo);
-        assets = releasePageParser.releaseAssetsFromDocument(doc, repo, tag, { urlPolicy });
-      }
-      release = releasePageParser.releaseFromPage(repo, tag, assets, section);
-      setLimitedCache(pageReleaseCache, key, release);
-    }
-    const selection = selector.recommendation(release.assets, platform || {});
-    return {
-      ok: true,
-      release,
-      rankedAssets: selection.ranked,
-      recommendation: { best: selection.best, confidence: selection.confidence, gap: Number.isFinite(selection.gap) ? selection.gap : null },
-      fromPage: true
-    };
-  }
-
-  async function loadRelease() {
-    if (releaseState) return releaseState;
-    if (loadingPromise) return loadingPromise;
-    const repo = repositoryContext.parse();
-    if (!repo) throw new Error("Repository not found");
-    setLoading(true);
-
-    loadingPromise = (async () => {
-      const platform = await getDetectedPlatform();
-      const root = document.getElementById(ROOT_ID);
-      const releaseTag = String(selectedReleaseTag || (root && root.dataset.releaseTag) || "");
-      let response;
-      try {
-        response = await loadReleaseFromPage(repo, releaseTag, platform);
-      } catch (_pageError) {
-        response = await browserApi.runtime.sendMessage(releaseTag ? {
-          type: messages.TYPES.GET_RELEASE_BY_TAG,
-          owner: repo.owner,
-          repo: repo.repo,
-          tag: releaseTag,
-          platform
-        } : {
-          type: messages.TYPES.GET_LATEST_RELEASE,
-          owner: repo.owner,
-          repo: repo.repo,
-          platform,
-          releaseChannel: settings.releaseChannel
-        });
-      }
-      releaseState = { response, platform };
-      updatePrimaryPresentation(response, platform);
-      return releaseState;
-    })().finally(() => {
-      loadingPromise = null;
-      setLoading(false);
-    });
-    return loadingPromise;
+  function loadRelease() {
+    return versionController.load();
   }
 
   function setLoading(isLoading) {
@@ -717,11 +562,11 @@
     const ref = String(release && release.tag_name || "");
     const platform = await getDetectedPlatform();
     const key = `${repo.key}:${ref || "default"}:${platform.os || "unknown"}`;
-    if (buildInstructionsState && buildInstructionsState.key === key) {
-      return buildInstructionsState.response;
+    if (contentState.buildInstructionsState && contentState.buildInstructionsState.key === key) {
+      return contentState.buildInstructionsState.response;
     }
-    if (buildInstructionsPromise && buildInstructionsPromise.key === key) {
-      return buildInstructionsPromise.promise;
+    if (contentState.buildInstructionsPromise && contentState.buildInstructionsPromise.key === key) {
+      return contentState.buildInstructionsPromise.promise;
     }
 
     const promise = browserApi.runtime.sendMessage({
@@ -731,15 +576,15 @@
       ref,
       platform
     }).then((response) => {
-      buildInstructionsState = { key, response };
+      contentState.buildInstructionsState = { key, response };
       return response;
     }).finally(() => {
-      if (buildInstructionsPromise && buildInstructionsPromise.key === key) {
-        buildInstructionsPromise = null;
+      if (contentState.buildInstructionsPromise && contentState.buildInstructionsPromise.key === key) {
+        contentState.buildInstructionsPromise = null;
       }
     });
 
-    buildInstructionsPromise = { key, promise };
+    contentState.buildInstructionsPromise = { key, promise };
     return promise;
   }
 
@@ -831,13 +676,13 @@
     const label = createElement("span", "ghdn-version-label", strings.versionLabel);
     const select = createElement("select", "ghdn-version-select");
     select.setAttribute("aria-label", strings.selectVersion);
-    const currentTag = String(release && release.tag_name || selectedReleaseTag || "");
+    const currentTag = String(release && release.tag_name || contentState.selectedReleaseTag || "");
     const initial = createElement("option", "", currentTag || strings.latestVersion);
     initial.value = currentTag;
     select.append(initial);
     row.append(label, select);
 
-    getReleaseTags(repo).then((tags) => {
+    versionController.getReleaseTags(repo).then((tags) => {
       if (!row.isConnected) return;
       const unique = [...new Set([currentTag, ...tags].filter(Boolean))];
       select.replaceChildren();
@@ -852,15 +697,9 @@
 
     select.addEventListener("change", async () => {
       const nextTag = String(select.value || "");
-      if (!nextTag || nextTag === selectedReleaseTag && releaseState && releaseState.response.release.tag_name === nextTag) return;
-      selectedReleaseTag = nextTag;
-      releaseState = null;
-      buildInstructionsState = null;
-      buildInstructionsPromise = null;
-      loadingPromise = null;
       try {
-        const state = await loadRelease();
-        if (!state.response.ok) return showResponseError(state.response);
+        const state = await versionController.select(nextTag);
+        if (!state || !state.response.ok) return showResponseError(state && state.response || {});
         renderMenu(state);
         setMenuOpen(true);
       } catch (_error) {
@@ -1384,28 +1223,16 @@
 
   if (settingsApi) {
     settingsApi.onChanged((next) => {
-      settings = next; strings = createStrings(settings.language); settingsReady = Promise.resolve(settings);
-      activeRepoKey = ""; selectedReleaseTag = ""; releaseState = null; buildInstructionsState = null; buildInstructionsPromise = null; loadingPromise = null; detectedPlatformPromise = null;
-      const root = document.getElementById(ROOT_ID); if (root) root.remove();
-      setMenuOpen(false); scheduleMount();
+      settings = next;
+      strings = createStrings(settings.language);
+      settingsReady = Promise.resolve(settings);
+      versionController.resetAll();
+      const root = document.getElementById(ROOT_ID);
+      if (root) root.remove();
+      setMenuOpen(false);
+      lifecycle.scheduleMount();
     });
   }
 
-  document.addEventListener("turbo:load", handleNavigation);
-  document.addEventListener("pjax:end", handleNavigation);
-  window.addEventListener("popstate", handleNavigation);
-  window.addEventListener("resize", scheduleLayoutRefresh, { passive: true });
-  window.addEventListener("scroll", () => {
-    const menu = document.getElementById(MENU_ID);
-    if (menu && !menu.hidden) requestAnimationFrame(positionMenu);
-    if (!observedPageHost || releaseScrollFrame) return;
-    const repo = repositoryContext.parse();
-    if (!repositoryContext.isReleasesRoute(repo)) return;
-    releaseScrollFrame = requestAnimationFrame(() => {
-      releaseScrollFrame = null;
-      scheduleMount();
-    });
-  }, { passive: true, capture: true });
-  configurePageObserver();
-  scheduleMount();
+  lifecycle.start();
 })();

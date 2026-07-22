@@ -27,12 +27,17 @@ for (const file of ["manifest.chromium.json", "manifest.firefox.json"]) {
   assert.ok(manifest.content_scripts[0].js.indexOf("url-policy.js") < manifest.content_scripts[0].js.indexOf("content.js"));
   assert.ok(manifest.content_scripts[0].js.indexOf("install-guides.js") < manifest.content_scripts[0].js.indexOf("content.js"));
   assert.deepEqual(
-    manifest.content_scripts[0].js.slice(-5),
+    manifest.content_scripts[0].js.slice(-10),
     [
       "content/repository-context.js",
       "content/github-dom.js",
       "content/placement.js",
+      "content/state.js",
+      "content/page-client.js",
       "content/release/page-parser.js",
+      "content/release/release-loader.js",
+      "content/release/version-controller.js",
+      "content/lifecycle.js",
       "content.js"
     ]
   );

@@ -46,7 +46,12 @@
         "content/repository-context.js",
         "content/github-dom.js",
         "content/placement.js",
+        "content/state.js",
+        "content/page-client.js",
         "content/release/page-parser.js",
+        "content/release/release-loader.js",
+        "content/release/version-controller.js",
+        "content/lifecycle.js",
         "content.js"
       ],
       "css": [

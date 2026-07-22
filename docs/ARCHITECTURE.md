@@ -69,23 +69,32 @@ Reusable formatting belongs in `src/shared/formatting.js`. Feature-specific labe
 
 ## Content-page modules
 
-The first content decomposition stage is now active. `src/content.js` remains the coordinator and UI owner, while page-specific data and placement responsibilities live in focused modules:
+The content decomposition is now split across route/DOM, state, loading and lifecycle modules. `src/content.js` remains the UI coordinator while non-visual responsibilities live in focused modules:
 
 | Module | Responsibility |
 |---|---|
 | `content/repository-context.js` | Parse GitHub repository routes, require a positive public marker, enforce page-visibility settings and decode release tags. |
 | `content/github-dom.js` | Classify GitHub action controls, centralize visibility checks and locate release-title wrappers. |
 | `content/placement.js` | Select toolbar, release, flow or floating mount targets and insert the extension root. |
+| `content/state.js` | Own mutable page-session state for context, selected version, in-flight release/build requests and platform detection. |
+| `content/page-client.js` | Fetch trusted GitHub HTML with `credentials: omit`, redirect validation and response-size limits. |
 | `content/release/page-parser.js` | Extract trusted release tags, assets, sizes and release metadata from GitHub HTML. |
+| `content/release/release-loader.js` | Cache parsed release pages and tags, rank assets and fall back to background API messages. |
+| `content/release/version-controller.js` | Deduplicate release loads, coordinate version changes and update the primary presentation. |
+| `content/lifecycle.js` | Own navigation listeners, observers, mount scheduling, prefetch and layout refresh scheduling. |
 
-These files expose `GHDNRepositoryContext`, `GHDNGitHubDom`, `GHDNPlacement` and `GHDNReleasePageParser`. They contain no product-state ownership and can be loaded directly by Node tests.
+Every module exposes a small `GHDN*` API and is CommonJS-compatible for Node tests. DOM parsing remains separate from network access, while UI construction remains in `content.js` until the next extraction stage.
 
 ### Content boundary rules
 
 - GitHub route and public-visibility parsing belongs only in `repository-context.js`.
 - GitHub toolbar/release DOM knowledge belongs only in `github-dom.js` and `placement.js`.
 - Release HTML-to-data conversion belongs only in `release/page-parser.js`.
-- `content.js` may coordinate these modules, fetch trusted GitHub pages and render UI, but must not reintroduce duplicate parsers or selector sets.
+- Anonymous GitHub HTML requests belong only in `page-client.js`.
+- Release/tag caches and page-to-background fallback belong only in `release/release-loader.js`.
+- Selected-version and in-flight release state belong in `state.js` and `release/version-controller.js`.
+- Turbo/PJAX/scroll/resize observers and timers belong only in `lifecycle.js`.
+- `content.js` coordinates these modules and renders UI; it must not reintroduce duplicate parsers, network clients, caches or page observers.
 
 ## Existing domain modules
 
@@ -113,9 +122,11 @@ repository-context.js validates the public repository
         ↓
 placement.js selects the mount target
         ↓
-content.js coordinates loading and UI
+version-controller.js requests the selected release
         ↓
-GHDN_GET_LATEST_RELEASE
+release-loader.js parses GitHub HTML through page-client.js
+        ↓ fallback when page data is unavailable
+GHDN_GET_LATEST_RELEASE / GHDN_GET_RELEASE_BY_TAG
         ↓
 background.js validates the request
         ↓
@@ -196,12 +207,13 @@ src/content/
 ├── github-dom.js              # extracted
 ├── placement.js               # extracted
 ├── entry.js                   # planned replacement for content.js
-├── state.js                   # planned
-├── lifecycle.js               # planned
+├── state.js                   # extracted
+├── page-client.js             # extracted
+├── lifecycle.js               # extracted
 ├── release/
 │   ├── page-parser.js         # extracted
-│   ├── page-client.js         # planned
-│   └── release-controller.js  # planned
+│   ├── release-loader.js      # extracted
+│   └── version-controller.js  # extracted
 └── ui/
     ├── button.js
     ├── menu.js
@@ -228,7 +240,7 @@ src/background/
 └── notifications.js
 ```
 
-The extraction order is intentionally incremental: shared foundation, repository/data logic, content UI, CSS, background services, then popup/options. No step should combine architectural movement with unrelated product features.
+The extraction order is intentionally incremental: shared foundation, repository/DOM logic, content loading/lifecycle, content UI, CSS, background services, then popup/options. No step should combine architectural movement with unrelated product features.
 
 ## Contribution checklist
 

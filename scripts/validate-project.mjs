@@ -75,7 +75,12 @@ for (const manifest of [chromium, firefox]) {
     "content/repository-context.js",
     "content/github-dom.js",
     "content/placement.js",
-    "content/release/page-parser.js"
+    "content/state.js",
+    "content/page-client.js",
+    "content/release/page-parser.js",
+    "content/release/release-loader.js",
+    "content/release/version-controller.js",
+    "content/lifecycle.js"
   ];
   for (const contentModule of contentModules) {
     assert(scripts.includes(contentModule), `${contentModule} must be included in content scripts`);

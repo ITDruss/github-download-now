@@ -47,14 +47,21 @@ for content_script in (
     "repository-context.js",
     "github-dom.js",
     "placement.js",
+    "state.js",
+    "page-client.js",
 ):
     html = html.replace(
         f'<script src="../../src/content/{content_script}"></script>',
         f'<script>{(ROOT / "src" / "content" / content_script).read_text(encoding="utf-8")}</script>'
     )
+for release_script in ("page-parser.js", "release-loader.js", "version-controller.js"):
+    html = html.replace(
+        f'<script src="../../src/content/release/{release_script}"></script>',
+        f'<script>{(ROOT / "src" / "content" / "release" / release_script).read_text(encoding="utf-8")}</script>'
+    )
 html = html.replace(
-    '<script src="../../src/content/release/page-parser.js"></script>',
-    f'<script>{(ROOT / "src" / "content" / "release" / "page-parser.js").read_text(encoding="utf-8")}</script>'
+    '<script src="../../src/content/lifecycle.js"></script>',
+    f'<script>{(ROOT / "src" / "content" / "lifecycle.js").read_text(encoding="utf-8")}</script>'
 )
 html = html.replace(
     '<script src="../../src/content.js"></script>',
