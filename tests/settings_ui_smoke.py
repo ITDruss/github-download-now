@@ -1,5 +1,6 @@
 from pathlib import Path
 import os
+import re
 from base64 import b64encode
 from playwright.sync_api import sync_playwright
 
@@ -54,13 +55,14 @@ window.chrome = {
 </script>
 '''
 
-def inline_page(name: str, scripts: list[str], stylesheet: str) -> str:
+def inline_page(name: str, stylesheet: str) -> str:
     html = (ROOT / "src" / name).read_text(encoding="utf-8")
     html = html.replace(f'<link rel="stylesheet" href="{stylesheet}">', f'<style>{(ROOT / "src" / stylesheet).read_text(encoding="utf-8")}</style>')
     for size in (48, 128):
         icon = b64encode((ROOT / "src" / "icons" / f"icon-{size}.png").read_bytes()).decode("ascii")
         html = html.replace(f'src="icons/icon-{size}.png"', f'src="data:image/png;base64,{icon}"')
     html = html.replace("<body>", "<body>" + MOCK)
+    scripts = re.findall(r'<script\s+[^>]*src="([^"]+)"[^>]*></script>', html, flags=re.IGNORECASE)
     for script in scripts:
         html = html.replace(f'<script src="{script}"></script>', f'<script>{(ROOT / "src" / script).read_text(encoding="utf-8")}</script>')
     return html
@@ -74,7 +76,7 @@ with sync_playwright() as p:
 
     context = browser.new_context(viewport={"width": 380, "height": 560}, locale="ru-RU")
     page = context.new_page()
-    page.set_content(inline_page("popup.html", ["shared/messages.js", "shared/browser-api.js", "shared/formatting.js", "i18n-catalogs.js", "i18n.js", "settings.js", "popup/strings.js", "popup/view.js", "popup/settings-controller.js", "popup/dashboard-controller.js", "popup.js"], "popup.css"), wait_until="load")
+    page.set_content(inline_page("popup.html", "popup.css"), wait_until="load")
     page.wait_for_function("document.querySelector('#preferredFormat')?.value === 'deb'")
     assert page.locator("#detectedPlatform").text_content().startswith("Linux")
     assert page.locator("#primaryAction").input_value() == "menu"
@@ -89,7 +91,7 @@ with sync_playwright() as p:
 
     context = browser.new_context(viewport={"width": 1280, "height": 800}, locale="ru-RU")
     page = context.new_page()
-    page.set_content(inline_page("options.html", ["shared/messages.js", "shared/browser-api.js", "shared/formatting.js", "i18n-catalogs.js", "i18n.js", "settings.js", "options/strings.js", "options/view.js", "options/form.js", "options/auth-panel.js", "options/update-actions.js", "options.js"], "options.css"), wait_until="load")
+    page.set_content(inline_page("options.html", "options.css"), wait_until="load")
     page.wait_for_function("document.querySelector('#preferredLinux')?.value === 'deb'")
     assert page.locator("#generalTitle").text_content() == "Общие настройки"
     assert page.locator("#language option").count() == 3
@@ -109,7 +111,7 @@ with sync_playwright() as p:
 
     context = browser.new_context(viewport={"width": 1280, "height": 800}, locale="ru-RU")
     page = context.new_page()
-    english_options = inline_page("options.html", ["shared/messages.js", "shared/browser-api.js", "shared/formatting.js", "i18n-catalogs.js", "i18n.js", "settings.js", "options/strings.js", "options/view.js", "options/form.js", "options/auth-panel.js", "options/update-actions.js", "options.js"], "options.css").replace('language:"ru"', 'language:"en"')
+    english_options = inline_page("options.html", "options.css").replace('language:"ru"', 'language:"en"')
     page.set_content(english_options, wait_until="load")
     page.wait_for_function("document.querySelector('#language')?.value === 'en'")
     assert page.locator("#generalTitle").text_content() == "General"

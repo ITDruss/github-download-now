@@ -65,6 +65,8 @@
         "content/release/release-loader.js",
         "content/release/version-controller.js",
         "content/lifecycle.js",
+        "content/actions.js",
+        "content/mount-controller.js",
         "content/ui/icons.js",
         "content/ui/elements.js",
         "content/ui/download-button.js",

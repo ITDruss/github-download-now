@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import os
 from playwright.sync_api import sync_playwright
 
@@ -9,90 +10,18 @@ OUTPUTS = ROOT / "test-results" / "ui-smoke"
 OUTPUTS.mkdir(parents=True, exist_ok=True)
 
 html = DEMO.read_text(encoding="utf-8")
-for style_name in (
-    "content-base.css",
-    "download-menu.css",
-    "asset-list.css",
-    "notices.css",
-    "install-guidance.css",
-    "build-documents.css",
-    "version-selector.css",
-):
+manifest = json.loads((ROOT / "src" / "manifest.chromium.json").read_text(encoding="utf-8"))
+content_definition = manifest["content_scripts"][0]
+for relative in content_definition["css"]:
     html = html.replace(
-        f'<link rel="stylesheet" href="../../src/styles/{style_name}">',
-        f'<style>{(ROOT / "src" / "styles" / style_name).read_text(encoding="utf-8")}</style>'
+        f'<link rel="stylesheet" href="../../src/{relative}">',
+        f'<style>{(ROOT / "src" / relative).read_text(encoding="utf-8")}</style>'
     )
-for shared_script in ("messages.js", "browser-api.js", "formatting.js"):
+for relative in content_definition["js"]:
     html = html.replace(
-        f'<script src="../../src/shared/{shared_script}"></script>',
-        f'<script>{(ROOT / "src" / "shared" / shared_script).read_text(encoding="utf-8")}</script>'
+        f'<script src="../../src/{relative}"></script>',
+        f'<script>{(ROOT / "src" / relative).read_text(encoding="utf-8")}</script>'
     )
-
-html = html.replace(
-    '<script src="../../src/i18n-catalogs.js"></script>',
-    f'<script>{(ROOT / "src" / "i18n-catalogs.js").read_text(encoding="utf-8")}</script>'
-)
-html = html.replace(
-    '<script src="../../src/i18n.js"></script>',
-    f'<script>{(ROOT / "src" / "i18n.js").read_text(encoding="utf-8")}</script>'
-)
-html = html.replace(
-    '<script src="../../src/settings.js"></script>',
-    f'<script>{(ROOT / "src" / "settings.js").read_text(encoding="utf-8")}</script>'
-)
-html = html.replace(
-    '<script src="../../src/url-policy.js"></script>',
-    f'<script>{(ROOT / "src" / "url-policy.js").read_text(encoding="utf-8")}</script>'
-)
-html = html.replace(
-    '<script src="../../src/asset-selector.js"></script>',
-    f'<script>{(ROOT / "src" / "asset-selector.js").read_text(encoding="utf-8")}</script>'
-)
-html = html.replace(
-    '<script src="../../src/install-guides.js"></script>',
-    f'<script>{(ROOT / "src" / "install-guides.js").read_text(encoding="utf-8")}</script>'
-)
-for content_script in (
-    "strings.js",
-    "platform.js",
-    "repository-context.js",
-    "github-dom.js",
-    "placement.js",
-    "state.js",
-    "page-client.js",
-):
-    html = html.replace(
-        f'<script src="../../src/content/{content_script}"></script>',
-        f'<script>{(ROOT / "src" / "content" / content_script).read_text(encoding="utf-8")}</script>'
-    )
-for release_script in ("page-parser.js", "release-loader.js", "version-controller.js"):
-    html = html.replace(
-        f'<script src="../../src/content/release/{release_script}"></script>',
-        f'<script>{(ROOT / "src" / "content" / "release" / release_script).read_text(encoding="utf-8")}</script>'
-    )
-html = html.replace(
-    '<script src="../../src/content/lifecycle.js"></script>',
-    f'<script>{(ROOT / "src" / "content" / "lifecycle.js").read_text(encoding="utf-8")}</script>'
-)
-for ui_script in (
-    "icons.js",
-    "elements.js",
-    "download-button.js",
-    "menu-shell.js",
-    "notices.js",
-    "install-guidance.js",
-    "build-documents.js",
-    "asset-list.js",
-    "release-menu.js",
-):
-    html = html.replace(
-        f'<script src="../../src/content/ui/{ui_script}"></script>',
-        f'<script>{(ROOT / "src" / "content" / "ui" / ui_script).read_text(encoding="utf-8")}</script>'
-    )
-html = html.replace(
-    '<script src="../../src/content.js"></script>',
-    f'<script>{(ROOT / "src" / "content.js").read_text(encoding="utf-8")}</script>'
-)
 
 cases = [
     ("ru-RU", "Рекомендуется", "Подходит для вашего устройства", OUTPUTS / "screenshot-recommended-ru.png"),

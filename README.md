@@ -86,7 +86,7 @@ npm ci --ignore-scripts
 npm run verify
 ```
 
-`npm run verify` runs project validation, ESLint, unit tests, reproducible packaging and Firefox add-on linting. Full browser UI checks:
+`npm run verify` runs locale/project validation, architecture-boundary checks, ESLint, automatically discovered unit tests, JavaScript syntax checks, reproducible packaging and Firefox add-on linting. Full browser UI checks:
 
 ```bash
 python3 -m venv .venv-ui
@@ -129,6 +129,8 @@ gh attestation verify github-download-now-chromium-v1.1.0.zip -R ITDruss/github-
 ## Contributing
 
 Reports of incorrect recommendations are especially useful. Include the public repository URL, detected platform, selected asset and expected asset.
+
+Before changing code, read the [contributing guide](.github/CONTRIBUTING.md), [development task map](docs/DEVELOPMENT.md) and [architecture reference](docs/ARCHITECTURE.md). Translation-only contributions are documented separately in [TRANSLATING.md](docs/TRANSLATING.md).
 
 ## Disclaimer
 

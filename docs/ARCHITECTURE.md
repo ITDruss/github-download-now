@@ -2,7 +2,7 @@
 
 GitHub Download Now is a Manifest V3 WebExtension for Chromium and Firefox. The project deliberately ships readable JavaScript without bundling, minification or remote code. Files are loaded in an explicit order and communicate through small global APIs whose names begin with `GHDN`.
 
-This document describes the current runtime boundaries and the target direction for the ongoing modular refactor.
+This document describes the current runtime boundaries, dependency direction and automated guardrails that keep the codebase modular.
 
 ## Runtime contexts
 
@@ -69,7 +69,7 @@ Reusable formatting belongs in `src/shared/formatting.js`. Feature-specific labe
 
 ## Content-page modules
 
-The content decomposition is split across route/DOM, state, loading, lifecycle and presentation modules. `src/content.js` is now a small composition root that wires those APIs together and owns only cross-module workflows such as mounting, trusted downloads and settings refreshes:
+The content implementation is split across route/DOM, state, loading, lifecycle, application actions, mounting and presentation modules. `src/content.js` is a composition root: it creates the modules, connects callbacks and starts the lifecycle.
 
 | Module | Responsibility |
 |---|---|
@@ -82,6 +82,8 @@ The content decomposition is split across route/DOM, state, loading, lifecycle a
 | `content/release/release-loader.js` | Cache parsed release pages and tags, rank assets and fall back to background API messages. |
 | `content/release/version-controller.js` | Deduplicate release loads, coordinate version changes and update the primary presentation. |
 | `content/lifecycle.js` | Own navigation listeners, observers, mount scheduling, prefetch and layout refresh scheduling. |
+| `content/actions.js` | Own primary/menu actions, trusted downloads, build-document requests and options-page fallback navigation. |
+| `content/mount-controller.js` | Coordinate repository visibility, mount targets, toolbar-density fallback and layout-host observation. |
 | `content/strings.js` | Build the content-facing translated string facade from native locale catalogs. |
 | `content/platform.js` | Detect browser platform, classify assets and format platform/release metadata. |
 | `content/ui/icons.js` | Own the local SVG icon catalog as inert data. |
@@ -94,7 +96,7 @@ The content decomposition is split across route/DOM, state, loading, lifecycle a
 | `content/ui/asset-list.js` | Render ranked asset rows, recommendation explanations and source links. |
 | `content/ui/release-menu.js` | Compose the release menu, version selector, asset sections and footer. |
 
-Every module exposes a small `GHDN*` API and is CommonJS-compatible for Node tests. DOM parsing, network access and reusable UI construction remain in separate modules; `content.js` only composes them.
+Every module exposes a small `GHDN*` API and is CommonJS-compatible for Node tests. DOM parsing, network access, user actions, mounting and reusable UI construction remain in separate modules; `content.js` only composes them and refreshes settings.
 
 ### Content boundary rules
 
@@ -105,7 +107,9 @@ Every module exposes a small `GHDN*` API and is CommonJS-compatible for Node tes
 - Release/tag caches and page-to-background fallback belong only in `release/release-loader.js`.
 - Selected-version and in-flight release state belong in `state.js` and `release/version-controller.js`.
 - Turbo/PJAX/scroll/resize observers and timers belong only in `lifecycle.js`.
-- `content.js` is the composition root; it must not contain reusable DOM components, duplicate parsers, network clients, caches or page observers.
+- Trusted download, external-navigation and primary/menu workflows belong in `actions.js`.
+- Mount selection, toolbar fallback and root replacement belong in `mount-controller.js`.
+- `content.js` is the composition root; it must not contain reusable DOM components, action workflows, mount algorithms, duplicate parsers, network clients, caches or page observers.
 - Reusable content-page UI belongs in `content/ui/`; platform classification belongs in `content/platform.js`; translated string mapping belongs in `content/strings.js`.
 
 ## Content styles
@@ -123,7 +127,7 @@ src/styles/
 └── version-selector.css
 ```
 
-Do not recreate a monolithic `styles.css`. Put a selector in the narrowest matching component file, preserve manifest order when dependencies exist, and update both manifests plus UI-test inlining when adding or renaming a stylesheet.
+Do not recreate a monolithic `styles.css`. Put a selector in the narrowest matching component file and preserve manifest order when dependencies exist. The UI smoke test reads the Chromium manifest, so the manifest remains the runtime source of truth.
 
 ## Background services
 
@@ -151,7 +155,7 @@ Do not recreate a monolithic `styles.css`. Put a selector in the narrowest match
 - Local tracker data must cross `tracker-state.js` so stored URLs are revalidated before privileged use.
 - Browser notification and badge APIs belong only in `notifications.js`; alarm creation belongs only in `alarms.js`.
 - Runtime message names belong in `shared/messages.js`; routing belongs only in `message-router.js`.
-- `background.js` must remain a composition root under 250 lines and must not regain release, OAuth, build-discovery or update-check algorithms.
+- `background.js` must remain a composition root under 200 lines and must not regain release, OAuth, build-discovery or update-check algorithms.
 
 ## Existing domain modules
 
@@ -195,7 +199,7 @@ asset-selector.js ranks assets
         ↓
 response crosses runtime messaging
         ↓
-content.js renders the recommendation
+content/ui/release-menu.js renders the recommendation
 ```
 
 A link is never trusted merely because it came from GitHub HTML or API JSON. It must pass `url-policy.js` at the boundary where it enters the extension and again before privileged navigation or download-related actions.
@@ -234,13 +238,14 @@ entry script
 
 The background context does not need presentation formatting. Firefox lists shared/domain dependencies and `background/*` services explicitly before `background.js`; Chromium starts `background.js`, which imports those same local files in the documented order. No remote or generated runtime imports are allowed.
 
-When adding a source file, update all applicable places:
+The ordered runtime lists live in `scripts/project-structure.mjs`. When adding a source file:
 
-- `scripts/build-files.mjs`;
-- Chromium and Firefox manifests;
-- popup/options HTML when relevant;
-- test fixtures and UI-test inlining;
-- project validation and manifest tests.
+- add it to the appropriate list in `scripts/project-structure.mjs`;
+- update Chromium and Firefox manifests or popup/options HTML as applicable;
+- add the script tag to the content UI fixture when it runs on GitHub pages;
+- add focused tests for the new module.
+
+`scripts/build-files.mjs`, project validation, manifest tests and syntax checks consume the shared structure lists. UI smoke tests derive their inlining order from the manifest or HTML instead of maintaining another copy.
 
 ## Testing layers
 
@@ -251,6 +256,9 @@ When adding a source file, update all applicable places:
 - `tests/ui_smoke.py` — content-script behavior in Chromium;
 - `tests/settings_ui_smoke.py` — popup, options, settings and auth UI;
 - `scripts/validate-project.mjs` — source allowlist, manifests, privacy and release invariants;
+- `scripts/check-architecture.mjs` — file-size budgets, global API uniqueness, context boundaries and exact runtime load order;
+- `scripts/run-node-tests.mjs` — recursively discover and execute every `*.test.js` and `*.test.mjs` file in an isolated Node process;
+- `scripts/check-syntax.mjs` — syntax-check every allowlisted JavaScript source file;
 - `scripts/verify-reproducible.py` — byte-identical package verification.
 
 Every behavior-preserving extraction must keep all existing tests green. New shared helpers require dedicated unit tests.
@@ -287,15 +295,33 @@ The extension-page entry scripts are now composition roots, matching the content
 - Dashboard list rendering and update actions belong in `popup/dashboard-controller.js`.
 - Popup quick settings belong in `popup/settings-controller.js`; the full options field schema belongs in `options/form.js`.
 - GitHub Device Flow UI state and timers belong only in `options/auth-panel.js`.
-- Popup/options HTML declares dependency order explicitly; any new module must also be added to the source allowlist, validation and UI-test inlining.
+- Popup/options HTML declares dependency order explicitly; `settings_ui_smoke.py` reads those script tags directly when constructing its test pages.
 - The existing `popup.css` and `options.css` remain intentionally separate, focused stylesheets. Their current sizes do not justify artificial component fragmentation.
+
+## Automated architecture guardrails
+
+`scripts/check-architecture.mjs` prevents the repository from gradually returning to a monolithic layout. The current budgets are defined in `scripts/project-structure.mjs`:
+
+```text
+content.js      ≤ 300 lines
+background.js   ≤ 200 lines
+popup.js        ≤ 120 lines
+options.js      ≤ 120 lines
+other JS        ≤ 400 lines
+component CSS   ≤ 350 lines
+extension HTML  ≤ 250 lines
+```
+
+The generated `i18n-catalogs.js` file is excluded from the handwritten JavaScript limit. The audit also rejects duplicate or unresolved `GHDN*` APIs, raw runtime-message strings outside `shared/messages.js`, direct `browser`/`chrome` API calls outside the compatibility adapter, shared-to-runtime dependencies, cross-context dependencies, module cycles and load-order drift.
+
+These checks are architectural constraints, not style preferences. Raise a limit only when the module still represents one cohesive responsibility and the pull request explains why further extraction would reduce clarity.
 
 ## Completed modular layout
 
 The four runtime surfaces now use small entry points and focused modules:
 
 ```text
-src/content.js       → content route/data/lifecycle/UI modules
+src/content.js       → content route/data/actions/mount/UI modules
 src/background.js    → background services and message router
 src/popup.js         → popup strings/view/settings/dashboard modules
 src/options.js       → options strings/view/form/auth/update modules

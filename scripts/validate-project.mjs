@@ -2,24 +2,25 @@ import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ALLOWED_SOURCE_FILES } from "./build-files.mjs";
+import { assert, listFiles } from "./file-utils.mjs";
+import {
+  BACKGROUND_IMPORTS,
+  CONTENT_SCRIPTS,
+  CONTENT_STYLES,
+  FIREFOX_BACKGROUND_SCRIPTS,
+  OPTIONS_SCRIPTS,
+  POPUP_SCRIPTS
+} from "./project-structure.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const source = path.join(root, "src");
 
-async function listFiles(directory, prefix = "") {
-  const entries = await readdir(directory, { withFileTypes: true });
-  const files = [];
-  for (const entry of entries) {
-    const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
-    const absolute = path.join(directory, entry.name);
-    if (entry.isDirectory()) files.push(...await listFiles(absolute, relative));
-    else if (entry.isFile()) files.push(relative);
-  }
-  return files.sort();
+function arraysEqual(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
-function assert(condition, message) {
-  if (!condition) throw new Error(message);
+function scriptsFromHtml(text) {
+  return [...text.matchAll(/<script\s+[^>]*src="([^"]+)"[^>]*><\/script>/gi)].map((match) => match[1]);
 }
 
 const packageJson = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"));
@@ -39,11 +40,12 @@ assert(packageJson.private === true, "The npm package must remain private");
 assert(packageJson.devDependencies?.["web-ext"] === "10.5.0", "web-ext must be pinned exactly");
 assert(packageJson.devDependencies?.eslint === "10.7.0", "ESLint must be pinned exactly");
 assert(packageJson.devDependencies?.globals === "17.7.0", "ESLint globals must be pinned exactly");
-assert(packageJson.scripts?.["lint:firefox"], "Firefox lint script is required");
-assert(packageJson.scripts?.["verify:reproducible"], "Reproducible-build verification is required");
-assert(packageJson.scripts?.verify, "Combined verification script is required");
-assert(packageJson.scripts?.["i18n:generate"], "Locale generation script is required");
-assert(packageJson.scripts?.["i18n:check"], "Locale validation script is required");
+for (const script of [
+  "lint:firefox", "verify:reproducible", "verify", "i18n:generate", "i18n:check",
+  "check:architecture", "check:syntax", "test:unit"
+]) {
+  assert(packageJson.scripts?.[script], `npm script ${script} is required`);
+}
 
 const lockText = await readFile(path.join(root, "package-lock.json"), "utf8");
 assert(!lockText.includes("applied-caas-gateway"), "package-lock.json contains an environment-specific npm registry");
@@ -52,54 +54,8 @@ for (const match of lockText.matchAll(/"resolved"\s*:\s*"(https:[^"]+)"/g)) {
   assert(resolved.hostname === "registry.npmjs.org", `package-lock.json contains a non-public npm registry: ${resolved.hostname}`);
 }
 
-const backgroundModules = Object.freeze([
-  "background/storage.js",
-  "background/github-client.js",
-  "background/release-service.js",
-  "background/build-service.js",
-  "background/navigation.js",
-  "background/auth-service.js",
-  "background/tracker-state.js",
-  "background/alarms.js",
-  "background/notifications.js",
-  "background/tracking-service.js",
-  "background/message-router.js",
-]);
-
-const popupModules = Object.freeze([
-  "popup/strings.js",
-  "popup/view.js",
-  "popup/settings-controller.js",
-  "popup/dashboard-controller.js",
-]);
-
-const optionsModules = Object.freeze([
-  "options/strings.js",
-  "options/view.js",
-  "options/form.js",
-  "options/auth-panel.js",
-  "options/update-actions.js",
-]);
-
 const actual = await listFiles(source);
-assert(JSON.stringify(actual) === JSON.stringify([...ALLOWED_SOURCE_FILES].sort()), "src/ contains unexpected or missing files");
-
-const backgroundEntry = await readFile(path.join(source, "background.js"), "utf8");
-assert(backgroundEntry.split(/\r?\n/).length <= 250, "background.js must remain a small composition root");
-assert(!/async function getRelease\b/.test(backgroundEntry), "Release service logic must not return to background.js");
-assert(!/async function checkAllUpdates\b/.test(backgroundEntry), "Update tracking logic must not return to background.js");
-for (const backgroundModule of backgroundModules) {
-  assert(backgroundEntry.includes(`"${backgroundModule}"`), `background.js must import ${backgroundModule} for Chromium`);
-}
-
-const popupEntry = await readFile(path.join(source, "popup.js"), "utf8");
-const optionsEntry = await readFile(path.join(source, "options.js"), "utf8");
-assert(popupEntry.split(/\r?\n/).length <= 120, "popup.js must remain a small composition root");
-assert(optionsEntry.split(/\r?\n/).length <= 120, "options.js must remain a small composition root");
-assert(!/function renderUpdates\b/.test(popupEntry), "Dashboard rendering must not return to popup.js");
-assert(!/function createStrings\b/.test(popupEntry), "Popup translations must not return to popup.js");
-assert(!/function pollAuthorization\b/.test(optionsEntry), "OAuth polling must not return to options.js");
-assert(!/const fields\s*=/.test(optionsEntry), "Options field schema must not return to options.js");
+assert(arraysEqual(actual, [...ALLOWED_SOURCE_FILES].sort()), "src/ contains unexpected or missing files");
 
 for (const manifest of [chromium, firefox]) {
   assert(manifest.manifest_version === 3, "Manifest V3 is required");
@@ -107,68 +63,23 @@ for (const manifest of [chromium, firefox]) {
   assert(manifest.name === "__MSG_extensionName__", "Manifest name must use the locale catalog");
   assert(manifest.description === "__MSG_extensionDescription__", "Manifest description must use the locale catalog");
   assert(manifest.action?.default_title === "__MSG_extensionName__", "Action title must use the locale catalog");
-  assert(JSON.stringify(manifest.permissions) === JSON.stringify(["storage", "alarms"]), "Unexpected required permissions");
-  assert(JSON.stringify(manifest.optional_permissions) === JSON.stringify(["notifications"]), "Unexpected optional permissions");
-  assert(JSON.stringify(manifest.host_permissions) === JSON.stringify(["https://api.github.com/*", "https://github.com/*"]), "Unexpected host permissions");
+  assert(arraysEqual(manifest.permissions, ["storage", "alarms"]), "Unexpected required permissions");
+  assert(arraysEqual(manifest.optional_permissions, ["notifications"]), "Unexpected optional permissions");
+  assert(arraysEqual(manifest.host_permissions, ["https://api.github.com/*", "https://github.com/*"]), "Unexpected host permissions");
   assert(manifest.content_security_policy?.extension_pages === "script-src 'self'; object-src 'none'", "Strict extension CSP is required");
-  const scripts = manifest.content_scripts?.[0]?.js || [];
-  assert(JSON.stringify(scripts.slice(0, 6)) === JSON.stringify([
-    "shared/messages.js", "shared/browser-api.js", "shared/formatting.js",
-    "i18n-catalogs.js", "i18n.js", "settings.js"
-  ]), "Shared contracts, browser adapter, formatting, locales and settings must load first in content scripts");
-  assert(scripts.includes("url-policy.js") && scripts.indexOf("url-policy.js") < scripts.indexOf("content.js"), "URL policy must load before content.js");
-  const contentModules = [
-    "content/strings.js",
-    "content/platform.js",
-    "content/repository-context.js",
-    "content/github-dom.js",
-    "content/placement.js",
-    "content/state.js",
-    "content/page-client.js",
-    "content/release/page-parser.js",
-    "content/release/release-loader.js",
-    "content/release/version-controller.js",
-    "content/lifecycle.js",
-    "content/ui/icons.js",
-    "content/ui/elements.js",
-    "content/ui/download-button.js",
-    "content/ui/menu-shell.js",
-    "content/ui/notices.js",
-    "content/ui/install-guidance.js",
-    "content/ui/build-documents.js",
-    "content/ui/asset-list.js",
-    "content/ui/release-menu.js"
-  ];
-  for (const contentModule of contentModules) {
-    assert(scripts.includes(contentModule), `${contentModule} must be included in content scripts`);
-    assert(scripts.indexOf(contentModule) < scripts.indexOf("content.js"), `${contentModule} must load before content.js`);
-  }
-  assert(JSON.stringify(manifest.content_scripts?.[0]?.css || []) === JSON.stringify([
-    "styles/content-base.css",
-    "styles/download-menu.css",
-    "styles/asset-list.css",
-    "styles/notices.css",
-    "styles/install-guidance.css",
-    "styles/build-documents.css",
-    "styles/version-selector.css"
-  ]), "Content styles must use the documented component order");
-  if (manifest.background?.scripts) {
-    assert(JSON.stringify(manifest.background.scripts.slice(0, 5)) === JSON.stringify([
-      "shared/messages.js", "shared/browser-api.js",
-      "i18n-catalogs.js", "i18n.js", "settings.js"
-    ]), "Shared contracts, browser adapter, locales and settings must load first in Firefox background scripts");
-    assert(manifest.background.scripts.indexOf("github-auth.js") < manifest.background.scripts.indexOf("background.js"), "GitHub auth helpers must load before background.js");
-    assert(JSON.stringify(manifest.background.scripts.slice(-(backgroundModules.length + 1))) === JSON.stringify([
-      ...backgroundModules,
-      "background.js"
-    ]), "Firefox background modules must load in the documented dependency order");
-  } else {
-    assert(manifest.background?.service_worker === "background.js", "Chromium must use background.js as the service-worker composition root");
-  }
+  assert(arraysEqual(manifest.content_scripts?.[0]?.js || [], CONTENT_SCRIPTS), "Content script order is inconsistent");
+  assert(arraysEqual(manifest.content_scripts?.[0]?.css || [], CONTENT_STYLES), "Content style order is inconsistent");
 }
+assert(chromium.background?.service_worker === "background.js", "Chromium must use background.js as the service worker");
+assert(arraysEqual(firefox.background?.scripts || [], FIREFOX_BACKGROUND_SCRIPTS), "Firefox background script order is inconsistent");
 
-assert(JSON.stringify(firefox.browser_specific_settings?.gecko?.data_collection_permissions?.required) === JSON.stringify(["browsingActivity"]), "Firefox required data collection disclosure is incorrect");
-assert(JSON.stringify(firefox.browser_specific_settings?.gecko?.data_collection_permissions?.optional) === JSON.stringify(["authenticationInfo"]), "Firefox optional authentication disclosure is incorrect");
+assert(arraysEqual(firefox.browser_specific_settings?.gecko?.data_collection_permissions?.required, ["browsingActivity"]), "Firefox required data collection disclosure is incorrect");
+assert(arraysEqual(firefox.browser_specific_settings?.gecko?.data_collection_permissions?.optional, ["authenticationInfo"]), "Firefox optional authentication disclosure is incorrect");
+
+const backgroundEntry = await readFile(path.join(source, "background.js"), "utf8");
+for (const backgroundModule of BACKGROUND_IMPORTS) {
+  assert(backgroundEntry.includes(`"${backgroundModule}"`), `background.js must import ${backgroundModule} for Chromium`);
+}
 
 const forbidden = [
   { pattern: /\beval\s*\(/, label: "eval" },
@@ -186,21 +97,9 @@ for (const relative of actual.filter((file) => file.endsWith(".html"))) {
   assert(!/<script(?![^>]*\bsrc=)[^>]*>/i.test(text), `${relative} contains inline script`);
   assert(!/\son\w+\s*=/i.test(text), `${relative} contains inline event handler`);
 }
-for (const [relative, featureModules, entry] of [
-  ["popup.html", popupModules, "popup.js"],
-  ["options.html", optionsModules, "options.js"]
-]) {
+for (const [relative, expectedScripts] of [["popup.html", POPUP_SCRIPTS], ["options.html", OPTIONS_SCRIPTS]]) {
   const text = await readFile(path.join(source, relative), "utf8");
-  const orderedScripts = [
-    "shared/messages.js", "shared/browser-api.js", "shared/formatting.js",
-    "i18n-catalogs.js", "i18n.js", "settings.js", ...featureModules, entry
-  ];
-  let previous = -1;
-  for (const script of orderedScripts) {
-    const current = text.indexOf(`src="${script}"`);
-    assert(current > previous, `${relative} must load ${script} in the documented order`);
-    previous = current;
-  }
+  assert(arraysEqual(scriptsFromHtml(text), expectedScripts), `${relative} script order is inconsistent`);
 }
 
 const privacy = await readFile(path.join(root, "PRIVACY.md"), "utf8");
