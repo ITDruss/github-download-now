@@ -1,6 +1,7 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+require("../src/shared/browser-api.js");
 require("../src/i18n-catalogs.js");
 require("../src/i18n.js");
 const settingsApi = require("../src/settings.js");

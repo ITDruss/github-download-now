@@ -15,6 +15,9 @@ export const LOCALE_FILES = Object.freeze(
 );
 
 export const EXTENSION_FILES = Object.freeze([
+  "shared/messages.js",
+  "shared/browser-api.js",
+  "shared/formatting.js",
   "asset-selector.js",
   "background.js",
   "build-instructions.js",

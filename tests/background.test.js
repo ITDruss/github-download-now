@@ -2,6 +2,7 @@
 
 const assert = require("node:assert/strict");
 const path = require("node:path");
+const { createStorageArea } = require("./helpers/extension-api-mock.js");
 
 const syncStore = {
   afterDownload: "always",
@@ -21,15 +22,6 @@ let optionsOpened = 0;
 let apiRemaining = 60;
 let oauthPolls = 0;
 
-function area(store) {
-  return {
-    get(defaults, callback) { callback({ ...defaults, ...store }); },
-    set(values, callback) { Object.assign(store, values); if (callback) callback(); },
-    remove(keys, callback) { for (const key of Array.isArray(keys) ? keys : [keys]) delete store[key]; if (callback) callback(); },
-    clear(callback) { for (const key of Object.keys(store)) delete store[key]; if (callback) callback(); }
-  };
-}
-
 global.chrome = {
   runtime: {
     id: "test-extension-id",
@@ -41,8 +33,8 @@ global.chrome = {
     onStartup: { addListener(fn) { listeners.startup = fn; } }
   },
   storage: {
-    sync: area(syncStore),
-    local: area(localStore),
+    sync: createStorageArea(syncStore),
+    local: createStorageArea(localStore),
     onChanged: { addListener(fn) { listeners.storageChanged = fn; } }
   },
   alarms: {
@@ -64,6 +56,9 @@ global.chrome = {
   tabs: { create({ url }, callback) { openedTabs.push(url); if (callback) callback({ id: openedTabs.length }); } }
 };
 
+const messages = require("../src/shared/messages.js");
+global.GHDNMessages = messages;
+global.GHDNBrowser = require("../src/shared/browser-api.js");
 require("../src/i18n-catalogs.js");
 global.GHDNI18n = require("../src/i18n.js");
 global.GHDNSettings = require("../src/settings.js");
@@ -217,7 +212,7 @@ require(path.join("..", "src", "background.js"));
 function message(payload, sender = { tab: { incognito: false } }) {
   return new Promise((resolve, reject) => {
     const keepAlive = listeners.message(payload, sender, resolve);
-    if (!keepAlive && !String(payload.type).startsWith("GHDN_AUTH_")) reject(new Error(`Message not handled: ${payload.type}`));
+    if (!keepAlive && !messages.isAuthType(payload.type)) reject(new Error(`Message not handled: ${payload.type}`));
   });
 }
 
@@ -238,7 +233,7 @@ function download(owner = "example", repo = "app", release = 17) {
 
 (async () => {
   const buildResult = await message({
-    type: "GHDN_GET_BUILD_INSTRUCTIONS",
+    type: messages.TYPES.GET_BUILD_INSTRUCTIONS,
     owner: "example",
     repo: "app",
     ref: "v1.17.0",
@@ -252,7 +247,7 @@ function download(owner = "example", repo = "app", release = 17) {
   assert.equal("instructions" in buildResult, false);
 
   const piperBuild = await message({
-    type: "GHDN_GET_BUILD_INSTRUCTIONS",
+    type: messages.TYPES.GET_BUILD_INSTRUCTIONS,
     owner: "OHF-Voice",
     repo: "piper1-gpl",
     ref: "v1.4.2",
@@ -264,7 +259,7 @@ function download(owner = "example", repo = "app", release = 17) {
   assert.equal(piperBuild.guidedDiscovery.directoriesChecked, 1);
 
   const taggedRelease = await message({
-    type: "GHDN_GET_RELEASE_BY_TAG",
+    type: messages.TYPES.GET_RELEASE_BY_TAG,
     owner: "example",
     repo: "app",
     tag: "v1.16.0",
@@ -274,7 +269,7 @@ function download(owner = "example", repo = "app", release = 17) {
   assert.equal(taggedRelease.release.tag_name, "v1.16.0");
 
   const noHeaders = await message({
-    type: "GHDN_GET_LATEST_RELEASE",
+    type: messages.TYPES.GET_LATEST_RELEASE,
     owner: "missingheaders",
     repo: "app",
     platform: { os: "linux", arch: "x64", preferredFormat: "appimage" },
@@ -285,7 +280,7 @@ function download(owner = "example", repo = "app", release = 17) {
   assert.equal(noHeaders.rateLimit.remaining, null);
 
   const malformed = await message({
-    type: "GHDN_GET_LATEST_RELEASE",
+    type: messages.TYPES.GET_LATEST_RELEASE,
     owner: "malformed",
     repo: "app",
     platform: { os: "linux", arch: "x64" },
@@ -295,7 +290,7 @@ function download(owner = "example", repo = "app", release = 17) {
   assert.equal(malformed.error, "invalid_response");
 
   const badRelease = await message({
-    type: "GHDN_GET_LATEST_RELEASE",
+    type: messages.TYPES.GET_LATEST_RELEASE,
     owner: "badrelease",
     repo: "app",
     platform: { os: "linux", arch: "x64" },
@@ -305,7 +300,7 @@ function download(owner = "example", repo = "app", release = 17) {
   assert.equal(badRelease.error, "invalid_response");
 
   const crossTag = await message({
-    type: "GHDN_GET_RELEASE_BY_TAG",
+    type: messages.TYPES.GET_RELEASE_BY_TAG,
     owner: "crosstag",
     repo: "app",
     tag: "v1.16.0",
@@ -315,11 +310,11 @@ function download(owner = "example", repo = "app", release = 17) {
   assert.equal(crossTag.release.assets.length, 0);
   assert.equal(crossTag.recommendation.best, null);
 
-  const rejectedAuth = await message({ type: "GHDN_AUTH_STATUS" });
+  const rejectedAuth = await message({ type: messages.TYPES.AUTH_STATUS });
   assert.equal(rejectedAuth.ok, false);
   assert.equal(rejectedAuth.error, "unauthorized_sender");
 
-  const authStart = await message({ type: "GHDN_AUTH_START" }, extensionSender);
+  const authStart = await message({ type: messages.TYPES.AUTH_START }, extensionSender);
   assert.equal(authStart.ok, true);
   assert.equal(authStart.pending.userCode, "ABCD-EFGH");
   const authorizationPage = new URL(openedTabs.at(-1));
@@ -329,39 +324,39 @@ function download(owner = "example", repo = "app", release = 17) {
   assert.equal(authorizationPage.pathname, "/login/device");
   assert.equal(authorizationPage.search, "");
   assert.equal(authorizationPage.hash, "");
-  const waiting = await message({ type: "GHDN_AUTH_POLL" }, extensionSender);
+  const waiting = await message({ type: messages.TYPES.AUTH_POLL }, extensionSender);
   assert.equal(waiting.ok, true);
   assert.equal(waiting.connected, false);
   localStore.ghdnGithubAuthPendingV1.nextPollAt = 0;
-  const connected = await message({ type: "GHDN_AUTH_POLL" }, extensionSender);
+  const connected = await message({ type: messages.TYPES.AUTH_POLL }, extensionSender);
   assert.equal(connected.ok, true);
   assert.equal(connected.connected, true);
   assert.equal("token" in connected, false);
   assert.ok(localStore.ghdnGithubAuthV1.token.startsWith("gho_"));
-  const disconnected = await message({ type: "GHDN_AUTH_DISCONNECT" }, extensionSender);
+  const disconnected = await message({ type: messages.TYPES.AUTH_DISCONNECT }, extensionSender);
   assert.equal(disconnected.connected, false);
   assert.equal(localStore.ghdnGithubAuthV1, undefined);
 
-  const optionsResult = await message({ type: "GHDN_OPEN_OPTIONS" });
+  const optionsResult = await message({ type: messages.TYPES.OPEN_OPTIONS });
   assert.equal(optionsResult.ok, true);
   assert.equal(optionsOpened, 1);
 
   const rejected = await message({
-    type: "GHDN_RECORD_DOWNLOAD",
+    type: messages.TYPES.RECORD_DOWNLOAD,
     download: { ...download(), assetUrl: "https://evil.example/example/app/releases/download/v1.17.0/evil.AppImage" }
   });
   assert.equal(rejected.ok, false);
   assert.equal(rejected.error, "invalid_download");
 
   const wrongReleaseTag = await message({
-    type: "GHDN_RECORD_DOWNLOAD",
+    type: messages.TYPES.RECORD_DOWNLOAD,
     download: { ...download(), releaseUrl: "https://github.com/example/app/releases/tag/v9.9.9" }
   });
   assert.equal(wrongReleaseTag.ok, false);
   assert.equal(wrongReleaseTag.error, "invalid_download");
 
   const wrongAssetTag = await message({
-    type: "GHDN_RECORD_DOWNLOAD",
+    type: messages.TYPES.RECORD_DOWNLOAD,
     download: { ...download(), assetUrl: "https://github.com/example/app/releases/download/v9.9.9/app.AppImage" }
   });
   assert.equal(wrongAssetTag.ok, false);
@@ -369,32 +364,32 @@ function download(owner = "example", repo = "app", release = 17) {
 
   for (let index = 0; index < 10; index += 1) {
     const recorded = await message({
-      type: "GHDN_RECORD_DOWNLOAD",
+      type: messages.TYPES.RECORD_DOWNLOAD,
       download: download(`owner${index}`, `app${index}`)
     });
     assert.equal(recorded.ok, true);
   }
 
-  let dashboard = await message({ type: "GHDN_GET_DASHBOARD" });
+  let dashboard = await message({ type: messages.TYPES.GET_DASHBOARD });
   assert.equal(dashboard.watches.length, 10);
   currentRelease = 18;
-  const checked = await message({ type: "GHDN_CHECK_UPDATES" });
+  const checked = await message({ type: messages.TYPES.CHECK_UPDATES });
   assert.equal(checked.checked, 8);
   assert.equal(checked.total, 10);
   assert.equal(checked.meta.lastCheckChecked, 8);
   assert.equal(checked.meta.watchCursor, 8);
   assert.ok(checked.meta.apiRateLimitRemaining < 60);
 
-  dashboard = await message({ type: "GHDN_GET_DASHBOARD" });
+  dashboard = await message({ type: messages.TYPES.GET_DASHBOARD });
   assert.equal(dashboard.updates.length, 8);
   assert.equal(badgeText, "8");
 
   const key = dashboard.updates[0].key;
-  const downloaded = await message({ type: "GHDN_DOWNLOAD_UPDATE", key });
+  const downloaded = await message({ type: messages.TYPES.DOWNLOAD_UPDATE, key });
   assert.equal(downloaded.ok, true);
   assert.ok(openedTabs[0].startsWith("https://github.com/"));
 
-  const badOpen = await message({ type: "GHDN_OPEN_URL", url: "https://evil.example/" });
+  const badOpen = await message({ type: messages.TYPES.OPEN_URL, url: "https://evil.example/" });
   assert.equal(badOpen.ok, false);
   assert.equal(badOpen.error, "untrusted_url");
 

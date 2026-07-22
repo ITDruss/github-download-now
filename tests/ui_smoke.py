@@ -13,6 +13,12 @@ html = html.replace(
     '<link rel="stylesheet" href="../../src/styles.css">',
     f'<style>{(ROOT / "src" / "styles.css").read_text(encoding="utf-8")}</style>'
 )
+for shared_script in ("messages.js", "browser-api.js", "formatting.js"):
+    html = html.replace(
+        f'<script src="../../src/shared/{shared_script}"></script>',
+        f'<script>{(ROOT / "src" / "shared" / shared_script).read_text(encoding="utf-8")}</script>'
+    )
+
 html = html.replace(
     '<script src="../../src/i18n-catalogs.js"></script>',
     f'<script>{(ROOT / "src" / "i18n-catalogs.js").read_text(encoding="utf-8")}</script>'

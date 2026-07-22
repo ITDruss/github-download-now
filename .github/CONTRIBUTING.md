@@ -12,6 +12,8 @@ Thanks for helping improve GitHub Download Now.
 
 Keep the extension privacy-friendly: no telemetry, remote code, broad host permissions, private-repository access or unnecessary account data.
 
+Read [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) before changing runtime messages, browser API wrappers, script loading order or security boundaries. Shared runtime message names belong in `src/shared/messages.js`; Chrome/Firefox compatibility wrappers belong in `src/shared/browser-api.js`.
+
 ## Translations
 
 Translations live in `src/_locales/<locale>/messages.json`. See [`docs/TRANSLATING.md`](../docs/TRANSLATING.md) for the complete workflow. Do not add user-facing strings directly to JavaScript when a locale message can be used.

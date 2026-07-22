@@ -23,6 +23,9 @@
         "https://github.com/*"
       ],
       "js": [
+        "shared/messages.js",
+        "shared/browser-api.js",
+        "shared/formatting.js",
         "i18n-catalogs.js",
         "i18n.js",
         "settings.js",

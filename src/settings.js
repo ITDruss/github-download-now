@@ -7,7 +7,8 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function createSettingsApi(root) {
   "use strict";
 
-  const extensionApi = typeof browser !== "undefined" ? browser : (typeof chrome !== "undefined" ? chrome : null);
+  const browserApi = root.GHDNBrowser;
+  const extensionApi = browserApi?.api || (typeof browser !== "undefined" ? browser : (typeof chrome !== "undefined" ? chrome : null));
   const i18n = root.GHDNI18n;
 
   const DEFAULT_SETTINGS = Object.freeze({
@@ -83,36 +84,10 @@
     return result;
   }
 
-  function chromeStorageGet(defaults) {
-    return new Promise((resolve, reject) => {
-      extensionApi.storage.sync.get(defaults, (items) => {
-        const error = extensionApi.runtime && extensionApi.runtime.lastError;
-        if (error) reject(new Error(error.message));
-        else resolve(items);
-      });
-    });
-  }
-
-  function chromeStorageSet(values) {
-    return new Promise((resolve, reject) => {
-      extensionApi.storage.sync.set(values, () => {
-        const error = extensionApi.runtime && extensionApi.runtime.lastError;
-        if (error) reject(new Error(error.message));
-        else resolve();
-      });
-    });
-  }
-
   async function get() {
-    if (!extensionApi || !extensionApi.storage || !extensionApi.storage.sync) {
-      return { ...DEFAULT_SETTINGS };
-    }
-
+    if (!browserApi?.storage?.sync) return { ...DEFAULT_SETTINGS };
     try {
-      const values = typeof browser !== "undefined"
-        ? await extensionApi.storage.sync.get(DEFAULT_SETTINGS)
-        : await chromeStorageGet(DEFAULT_SETTINGS);
-      return normalize(values);
+      return normalize(await browserApi.storage.sync.get(DEFAULT_SETTINGS));
     } catch (_error) {
       return { ...DEFAULT_SETTINGS };
     }
@@ -121,28 +96,12 @@
   async function set(patch) {
     const current = await get();
     const next = normalize({ ...current, ...(patch || {}) });
-    if (!extensionApi || !extensionApi.storage || !extensionApi.storage.sync) return next;
-
-    if (typeof browser !== "undefined") await extensionApi.storage.sync.set(next);
-    else await chromeStorageSet(next);
+    if (browserApi?.storage?.sync) await browserApi.storage.sync.set(next);
     return next;
   }
 
   async function reset() {
-    if (!extensionApi || !extensionApi.storage || !extensionApi.storage.sync) {
-      return { ...DEFAULT_SETTINGS };
-    }
-
-    if (typeof browser !== "undefined") await extensionApi.storage.sync.clear();
-    else {
-      await new Promise((resolve, reject) => {
-        extensionApi.storage.sync.clear(() => {
-          const error = extensionApi.runtime && extensionApi.runtime.lastError;
-          if (error) reject(new Error(error.message));
-          else resolve();
-        });
-      });
-    }
+    if (browserApi?.storage?.sync) await browserApi.storage.sync.clear();
     return { ...DEFAULT_SETTINGS };
   }
 

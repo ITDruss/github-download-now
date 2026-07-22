@@ -66,10 +66,16 @@ for (const manifest of [chromium, firefox]) {
   assert(JSON.stringify(manifest.host_permissions) === JSON.stringify(["https://api.github.com/*", "https://github.com/*"]), "Unexpected host permissions");
   assert(manifest.content_security_policy?.extension_pages === "script-src 'self'; object-src 'none'", "Strict extension CSP is required");
   const scripts = manifest.content_scripts?.[0]?.js || [];
-  assert(JSON.stringify(scripts.slice(0, 3)) === JSON.stringify(["i18n-catalogs.js", "i18n.js", "settings.js"]), "Locale catalogs and settings must load first in content scripts");
+  assert(JSON.stringify(scripts.slice(0, 6)) === JSON.stringify([
+    "shared/messages.js", "shared/browser-api.js", "shared/formatting.js",
+    "i18n-catalogs.js", "i18n.js", "settings.js"
+  ]), "Shared contracts, browser adapter, formatting, locales and settings must load first in content scripts");
   assert(scripts.includes("url-policy.js") && scripts.indexOf("url-policy.js") < scripts.indexOf("content.js"), "URL policy must load before content.js");
   if (manifest.background?.scripts) {
-    assert(JSON.stringify(manifest.background.scripts.slice(0, 3)) === JSON.stringify(["i18n-catalogs.js", "i18n.js", "settings.js"]), "Locale catalogs and settings must load first in Firefox background scripts");
+    assert(JSON.stringify(manifest.background.scripts.slice(0, 5)) === JSON.stringify([
+      "shared/messages.js", "shared/browser-api.js",
+      "i18n-catalogs.js", "i18n.js", "settings.js"
+    ]), "Shared contracts, browser adapter, locales and settings must load first in Firefox background scripts");
     assert(manifest.background.scripts.indexOf("github-auth.js") < manifest.background.scripts.indexOf("background.js"), "GitHub auth helpers must load before background.js");
   }
 }
@@ -95,8 +101,16 @@ for (const relative of actual.filter((file) => file.endsWith(".html"))) {
 }
 for (const relative of ["popup.html", "options.html"]) {
   const text = await readFile(path.join(source, relative), "utf8");
-  assert(text.indexOf('src="i18n-catalogs.js"') < text.indexOf('src="i18n.js"'), `${relative} must load locale catalogs before i18n.js`);
-  assert(text.indexOf('src="i18n.js"') < text.indexOf('src="settings.js"'), `${relative} must load i18n.js before settings.js`);
+  const orderedScripts = [
+    "shared/messages.js", "shared/browser-api.js", "shared/formatting.js",
+    "i18n-catalogs.js", "i18n.js", "settings.js"
+  ];
+  let previous = -1;
+  for (const script of orderedScripts) {
+    const current = text.indexOf(`src="${script}"`);
+    assert(current > previous, `${relative} must load ${script} in the documented order`);
+    previous = current;
+  }
 }
 
 const privacy = await readFile(path.join(root, "PRIVACY.md"), "utf8");

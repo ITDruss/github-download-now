@@ -20,7 +20,10 @@ for (const file of ["manifest.chromium.json", "manifest.firefox.json"]) {
   assert.equal(manifest.default_locale, "en");
   assert.equal(manifest.name, "__MSG_extensionName__");
   assert.equal(manifest.description, "__MSG_extensionDescription__");
-  assert.deepEqual(manifest.content_scripts[0].js.slice(0, 3), ["i18n-catalogs.js", "i18n.js", "settings.js"]);
+  assert.deepEqual(manifest.content_scripts[0].js.slice(0, 6), [
+    "shared/messages.js", "shared/browser-api.js", "shared/formatting.js",
+    "i18n-catalogs.js", "i18n.js", "settings.js"
+  ]);
   assert.ok(manifest.content_scripts[0].js.indexOf("url-policy.js") < manifest.content_scripts[0].js.indexOf("content.js"));
   assert.ok(manifest.content_scripts[0].js.indexOf("install-guides.js") < manifest.content_scripts[0].js.indexOf("content.js"));
   assert.equal(manifest.content_security_policy.extension_pages, "script-src 'self'; object-src 'none'");
@@ -32,7 +35,10 @@ for (const file of ["manifest.chromium.json", "manifest.firefox.json"]) {
     assert.deepEqual(manifest.browser_specific_settings.gecko.data_collection_permissions.required, ["browsingActivity"]);
     assert.deepEqual(manifest.browser_specific_settings.gecko.data_collection_permissions.optional, ["authenticationInfo"]);
     assert.equal(manifest.browser_specific_settings.gecko_android.strict_min_version, "142.0");
-    assert.deepEqual(manifest.background.scripts.slice(0, 3), ["i18n-catalogs.js", "i18n.js", "settings.js"]);
+    assert.deepEqual(manifest.background.scripts.slice(0, 5), [
+      "shared/messages.js", "shared/browser-api.js",
+      "i18n-catalogs.js", "i18n.js", "settings.js"
+    ]);
     assert.ok(manifest.background.scripts.indexOf("build-instructions.js") < manifest.background.scripts.indexOf("background.js"));
     assert.ok(manifest.background.scripts.indexOf("github-auth.js") < manifest.background.scripts.indexOf("background.js"));
   }

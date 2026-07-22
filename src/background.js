@@ -1,6 +1,8 @@
 "use strict";
 
 if (typeof importScripts === "function") {
+  if (!globalThis.GHDNMessages) importScripts("shared/messages.js");
+  if (!globalThis.GHDNBrowser) importScripts("shared/browser-api.js");
   if (!globalThis.GHDNLocaleCatalogs) importScripts("i18n-catalogs.js");
   if (!globalThis.GHDNI18n) importScripts("i18n.js");
   if (!globalThis.GHDNSettings) importScripts("settings.js");
@@ -11,7 +13,9 @@ if (typeof importScripts === "function") {
   if (!globalThis.GHDNGitHubAuth) importScripts("github-auth.js");
 }
 
-const extensionApi = typeof browser !== "undefined" ? browser : chrome;
+const browserApi = globalThis.GHDNBrowser;
+const extensionApi = browserApi.api;
+const messages = globalThis.GHDNMessages;
 const i18n = globalThis.GHDNI18n;
 const settingsApi = globalThis.GHDNSettings;
 const selector = globalThis.GHDNAssetSelector;
@@ -583,59 +587,21 @@ async function getBuildInstructions(owner, repo, requestedRef = "", platformInpu
   return value;
 }
 
-function chromeStorageGet(area, defaults) {
-  return new Promise((resolve, reject) => {
-    area.get(defaults, (items) => {
-      const error = extensionApi.runtime && extensionApi.runtime.lastError;
-      if (error) reject(new Error(error.message));
-      else resolve(items);
-    });
-  });
-}
-
-function chromeStorageSet(area, values) {
-  return new Promise((resolve, reject) => {
-    area.set(values, () => {
-      const error = extensionApi.runtime && extensionApi.runtime.lastError;
-      if (error) reject(new Error(error.message));
-      else resolve();
-    });
-  });
-}
-
 async function localGet(defaults) {
-  if (typeof browser !== "undefined") return extensionApi.storage.local.get(defaults);
-  return chromeStorageGet(extensionApi.storage.local, defaults);
+  return browserApi.storage.local.get(defaults);
 }
 
 async function localSet(values) {
-  if (typeof browser !== "undefined") return extensionApi.storage.local.set(values);
-  return chromeStorageSet(extensionApi.storage.local, values);
-}
-
-function chromeStorageRemove(area, keys) {
-  return new Promise((resolve, reject) => {
-    area.remove(keys, () => {
-      const error = extensionApi.runtime && extensionApi.runtime.lastError;
-      if (error) reject(new Error(error.message));
-      else resolve();
-    });
-  });
+  return browserApi.storage.local.set(values);
 }
 
 async function localRemove(keys) {
-  if (typeof browser !== "undefined") return extensionApi.storage.local.remove(keys);
-  return chromeStorageRemove(extensionApi.storage.local, keys);
+  return browserApi.storage.local.remove(keys);
 }
 
 async function restrictLocalStorageToTrustedContexts() {
-  const area = extensionApi.storage && extensionApi.storage.local;
-  if (!area || typeof area.setAccessLevel !== "function") return;
   try {
-    if (typeof browser !== "undefined") await area.setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" });
-    else await new Promise((resolve) => {
-      area.setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" }, resolve);
-    });
+    await browserApi.storage.local.setAccessLevel("TRUSTED_CONTEXTS");
   } catch (_error) {}
 }
 
@@ -701,10 +667,7 @@ async function publicGitHubAuthStatus(options = {}) {
 async function openGitHubDeviceVerification(value) {
   const trusted = urlPolicy && urlPolicy.deviceVerification(value);
   if (!trusted || !extensionApi.tabs || !extensionApi.tabs.create) return { ok: false, error: "verification_unavailable" };
-  if (typeof browser !== "undefined") await extensionApi.tabs.create({ url: trusted.href });
-  else await new Promise((resolve) => {
-    extensionApi.tabs.create({ url: trusted.href }, resolve);
-  });
+  await browserApi.tabs.create(trusted.href);
   return { ok: true };
 }
 
@@ -1146,16 +1109,12 @@ async function clearTracking() {
   return { ok: true };
 }
 
-async function hasNotificationPermission() {
-  if (!extensionApi.permissions || !extensionApi.permissions.contains) return false;
-  if (typeof browser !== "undefined") return extensionApi.permissions.contains({ permissions: ["notifications"] });
-  return new Promise((resolve) => { extensionApi.permissions.contains({ permissions: ["notifications"] }, resolve); });
+function hasNotificationPermission() {
+  return browserApi.permissions.contains({ permissions: ["notifications"] });
 }
 
-async function createNotification(id, options) {
-  if (!extensionApi.notifications || !extensionApi.notifications.create) return;
-  if (typeof browser !== "undefined") await extensionApi.notifications.create(id, options);
-  else await new Promise((resolve) => { extensionApi.notifications.create(id, options, resolve); });
+function createNotification(id, options) {
+  return browserApi.notifications.create(id, options);
 }
 
 async function notifyUpdates(updates, settings) {
@@ -1204,44 +1163,36 @@ async function updateBadge(updatesArg = null, settingsArg = null) {
 
 
 async function openOptionsPage() {
-  if (extensionApi.runtime && typeof extensionApi.runtime.openOptionsPage === "function") {
-    try {
-      await extensionApi.runtime.openOptionsPage();
-      return { ok: true };
-    } catch (_error) {}
-  }
+  try {
+    await browserApi.runtime.openOptionsPage();
+    return { ok: true };
+  } catch (_error) {}
   const url = extensionApi.runtime.getURL("options.html");
-  if (extensionApi.tabs && extensionApi.tabs.create) {
-    if (typeof browser !== "undefined") await extensionApi.tabs.create({ url });
-    else await new Promise((resolve) => { extensionApi.tabs.create({ url }, resolve); });
+  try {
+    await browserApi.tabs.create(url);
     return { ok: true, fallback: true };
+  } catch (_error) {
+    return { ok: false, error: "options_unavailable" };
   }
-  return { ok: false, error: "options_unavailable" };
 }
 
 async function openTab(value) {
   const trusted = urlPolicy && urlPolicy.repositoryWebUrl(value);
   if (!trusted) return { ok: false, error: "untrusted_url" };
-  if (typeof browser !== "undefined") await extensionApi.tabs.create({ url: trusted.href });
-  else await new Promise((resolve) => { extensionApi.tabs.create({ url: trusted.href }, resolve); });
+  await browserApi.tabs.create(trusted.href);
   return { ok: true };
 }
 
-async function getAlarm(name) {
-  if (!extensionApi.alarms || !extensionApi.alarms.get) return null;
-  if (typeof browser !== "undefined") return extensionApi.alarms.get(name);
-  return new Promise((resolve) => { extensionApi.alarms.get(name, resolve); });
+function getAlarm(name) {
+  return browserApi.alarms.get(name);
 }
 
-async function clearAlarm(name) {
-  if (!extensionApi.alarms || !extensionApi.alarms.clear) return false;
-  if (typeof browser !== "undefined") return extensionApi.alarms.clear(name);
-  return new Promise((resolve) => { extensionApi.alarms.clear(name, resolve); });
+function clearAlarm(name) {
+  return browserApi.alarms.clear(name);
 }
 
-async function createAlarm(name, alarmInfo) {
-  if (!extensionApi.alarms || !extensionApi.alarms.create) return;
-  extensionApi.alarms.create(name, alarmInfo);
+function createAlarm(name, alarmInfo) {
+  return browserApi.alarms.create(name, alarmInfo);
 }
 
 async function ensureUpdateAlarm() {
@@ -1268,64 +1219,64 @@ async function initializeBackground() {
 
 extensionApi.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || typeof message.type !== "string") return false;
-  if (message.type.startsWith("GHDN_AUTH_") && !trustedExtensionSender(sender)) {
+  if (messages.isAuthType(message.type) && !trustedExtensionSender(sender)) {
     sendResponse({ ok: false, error: "unauthorized_sender" });
     return false;
   }
   let operation;
   switch (message.type) {
-    case "GHDN_GET_LATEST_RELEASE":
+    case messages.TYPES.GET_LATEST_RELEASE:
       operation = getRelease(message.owner, message.repo, message.platform, message.releaseChannel);
       break;
-    case "GHDN_GET_RELEASE_BY_TAG":
+    case messages.TYPES.GET_RELEASE_BY_TAG:
       operation = getReleaseByTag(message.owner, message.repo, message.tag, message.platform);
       break;
-    case "GHDN_GET_BUILD_INSTRUCTIONS":
+    case messages.TYPES.GET_BUILD_INSTRUCTIONS:
       operation = getBuildInstructions(message.owner, message.repo, message.ref, message.platform);
       break;
-    case "GHDN_AUTH_STATUS":
+    case messages.TYPES.AUTH_STATUS:
       operation = publicGitHubAuthStatus({ refresh: Boolean(message.refresh) });
       break;
-    case "GHDN_AUTH_START":
+    case messages.TYPES.AUTH_START:
       operation = startGitHubAuthorization();
       break;
-    case "GHDN_AUTH_POLL":
+    case messages.TYPES.AUTH_POLL:
       operation = pollGitHubAuthorization();
       break;
-    case "GHDN_AUTH_DISCONNECT":
+    case messages.TYPES.AUTH_DISCONNECT:
       operation = disconnectGitHubAuthorization();
       break;
-    case "GHDN_RECORD_DOWNLOAD":
+    case messages.TYPES.RECORD_DOWNLOAD:
       operation = recordDownload(message.download, sender);
       break;
-    case "GHDN_WATCH_REPOSITORY":
+    case messages.TYPES.WATCH_REPOSITORY:
       operation = watchRepository(message.download);
       break;
-    case "GHDN_UNWATCH_REPOSITORY":
+    case messages.TYPES.UNWATCH_REPOSITORY:
       operation = unwatchRepository(message.key);
       break;
-    case "GHDN_GET_DASHBOARD":
+    case messages.TYPES.GET_DASHBOARD:
       operation = getDashboard();
       break;
-    case "GHDN_CHECK_UPDATES":
+    case messages.TYPES.CHECK_UPDATES:
       operation = checkAllUpdates({ manual: true });
       break;
-    case "GHDN_DISMISS_UPDATE":
+    case messages.TYPES.DISMISS_UPDATE:
       operation = dismissUpdate(message.key);
       break;
-    case "GHDN_DOWNLOAD_UPDATE":
+    case messages.TYPES.DOWNLOAD_UPDATE:
       operation = downloadUpdate(message.key);
       break;
-    case "GHDN_OPEN_URL":
+    case messages.TYPES.OPEN_URL:
       operation = openTab(message.url);
       break;
-    case "GHDN_OPEN_OPTIONS":
+    case messages.TYPES.OPEN_OPTIONS:
       operation = openOptionsPage();
       break;
-    case "GHDN_CLEAR_HISTORY":
+    case messages.TYPES.CLEAR_HISTORY:
       operation = clearHistory();
       break;
-    case "GHDN_CLEAR_TRACKING":
+    case messages.TYPES.CLEAR_TRACKING:
       operation = clearTracking();
       break;
     default:
@@ -1363,8 +1314,7 @@ if (extensionApi.notifications && extensionApi.notifications.onClicked) {
   extensionApi.notifications.onClicked.addListener((notificationId) => {
     if (notificationId === SUMMARY_NOTIFICATION) {
       const url = extensionApi.runtime.getURL("popup.html#updates");
-      if (typeof browser !== "undefined") extensionApi.tabs.create({ url });
-      else extensionApi.tabs.create({ url });
+      browserApi.tabs.create(url).catch(console.error);
       return;
     }
     if (!notificationId.startsWith(NOTIFICATION_PREFIX)) return;

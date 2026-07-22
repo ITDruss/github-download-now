@@ -74,7 +74,7 @@ with sync_playwright() as p:
 
     context = browser.new_context(viewport={"width": 380, "height": 560}, locale="ru-RU")
     page = context.new_page()
-    page.set_content(inline_page("popup.html", ["i18n-catalogs.js", "i18n.js", "settings.js", "popup.js"], "popup.css"), wait_until="load")
+    page.set_content(inline_page("popup.html", ["shared/messages.js", "shared/browser-api.js", "shared/formatting.js", "i18n-catalogs.js", "i18n.js", "settings.js", "popup.js"], "popup.css"), wait_until="load")
     page.wait_for_function("document.querySelector('#preferredFormat')?.value === 'deb'")
     assert page.locator("#detectedPlatform").text_content().startswith("Linux")
     assert page.locator("#primaryAction").input_value() == "menu"
@@ -89,7 +89,7 @@ with sync_playwright() as p:
 
     context = browser.new_context(viewport={"width": 1280, "height": 800}, locale="ru-RU")
     page = context.new_page()
-    page.set_content(inline_page("options.html", ["i18n-catalogs.js", "i18n.js", "settings.js", "options.js"], "options.css"), wait_until="load")
+    page.set_content(inline_page("options.html", ["shared/messages.js", "shared/browser-api.js", "shared/formatting.js", "i18n-catalogs.js", "i18n.js", "settings.js", "options.js"], "options.css"), wait_until="load")
     page.wait_for_function("document.querySelector('#preferredLinux')?.value === 'deb'")
     assert page.locator("#generalTitle").text_content() == "Общие настройки"
     assert page.locator("#language option").count() == 3
@@ -109,7 +109,7 @@ with sync_playwright() as p:
 
     context = browser.new_context(viewport={"width": 1280, "height": 800}, locale="ru-RU")
     page = context.new_page()
-    english_options = inline_page("options.html", ["i18n-catalogs.js", "i18n.js", "settings.js", "options.js"], "options.css").replace('language:"ru"', 'language:"en"')
+    english_options = inline_page("options.html", ["shared/messages.js", "shared/browser-api.js", "shared/formatting.js", "i18n-catalogs.js", "i18n.js", "settings.js", "options.js"], "options.css").replace('language:"ru"', 'language:"en"')
     page.set_content(english_options, wait_until="load")
     page.wait_for_function("document.querySelector('#language')?.value === 'en'")
     assert page.locator("#generalTitle").text_content() == "General"

@@ -1,7 +1,10 @@
 "use strict";
 
 (() => {
-  const extensionApi = typeof browser !== "undefined" ? browser : chrome;
+  const browserApi = globalThis.GHDNBrowser;
+  const extensionApi = browserApi.api;
+  const messages = globalThis.GHDNMessages;
+  const formatting = globalThis.GHDNFormatting;
   const settingsApi = globalThis.GHDNSettings;
   const i18n = globalThis.GHDNI18n;
   let settings;
@@ -45,49 +48,19 @@
     };
   }
 
-  function detectPlatform() {
-    const ua = navigator.userAgent || "";
-    const os = /android/i.test(ua) ? "android" : /windows/i.test(ua) ? "windows" : /(macintosh|mac os x)/i.test(ua) ? "macos" : /linux/i.test(ua) ? "linux" : "linux";
-    const arch = /(aarch64|arm64)/i.test(ua) ? "ARM64" : /(armv7|armv6|armhf)/i.test(ua) ? "ARM" : /(x86_64|amd64|win64|x64)/i.test(ua) ? "x64" : /(i[3-6]86|x86|win32)/i.test(ua) ? "x86" : "x64";
-    return { os, arch };
-  }
-
-  function settingKey(os) { return { linux: "preferredLinux", windows: "preferredWindows", macos: "preferredMacos", android: "preferredAndroid" }[os]; }
+  function detectPlatform() { return formatting.platform(navigator.userAgent || ""); }
+  function settingKey(os) { return formatting.platformSettingKey(os); }
   function el(tag, className = "", text = "") { const node = document.createElement(tag); if (className) node.className = className; if (text) node.textContent = text; return node; }
-
-  function send(message) {
-    if (typeof browser !== "undefined") return extensionApi.runtime.sendMessage(message);
-    return new Promise((resolve, reject) => {
-      extensionApi.runtime.sendMessage(message, (response) => {
-        const error = extensionApi.runtime.lastError;
-        if (error) reject(new Error(error.message)); else resolve(response);
-      });
-    });
-  }
-
-  function openUrl(url) { return send({ type: "GHDN_OPEN_URL", url }); }
+  function send(message) { return browserApi.runtime.sendMessage(message); }
+  function openUrl(url) { return send({ type: messages.TYPES.OPEN_URL, url }); }
   function formatDate(value, relative = false) {
-    const date = new Date(value);
-    if (!Number.isFinite(date.getTime())) return "—";
-    if (relative) {
-      const diff = Date.now() - date.getTime();
-      const mins = Math.max(0, Math.round(diff / 60000));
-      if (mins < 2) return t.justNow;
-      if (mins < 60) return t.minutesAgo(mins);
-      const hours = Math.round(mins / 60);
-      if (hours < 24) return t.hoursAgo(hours);
-      const days = Math.round(hours / 24);
-      return t.daysAgo(days);
-    }
-    return date.toLocaleDateString(tr.tag, { year: "numeric", month: "short", day: "numeric" });
+    return relative
+      ? formatting.relativeDate(value, t)
+      : formatting.date(value, tr.tag, "—");
   }
 
   function formatBytes(value) {
-    const bytes = Number(value) || 0;
-    if (!bytes) return "";
-    const units = ["KB", "MB", "GB"]; let amount = bytes / 1024; let index = 0;
-    while (amount >= 1024 && index < units.length - 1) { amount /= 1024; index += 1; }
-    return `${amount >= 10 ? amount.toFixed(0) : amount.toFixed(1)} ${units[index]}`;
+    return formatting.bytes(value, { emptyForZero: true, minimumKilobytes: true });
   }
 
   function status(message, error = false) {
@@ -100,7 +73,7 @@
     const errors = result && Array.isArray(result.errors) ? result.errors : [];
     const limited = errors.find((item) => item && item.error === "rate_limited");
     if (limited) {
-      const time = limited.resetAt ? new Date(limited.resetAt).toLocaleTimeString(tr.tag, { hour: "2-digit", minute: "2-digit" }) : "";
+      const time = limited.resetAt ? formatting.time(limited.resetAt, tr.tag) : "";
       return { message: t.rateLimited(time), error: true };
     }
     const checked = Number(result && (result.checked ?? result.meta?.lastCheckChecked));
@@ -180,8 +153,8 @@
       item.append(top, el("div", "item-meta", `${update.fromTag || "—"} → ${update.releaseTag || "—"} · ${formatDate(update.releasePublishedAt)}`));
       item.append(el("div", "item-file", update.compatibleAssetFound ? `${update.assetName}${update.assetSize ? ` · ${formatBytes(update.assetSize)}` : ""}` : t.noAsset));
       const actions = el("div", "item-actions");
-      if (update.assetUrl) actions.append(actionButton(t.download, async () => { await send({ type: "GHDN_DOWNLOAD_UPDATE", key: update.key }); await refresh(); }, "primary"));
-      actions.append(actionButton(t.release, () => openUrl(update.releaseUrl)), actionButton(t.skip, async () => { await send({ type: "GHDN_DISMISS_UPDATE", key: update.key }); await refresh(); }));
+      if (update.assetUrl) actions.append(actionButton(t.download, async () => { await send({ type: messages.TYPES.DOWNLOAD_UPDATE, key: update.key }); await refresh(); }, "primary"));
+      actions.append(actionButton(t.release, () => openUrl(update.releaseUrl)), actionButton(t.skip, async () => { await send({ type: messages.TYPES.DISMISS_UPDATE, key: update.key }); await refresh(); }));
       item.append(actions); list.append(item);
     }
   }
@@ -197,7 +170,7 @@
       item.append(top, el("div", "item-meta", `${t.checked}: ${watch.lastCheckedAt ? formatDate(watch.lastCheckedAt, true) : "—"} · ${watch.platform.os} ${watch.platform.arch}`));
       if (watch.currentAssetName) item.append(el("div", "item-file", watch.currentAssetName));
       const actions = el("div", "item-actions");
-      actions.append(actionButton(t.release, () => openUrl(`https://github.com/${watch.owner}/${watch.repo}/releases`)), actionButton(t.stop, async () => { await send({ type: "GHDN_UNWATCH_REPOSITORY", key: watch.key }); await refresh(); }, "danger"));
+      actions.append(actionButton(t.release, () => openUrl(`https://github.com/${watch.owner}/${watch.repo}/releases`)), actionButton(t.stop, async () => { await send({ type: messages.TYPES.UNWATCH_REPOSITORY, key: watch.key }); await refresh(); }, "danger"));
       item.append(actions); list.append(item);
     }
   }
@@ -216,15 +189,13 @@
   function renderAll() { renderUpdates(); renderTracking(); renderHistory(); }
 
   async function refresh() {
-    const result = await send({ type: "GHDN_GET_DASHBOARD" });
+    const result = await send({ type: messages.TYPES.GET_DASHBOARD });
     if (result && result.ok) dashboard = result;
     renderAll();
   }
 
-  async function requestNotifications() {
-    if (!extensionApi.permissions || !extensionApi.permissions.request) return false;
-    if (typeof browser !== "undefined") return extensionApi.permissions.request({ permissions: ["notifications"] });
-    return new Promise((resolve) => { extensionApi.permissions.request({ permissions: ["notifications"] }, resolve); });
+  function requestNotifications() {
+    return browserApi.permissions.request({ permissions: ["notifications"] });
   }
 
   async function init() {
@@ -269,7 +240,7 @@
     document.getElementById("checkNow").addEventListener("click", async () => {
       const button = document.getElementById("checkNow"); button.disabled = true; button.textContent = t.checking;
       try {
-        const result = await send({ type: "GHDN_CHECK_UPDATES" });
+        const result = await send({ type: messages.TYPES.CHECK_UPDATES });
         await refresh();
         const summary = checkStatus(result);
         status(summary.message, summary.error);
@@ -277,9 +248,9 @@
       catch (_error) { status(t.error, true); }
       finally { button.disabled = false; button.textContent = t.checkNow; }
     });
-    document.getElementById("clearHistory").addEventListener("click", async () => { await send({ type: "GHDN_CLEAR_HISTORY" }); await refresh(); });
+    document.getElementById("clearHistory").addEventListener("click", async () => { await send({ type: messages.TYPES.CLEAR_HISTORY }); await refresh(); });
     document.getElementById("openOptions").addEventListener("click", async () => {
-      const result = await send({ type: "GHDN_OPEN_OPTIONS" });
+      const result = await send({ type: messages.TYPES.OPEN_OPTIONS });
       if (!result || !result.ok) status(t.error, true);
     });
     await refresh();

@@ -1,7 +1,10 @@
 "use strict";
 
 (() => {
-  const extensionApi = typeof browser !== "undefined" ? browser : chrome;
+  const browserApi = globalThis.GHDNBrowser;
+  const extensionApi = browserApi.api;
+  const messages = globalThis.GHDNMessages;
+  const formatting = globalThis.GHDNFormatting;
   const selector = globalThis.GHDNAssetSelector;
   const urlPolicy = globalThis.GHDNUrlPolicy;
   const settingsApi = globalThis.GHDNSettings;
@@ -1178,14 +1181,14 @@
       try {
         response = await loadReleaseFromPage(repo, releaseTag, platform);
       } catch (_pageError) {
-        response = await extensionApi.runtime.sendMessage(releaseTag ? {
-          type: "GHDN_GET_RELEASE_BY_TAG",
+        response = await browserApi.runtime.sendMessage(releaseTag ? {
+          type: messages.TYPES.GET_RELEASE_BY_TAG,
           owner: repo.owner,
           repo: repo.repo,
           tag: releaseTag,
           platform
         } : {
-          type: "GHDN_GET_LATEST_RELEASE",
+          type: messages.TYPES.GET_LATEST_RELEASE,
           owner: repo.owner,
           repo: repo.repo,
           platform,
@@ -1277,8 +1280,8 @@
       return buildInstructionsPromise.promise;
     }
 
-    const promise = extensionApi.runtime.sendMessage({
-      type: "GHDN_GET_BUILD_INSTRUCTIONS",
+    const promise = browserApi.runtime.sendMessage({
+      type: messages.TYPES.GET_BUILD_INSTRUCTIONS,
       owner: repo.owner,
       repo: repo.repo,
       ref,
@@ -1340,7 +1343,7 @@
     if (!response || !response.ok) {
       if (response && response.error === "rate_limited") {
         const time = response.resetAt
-          ? new Date(response.resetAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          ? formatting.time(response.resetAt)
           : null;
         links.append(createBuildStatus(strings.rateLimited(time), "error"));
       } else {
@@ -1424,7 +1427,7 @@
   }
 
   function requestOpenOptions() {
-    return extensionApi.runtime.sendMessage({ type: "GHDN_OPEN_OPTIONS" })
+    return browserApi.runtime.sendMessage({ type: messages.TYPES.OPEN_OPTIONS })
       .catch(() => openExternal(extensionApi.runtime.getURL("options.html")));
   }
 
@@ -1721,13 +1724,7 @@
   }
 
   function formatDisplayName(extension) {
-    const names = {
-      ".appimage": "AppImage", ".flatpakref": "Flatpak Ref", ".flatpak": "Flatpak", ".deb": "DEB", ".rpm": "RPM", ".snap": "Snap", ".run": "RUN", ".sh": "SH",
-      ".tar.gz": "TAR.GZ", ".tar.xz": "TAR.XZ", ".tar.zst": "TAR.ZST", ".tar.bz2": "TAR.BZ2", ".tgz": "TGZ", ".tbz2": "TBZ2", ".zip": "ZIP", ".7z": "7Z",
-      ".exe": "EXE", ".msi": "MSI", ".msix": "MSIX", ".msixbundle": "MSIX Bundle", ".appx": "APPX", ".appxbundle": "APPX Bundle",
-      ".dmg": "DMG", ".pkg": "PKG", ".apk": "APK", ".apks": "APKS", ".aab": "AAB", ".xpi": "XPI", ".crx": "CRX", ".vsix": "VSIX", ".jar": "JAR"
-    };
-    return names[extension] || (extension ? extension.replace(/^\./, "").toUpperCase() : "file");
+    return formatting.formatName(extension);
   }
 
   function isReleaseStale(release) {
@@ -1739,9 +1736,7 @@
   }
 
   function formatReleaseDate(value) {
-    const date = new Date(value);
-    if (!Number.isFinite(date.getTime())) return "";
-    return date.toLocaleDateString(strings.localeTag, { year: "numeric", month: "short", day: "numeric" });
+    return formatting.date(value, strings.localeTag);
   }
 
   function releaseDateText(release) {
@@ -1788,7 +1783,7 @@
     };
 
     try {
-      const result = await extensionApi.runtime.sendMessage({ type: "GHDN_RECORD_DOWNLOAD", download });
+      const result = await browserApi.runtime.sendMessage({ type: messages.TYPES.RECORD_DOWNLOAD, download });
       if (!result || !result.ok || result.incognito) return;
       if (result.watchState === "prompt") showWatchPrompt(download);
       else if (result.watchState === "watching") showToast(strings.watchingUpdated, "success");
@@ -1813,7 +1808,7 @@
     enable.addEventListener("click", async () => {
       enable.disabled = true;
       try {
-        const result = await extensionApi.runtime.sendMessage({ type: "GHDN_WATCH_REPOSITORY", download });
+        const result = await browserApi.runtime.sendMessage({ type: messages.TYPES.WATCH_REPOSITORY, download });
         if (result && result.ok) showToast(strings.watchingEnabled, "success");
       } catch (_error) {}
       prompt.remove();
@@ -1926,7 +1921,7 @@
   function showResponseError(response) {
     if (response.error === "no_release") showToast(strings.noRelease, "warning");
     else if (response.error === "rate_limited") {
-      const time = response.resetAt ? new Date(response.resetAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : null;
+      const time = response.resetAt ? formatting.time(response.resetAt) : null;
       showToast(strings.rateLimited(time), "warning");
     } else if (response.error === "network_error") showToast(strings.networkError, "error");
     else showToast(strings.apiError, "error");
@@ -1940,12 +1935,7 @@
   }
 
   function formatBytes(value) {
-    const bytes = Number(value) || 0;
-    if (bytes < 1024) return `${bytes} B`;
-    const units = ["KB", "MB", "GB", "TB"];
-    let amount = bytes / 1024; let index = 0;
-    while (amount >= 1024 && index < units.length - 1) { amount /= 1024; index += 1; }
-    return `${amount >= 10 ? amount.toFixed(0) : amount.toFixed(1)} ${units[index]}`;
+    return formatting.bytes(value);
   }
 
   if (settingsApi) {

@@ -1,7 +1,9 @@
 "use strict";
 
 (() => {
-  const extensionApi = typeof browser !== "undefined" ? browser : chrome;
+  const browserApi = globalThis.GHDNBrowser;
+  const messages = globalThis.GHDNMessages;
+  const formatting = globalThis.GHDNFormatting;
   const settingsApi = globalThis.GHDNSettings;
   const i18n = globalThis.GHDNI18n;
   const DEVICE_URL = "https://github.com/login/device";
@@ -123,38 +125,18 @@
   }
 
   function send(message) {
-    if (typeof browser !== "undefined") return extensionApi.runtime.sendMessage(message);
-    return new Promise((resolve,reject) => {
-      extensionApi.runtime.sendMessage(message, (response) => {
-        const error = extensionApi.runtime.lastError;
-        if (error) reject(new Error(error.message));
-        else resolve(response);
-      });
-    });
+    return browserApi.runtime.sendMessage(message);
   }
 
-  async function requestNotifications() {
-    if (!extensionApi.permissions || !extensionApi.permissions.request) return false;
-    if (typeof browser !== "undefined") return extensionApi.permissions.request({permissions:["notifications"]});
-    return new Promise((resolve) => { extensionApi.permissions.request({permissions:["notifications"]}, resolve); });
+  function requestNotifications() {
+    return browserApi.permissions.request({ permissions: ["notifications"] });
   }
 
   async function requestGitHubAuthConsent() {
-    if (!extensionApi.permissions || !extensionApi.permissions.getAll || !extensionApi.permissions.request) return true;
-    let current;
-    if (typeof browser !== "undefined") current = await extensionApi.permissions.getAll();
-    else current = await new Promise((resolve) => {
-      extensionApi.permissions.getAll(resolve);
-    });
+    const current = await browserApi.permissions.getAll();
     if (!current || !Array.isArray(current.data_collection)) return true;
     if (current.data_collection.includes("authenticationInfo")) return true;
-    if (typeof browser !== "undefined") return extensionApi.permissions.request({ data_collection: ["authenticationInfo"] });
-    return new Promise((resolve) => {
-      extensionApi.permissions.request(
-        { data_collection: ["authenticationInfo"] },
-        resolve
-      );
-    });
+    return browserApi.permissions.request({ data_collection: ["authenticationInfo"] });
   }
 
   async function save() {
@@ -204,7 +186,7 @@
   }
 
   async function pollAuthorization() {
-    const result = await send({ type: "GHDN_AUTH_POLL" });
+    const result = await send({ type: messages.TYPES.AUTH_POLL });
     if (!result || !result.ok) {
       stopAuthPolling();
       authMessage(authErrorText(result && result.error), true);
@@ -222,7 +204,7 @@
   }
 
   async function loadAuthStatus(refresh = false) {
-    const result = await send({ type: "GHDN_AUTH_STATUS", refresh });
+    const result = await send({ type: messages.TYPES.AUTH_STATUS, refresh });
     if (!result || !result.ok) {
       authMessage(authErrorText(result && result.error), true);
       return;
@@ -259,7 +241,7 @@
           authMessage(strings().authConsentDenied, true);
           return;
         }
-        const result = await send({ type: "GHDN_AUTH_START" });
+        const result = await send({ type: messages.TYPES.AUTH_START });
         if (!result || !result.ok) {
           authMessage(authErrorText(result && result.error), true);
           return;
@@ -277,7 +259,7 @@
     });
 
     document.getElementById("githubAuthDisconnect").addEventListener("click", async () => {
-      const result = await send({ type: "GHDN_AUTH_DISCONNECT" });
+      const result = await send({ type: messages.TYPES.AUTH_DISCONNECT });
       stopAuthPolling();
       renderAuth(result && result.ok ? result : { connected: false, pending: null });
       authMessage(result && result.ok ? strings().authRemoved : authErrorText(result && result.error), !(result && result.ok));
@@ -288,11 +270,11 @@
       button.disabled = true;
       button.textContent = strings().checking;
       try {
-        const result = await send({type:"GHDN_CHECK_UPDATES"});
+        const result = await send({type:messages.TYPES.CHECK_UPDATES});
         const errors = result && Array.isArray(result.errors) ? result.errors : [];
         const limited = errors.find((item) => item && item.error === "rate_limited");
         if (limited) {
-          const time = limited.resetAt ? new Date(limited.resetAt).toLocaleTimeString(strings().localeTag, {hour:"2-digit",minute:"2-digit"}) : "";
+          const time = limited.resetAt ? formatting.time(limited.resetAt, strings().localeTag) : "";
           status(strings().rateLimited(time));
         } else {
           const found = result && Array.isArray(result.detected) ? result.detected.length : 0;
@@ -303,8 +285,8 @@
         button.textContent = strings().checkNow;
       }
     });
-    document.getElementById("clearHistory").addEventListener("click", async () => { await send({type:"GHDN_CLEAR_HISTORY"}); status(strings().saved); });
-    document.getElementById("clearTracking").addEventListener("click", async () => { await send({type:"GHDN_CLEAR_TRACKING"}); status(strings().saved); });
+    document.getElementById("clearHistory").addEventListener("click", async () => { await send({type:messages.TYPES.CLEAR_HISTORY}); status(strings().saved); });
+    document.getElementById("clearTracking").addEventListener("click", async () => { await send({type:messages.TYPES.CLEAR_TRACKING}); status(strings().saved); });
     document.getElementById("reset").addEventListener("click", async () => { settings = await settingsApi.reset(); translate(); fill(); status(strings().resetDone); });
 
     await loadAuthStatus(true);
