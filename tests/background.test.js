@@ -64,6 +64,8 @@ global.chrome = {
   tabs: { create({ url }, callback) { openedTabs.push(url); if (callback) callback({ id: openedTabs.length }); } }
 };
 
+require("../src/i18n-catalogs.js");
+global.GHDNI18n = require("../src/i18n.js");
 global.GHDNSettings = require("../src/settings.js");
 global.GHDNUrlPolicy = require("../src/url-policy.js");
 global.GHDNAssetSelector = require("../src/asset-selector.js");

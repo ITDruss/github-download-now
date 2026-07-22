@@ -1,13 +1,14 @@
 (function initSettings(root, factory) {
-  const api = factory();
+  const api = factory(root);
   root.GHDNSettings = api;
   if (typeof module !== "undefined" && module.exports) {
     module.exports = api;
   }
-})(typeof globalThis !== "undefined" ? globalThis : this, function createSettingsApi() {
+})(typeof globalThis !== "undefined" ? globalThis : this, function createSettingsApi(root) {
   "use strict";
 
   const extensionApi = typeof browser !== "undefined" ? browser : (typeof chrome !== "undefined" ? chrome : null);
+  const i18n = root.GHDNI18n;
 
   const DEFAULT_SETTINGS = Object.freeze({
     enabled: true,
@@ -36,7 +37,6 @@
   });
 
   const ALLOWED = Object.freeze({
-    language: new Set(["auto", "ru", "en"]),
     osOverride: new Set(["auto", "windows", "linux", "macos", "android"]),
     archOverride: new Set(["auto", "x64", "arm64", "x86", "arm"]),
     preferredLinux: new Set(["auto", "appimage", "deb", "rpm", "flatpak", "snap", "archive"]),
@@ -67,6 +67,12 @@
 
     for (const [key, values] of Object.entries(ALLOWED)) {
       if (values.has(source[key])) result[key] = source[key];
+    }
+
+    if (source.language === "auto") result.language = "auto";
+    else {
+      const supported = i18n?.supportedLocale?.(source.language) || (new Set(["en", "ru"]).has(source.language) ? source.language : "");
+      if (supported) result.language = supported;
     }
 
     const months = Number(source.staleReleaseMonths);

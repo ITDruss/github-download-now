@@ -65,6 +65,12 @@ Android in the feature list means the extension can recognise APK/APKS/AAB relea
 
 A permanent Firefox installation requires Mozilla signing through AMO.
 
+## Languages
+
+The extension ships with English and Russian. Interface text uses the standard WebExtensions `_locales` format, and unsupported browser languages fall back to English.
+
+Adding a translation does not require changing application logic. Copy the English catalog, translate its `message` values and run the locale validator. See [Translating GitHub Download Now](docs/TRANSLATING.md).
+
 ## Development
 
 The exact reviewer-oriented build procedure is documented in [BUILDING.md](BUILDING.md).

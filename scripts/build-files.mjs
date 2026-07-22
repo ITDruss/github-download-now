@@ -1,9 +1,27 @@
+import { readdir } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const localesRoot = path.join(root, "src", "_locales");
+
+const localeDirectories = (await readdir(localesRoot, { withFileTypes: true }))
+  .filter((entry) => entry.isDirectory() && /^[A-Za-z]{2,3}(?:_[A-Za-z]{2})?$/.test(entry.name))
+  .map((entry) => entry.name)
+  .sort();
+
+export const LOCALE_FILES = Object.freeze(
+  localeDirectories.map((locale) => `_locales/${locale}/messages.json`)
+);
+
 export const EXTENSION_FILES = Object.freeze([
   "asset-selector.js",
   "background.js",
   "build-instructions.js",
   "content.js",
   "github-auth.js",
+  "i18n-catalogs.js",
+  "i18n.js",
   "install-guides.js",
   "options.css",
   "options.html",
@@ -18,7 +36,8 @@ export const EXTENSION_FILES = Object.freeze([
   "icons/icon-16.png",
   "icons/icon-32.png",
   "icons/icon-48.png",
-  "icons/icon-128.png"
+  "icons/icon-128.png",
+  ...LOCALE_FILES
 ]);
 
 export const MANIFEST_FILES = Object.freeze([

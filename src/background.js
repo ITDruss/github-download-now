@@ -1,6 +1,8 @@
 "use strict";
 
 if (typeof importScripts === "function") {
+  if (!globalThis.GHDNLocaleCatalogs) importScripts("i18n-catalogs.js");
+  if (!globalThis.GHDNI18n) importScripts("i18n.js");
   if (!globalThis.GHDNSettings) importScripts("settings.js");
   if (!globalThis.GHDNAssetSelector) importScripts("asset-selector.js");
   if (!globalThis.GHDNTracker) importScripts("tracker.js");
@@ -10,6 +12,7 @@ if (typeof importScripts === "function") {
 }
 
 const extensionApi = typeof browser !== "undefined" ? browser : chrome;
+const i18n = globalThis.GHDNI18n;
 const settingsApi = globalThis.GHDNSettings;
 const selector = globalThis.GHDNAssetSelector;
 const tracker = globalThis.GHDNTracker;
@@ -1157,15 +1160,18 @@ async function createNotification(id, options) {
 
 async function notifyUpdates(updates, settings) {
   if (!settings.notificationsEnabled || !updates.length || !(await hasNotificationPermission())) return;
+  const tr = i18n.create(settings.language);
+  const t = tr.t;
   const iconUrl = extensionApi.runtime.getURL("icons/icon-128.png");
   if (updates.length === 1) {
     const update = updates[0];
-    const assetText = update.compatibleAssetFound ? update.assetName : "No matching asset found";
+    const assetText = update.compatibleAssetFound ? update.assetName : t("notificationNoAsset");
     await createNotification(`${NOTIFICATION_PREFIX}${encodeURIComponent(update.key)}`, {
       type: "basic",
       iconUrl,
-      title: `${update.repo} ${update.releaseTag || "new release"}`,
-      message: `${update.fromTag || "Previous release"} → ${update.releaseTag || "New release"}\n${assetText}`
+      title: `${update.repo} ${update.releaseTag || t("notificationNewRelease")}`,
+      message: `${update.fromTag || t("notificationPreviousRelease")} → ${update.releaseTag || t("notificationNewReleaseLabel")}
+${assetText}`
     });
     return;
   }
@@ -1174,7 +1180,7 @@ async function notifyUpdates(updates, settings) {
   await createNotification(SUMMARY_NOTIFICATION, {
     type: "basic",
     iconUrl,
-    title: `${updates.length} GitHub updates available`,
+    title: t("notificationUpdatesAvailable", [updates.length]),
     message: `${names}${extra}`
   });
 }
@@ -1183,9 +1189,12 @@ async function updateBadge(updatesArg = null, settingsArg = null) {
   const action = extensionApi.action || extensionApi.browserAction;
   if (!action || !action.setBadgeText) return;
   const settings = settingsArg || await settingsApi.get();
+  const tr = i18n.create(settings.language);
   const updates = updatesArg || (await readTrackerState()).updates;
   const text = settings.enabled && settings.badgeEnabled && updates.length ? String(Math.min(updates.length, 99)) : "";
-  const title = updates.length ? `${updates.length} update${updates.length === 1 ? "" : "s"} available` : "GitHub Download Now";
+  const title = updates.length
+    ? tr.t(tr.pluralCategory(updates.length) === "one" ? "notificationBadgeOne" : "notificationBadgeOther", [updates.length])
+    : tr.t("extensionName");
   try {
     await action.setBadgeText({ text });
     if (action.setBadgeBackgroundColor) await action.setBadgeBackgroundColor({ color: "#1f883d" });

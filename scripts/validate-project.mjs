@@ -42,6 +42,8 @@ assert(packageJson.devDependencies?.globals === "17.7.0", "ESLint globals must b
 assert(packageJson.scripts?.["lint:firefox"], "Firefox lint script is required");
 assert(packageJson.scripts?.["verify:reproducible"], "Reproducible-build verification is required");
 assert(packageJson.scripts?.verify, "Combined verification script is required");
+assert(packageJson.scripts?.["i18n:generate"], "Locale generation script is required");
+assert(packageJson.scripts?.["i18n:check"], "Locale validation script is required");
 
 const lockText = await readFile(path.join(root, "package-lock.json"), "utf8");
 assert(!lockText.includes("applied-caas-gateway"), "package-lock.json contains an environment-specific npm registry");
@@ -55,13 +57,21 @@ assert(JSON.stringify(actual) === JSON.stringify([...ALLOWED_SOURCE_FILES].sort(
 
 for (const manifest of [chromium, firefox]) {
   assert(manifest.manifest_version === 3, "Manifest V3 is required");
+  assert(manifest.default_locale === "en", "English must remain the default locale");
+  assert(manifest.name === "__MSG_extensionName__", "Manifest name must use the locale catalog");
+  assert(manifest.description === "__MSG_extensionDescription__", "Manifest description must use the locale catalog");
+  assert(manifest.action?.default_title === "__MSG_extensionName__", "Action title must use the locale catalog");
   assert(JSON.stringify(manifest.permissions) === JSON.stringify(["storage", "alarms"]), "Unexpected required permissions");
   assert(JSON.stringify(manifest.optional_permissions) === JSON.stringify(["notifications"]), "Unexpected optional permissions");
   assert(JSON.stringify(manifest.host_permissions) === JSON.stringify(["https://api.github.com/*", "https://github.com/*"]), "Unexpected host permissions");
   assert(manifest.content_security_policy?.extension_pages === "script-src 'self'; object-src 'none'", "Strict extension CSP is required");
   const scripts = manifest.content_scripts?.[0]?.js || [];
+  assert(JSON.stringify(scripts.slice(0, 3)) === JSON.stringify(["i18n-catalogs.js", "i18n.js", "settings.js"]), "Locale catalogs and settings must load first in content scripts");
   assert(scripts.includes("url-policy.js") && scripts.indexOf("url-policy.js") < scripts.indexOf("content.js"), "URL policy must load before content.js");
-  if (manifest.background?.scripts) assert(manifest.background.scripts.indexOf("github-auth.js") < manifest.background.scripts.indexOf("background.js"), "GitHub auth helpers must load before background.js");
+  if (manifest.background?.scripts) {
+    assert(JSON.stringify(manifest.background.scripts.slice(0, 3)) === JSON.stringify(["i18n-catalogs.js", "i18n.js", "settings.js"]), "Locale catalogs and settings must load first in Firefox background scripts");
+    assert(manifest.background.scripts.indexOf("github-auth.js") < manifest.background.scripts.indexOf("background.js"), "GitHub auth helpers must load before background.js");
+  }
 }
 
 assert(JSON.stringify(firefox.browser_specific_settings?.gecko?.data_collection_permissions?.required) === JSON.stringify(["browsingActivity"]), "Firefox required data collection disclosure is incorrect");
@@ -82,6 +92,11 @@ for (const relative of actual.filter((file) => file.endsWith(".html"))) {
   const text = await readFile(path.join(source, relative), "utf8");
   assert(!/<script(?![^>]*\bsrc=)[^>]*>/i.test(text), `${relative} contains inline script`);
   assert(!/\son\w+\s*=/i.test(text), `${relative} contains inline event handler`);
+}
+for (const relative of ["popup.html", "options.html"]) {
+  const text = await readFile(path.join(source, relative), "utf8");
+  assert(text.indexOf('src="i18n-catalogs.js"') < text.indexOf('src="i18n.js"'), `${relative} must load locale catalogs before i18n.js`);
+  assert(text.indexOf('src="i18n.js"') < text.indexOf('src="settings.js"'), `${relative} must load i18n.js before settings.js`);
 }
 
 const privacy = await readFile(path.join(root, "PRIVACY.md"), "utf8");

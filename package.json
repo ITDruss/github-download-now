@@ -4,9 +4,9 @@
   "private": true,
   "description": "A privacy-friendly cross-browser extension that recommends trusted GitHub Release assets, explains installation, and watches selected public repositories for updates.",
   "scripts": {
-    "validate": "node scripts/validate-project.mjs",
-    "test:unit": "node tests/settings.test.js && node tests/tracker.test.js && node tests/url-policy.test.js && node tests/github-auth.test.js && node tests/background.test.js && node tests/build-instructions.test.js && node tests/install-guides.test.js && node tests/asset-selector.test.js && node tests/manifest.test.js && node tests/release-notes.test.mjs",
-    "test": "npm run validate && npm run lint && npm run test:unit && node --check src/settings.js && node --check src/url-policy.js && node --check src/tracker.js && node --check src/github-auth.js && node --check src/build-instructions.js && node --check src/install-guides.js && node --check src/asset-selector.js && node --check src/background.js && node --check src/content.js && node --check src/popup.js && node --check src/options.js",
+    "validate": "npm run i18n:check && node scripts/validate-project.mjs",
+    "test:unit": "node tests/i18n.test.js && node tests/settings.test.js && node tests/tracker.test.js && node tests/url-policy.test.js && node tests/github-auth.test.js && node tests/background.test.js && node tests/build-instructions.test.js && node tests/install-guides.test.js && node tests/asset-selector.test.js && node tests/manifest.test.js && node tests/release-notes.test.mjs",
+    "test": "npm run validate && npm run lint && npm run test:unit && node --check src/i18n-catalogs.js && node --check src/i18n.js && node --check src/settings.js && node --check src/url-policy.js && node --check src/tracker.js && node --check src/github-auth.js && node --check src/build-instructions.js && node --check src/install-guides.js && node --check src/asset-selector.js && node --check src/background.js && node --check src/content.js && node --check src/popup.js && node --check src/options.js",
     "build": "node scripts/build.mjs",
     "package": "npm run build && python3 scripts/package.py",
     "ui-test": "python3 tests/ui_smoke.py",
@@ -15,7 +15,9 @@
     "verify": "npm test && npm run verify:reproducible && npm run lint:firefox",
     "lint:firefox": "web-ext lint --source-dir dist/firefox --warnings-as-errors",
     "verify:reproducible": "python3 scripts/verify-reproducible.py",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "i18n:generate": "node scripts/generate-locales.mjs",
+    "i18n:check": "node scripts/generate-locales.mjs --check"
   },
   "engines": {
     "node": ">=20"
@@ -25,5 +27,14 @@
     "eslint": "10.7.0",
     "globals": "17.7.0",
     "web-ext": "10.5.0"
+  },
+  "overrides": {
+    "firefox-profile": {
+      "adm-zip": "0.6.0"
+    },
+    "fx-runner": {
+      "shell-quote": "1.10.0"
+    },
+    "fast-uri": "3.1.4"
   }
 }

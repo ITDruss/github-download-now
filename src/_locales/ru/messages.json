@@ -1,0 +1,1462 @@
+{
+  "commonArchive": {
+    "message": "Архив",
+    "description": "User-facing extension text: commonArchive."
+  },
+  "commonAutomatic": {
+    "message": "Автоматически",
+    "description": "User-facing extension text: commonAutomatic."
+  },
+  "commonError": {
+    "message": "Ошибка",
+    "description": "User-facing extension text: commonError."
+  },
+  "commonRelease": {
+    "message": "Релиз",
+    "description": "User-facing extension text: commonRelease."
+  },
+  "commonSaved": {
+    "message": "Сохранено",
+    "description": "User-facing extension text: commonSaved."
+  },
+  "contentApiError": {
+    "message": "GitHub API временно недоступен.",
+    "description": "User-facing extension text: contentApiError."
+  },
+  "contentBuildError": {
+    "message": "Не удалось получить документы по сборке.",
+    "description": "User-facing extension text: contentBuildError."
+  },
+  "contentBuildFallbackNotice": {
+    "message": "Ссылки ведут на основную ветку: документация для тега релиза недоступна.",
+    "description": "User-facing extension text: contentBuildFallbackNotice."
+  },
+  "contentBuildFromSource": {
+    "message": "Документация по сборке",
+    "description": "User-facing extension text: contentBuildFromSource."
+  },
+  "contentBuildLoadAction": {
+    "message": "Показать документы по сборке",
+    "description": "User-facing extension text: contentBuildLoadAction."
+  },
+  "contentBuildLoading": {
+    "message": "Ищу документы по сборке…",
+    "description": "User-facing extension text: contentBuildLoading."
+  },
+  "contentBuildNotFound": {
+    "message": "Документы по сборке не найдены.",
+    "description": "User-facing extension text: contentBuildNotFound."
+  },
+  "contentChooseDownload": {
+    "message": "Выбрать файл",
+    "description": "User-facing extension text: contentChooseDownload."
+  },
+  "contentCopied": {
+    "message": "Ссылка скопирована",
+    "description": "User-facing extension text: contentCopied."
+  },
+  "contentCopyLink": {
+    "message": "Скопировать прямую ссылку",
+    "description": "User-facing extension text: contentCopyLink."
+  },
+  "contentDetecting": {
+    "message": "Определяю систему…",
+    "description": "User-facing extension text: contentDetecting."
+  },
+  "contentDownloadCompact": {
+    "message": "Скачать",
+    "description": "User-facing extension text: contentDownloadCompact."
+  },
+  "contentDownloadFormat": {
+    "message": "Скачать $FORMAT$",
+    "placeholders": {
+      "format": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: contentDownloadFormat."
+  },
+  "contentDownloadNow": {
+    "message": "Скачать сейчас",
+    "description": "User-facing extension text: contentDownloadNow."
+  },
+  "contentDownloads": {
+    "message": "скачиваний",
+    "description": "User-facing extension text: contentDownloads."
+  },
+  "contentFormatHintAab": {
+    "message": "Android App Bundle",
+    "description": "User-facing extension text: contentFormatHintAab."
+  },
+  "contentFormatHintApk": {
+    "message": "Приложение Android",
+    "description": "User-facing extension text: contentFormatHintApk."
+  },
+  "contentFormatHintApks": {
+    "message": "Набор APK для Android",
+    "description": "User-facing extension text: contentFormatHintApks."
+  },
+  "contentFormatHintAppimage": {
+    "message": "Универсальный запуск без установки",
+    "description": "User-facing extension text: contentFormatHintAppimage."
+  },
+  "contentFormatHintCrx": {
+    "message": "Расширение Chromium",
+    "description": "User-facing extension text: contentFormatHintCrx."
+  },
+  "contentFormatHintDeb": {
+    "message": "Пакет для Debian, Ubuntu и производных",
+    "description": "User-facing extension text: contentFormatHintDeb."
+  },
+  "contentFormatHintDmg": {
+    "message": "Образ приложения macOS",
+    "description": "User-facing extension text: contentFormatHintDmg."
+  },
+  "contentFormatHintExe": {
+    "message": "Приложение или установщик Windows",
+    "description": "User-facing extension text: contentFormatHintExe."
+  },
+  "contentFormatHintFlatpak": {
+    "message": "Локальный пакет Flatpak",
+    "description": "User-facing extension text: contentFormatHintFlatpak."
+  },
+  "contentFormatHintFlatpakref": {
+    "message": "Установка через Flatpak",
+    "description": "User-facing extension text: contentFormatHintFlatpakref."
+  },
+  "contentFormatHintJar": {
+    "message": "Java-приложение",
+    "description": "User-facing extension text: contentFormatHintJar."
+  },
+  "contentFormatHintMsi": {
+    "message": "Установочный пакет Windows",
+    "description": "User-facing extension text: contentFormatHintMsi."
+  },
+  "contentFormatHintMsix": {
+    "message": "Современный пакет Windows",
+    "description": "User-facing extension text: contentFormatHintMsix."
+  },
+  "contentFormatHintMsixbundle": {
+    "message": "Пакет Windows для нескольких архитектур",
+    "description": "User-facing extension text: contentFormatHintMsixbundle."
+  },
+  "contentFormatHintPkg": {
+    "message": "Установочный пакет macOS",
+    "description": "User-facing extension text: contentFormatHintPkg."
+  },
+  "contentFormatHintRpm": {
+    "message": "Пакет для Fedora, RHEL и производных",
+    "description": "User-facing extension text: contentFormatHintRpm."
+  },
+  "contentFormatHintRun": {
+    "message": "Исполняемый установщик Linux",
+    "description": "User-facing extension text: contentFormatHintRun."
+  },
+  "contentFormatHintSevenZip": {
+    "message": "7-Zip архив",
+    "description": "User-facing extension text: contentFormatHintSevenZip."
+  },
+  "contentFormatHintSh": {
+    "message": "Shell-скрипт — проверьте перед запуском",
+    "description": "User-facing extension text: contentFormatHintSh."
+  },
+  "contentFormatHintSnap": {
+    "message": "Пакет Snap",
+    "description": "User-facing extension text: contentFormatHintSnap."
+  },
+  "contentFormatHintTarGz": {
+    "message": "Архив для ручной установки",
+    "description": "User-facing extension text: contentFormatHintTarGz."
+  },
+  "contentFormatHintTarXz": {
+    "message": "Архив для ручной установки",
+    "description": "User-facing extension text: contentFormatHintTarXz."
+  },
+  "contentFormatHintTarZst": {
+    "message": "Архив для ручной установки",
+    "description": "User-facing extension text: contentFormatHintTarZst."
+  },
+  "contentFormatHintTgz": {
+    "message": "Архив для ручной установки",
+    "description": "User-facing extension text: contentFormatHintTgz."
+  },
+  "contentFormatHintVsix": {
+    "message": "Расширение VS Code",
+    "description": "User-facing extension text: contentFormatHintVsix."
+  },
+  "contentFormatHintXpi": {
+    "message": "Расширение Firefox",
+    "description": "User-facing extension text: contentFormatHintXpi."
+  },
+  "contentFormatHintZip": {
+    "message": "ZIP-архив",
+    "description": "User-facing extension text: contentFormatHintZip."
+  },
+  "contentInstallAfterDownload": {
+    "message": "Файл скачивается — что делать дальше",
+    "description": "User-facing extension text: contentInstallAfterDownload."
+  },
+  "contentInstallClose": {
+    "message": "Закрыть",
+    "description": "User-facing extension text: contentInstallClose."
+  },
+  "contentInstallCopied": {
+    "message": "Команда скопирована",
+    "description": "User-facing extension text: contentInstallCopied."
+  },
+  "contentInstallCopyAll": {
+    "message": "Копировать все команды",
+    "description": "User-facing extension text: contentInstallCopyAll."
+  },
+  "contentInstallCopyCommand": {
+    "message": "Копировать команду",
+    "description": "User-facing extension text: contentInstallCopyCommand."
+  },
+  "contentInstallHelp": {
+    "message": "Как установить или запустить",
+    "description": "User-facing extension text: contentInstallHelp."
+  },
+  "contentLatestVersion": {
+    "message": "последняя",
+    "description": "User-facing extension text: contentLatestVersion."
+  },
+  "contentLoading": {
+    "message": "Ищу релиз…",
+    "description": "User-facing extension text: contentLoading."
+  },
+  "contentMoreOnRelease": {
+    "message": "Ещё $COUNT$ файлов на странице релиза",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: contentMoreOnRelease."
+  },
+  "contentNetworkError": {
+    "message": "Не удалось получить данные о релизе.",
+    "description": "User-facing extension text: contentNetworkError."
+  },
+  "contentNoAssets": {
+    "message": "В релизе нет готовых файлов. Можно скачать исходный код.",
+    "description": "User-facing extension text: contentNoAssets."
+  },
+  "contentNoRelease": {
+    "message": "У репозитория нет подходящего опубликованного релиза.",
+    "description": "User-facing extension text: contentNoRelease."
+  },
+  "contentOpenRelease": {
+    "message": "Открыть страницу релиза",
+    "description": "User-facing extension text: contentOpenRelease."
+  },
+  "contentOpenSettings": {
+    "message": "Настройки расширения",
+    "description": "User-facing extension text: contentOpenSettings."
+  },
+  "contentOtherPlatforms": {
+    "message": "Другие платформы",
+    "description": "User-facing extension text: contentOtherPlatforms."
+  },
+  "contentPreferred": {
+    "message": "Ваш выбор",
+    "description": "User-facing extension text: contentPreferred."
+  },
+  "contentPrerelease": {
+    "message": "Предварительная версия",
+    "description": "User-facing extension text: contentPrerelease."
+  },
+  "contentPublished": {
+    "message": "Опубликовано",
+    "description": "User-facing extension text: contentPublished."
+  },
+  "contentRateLimited": {
+    "message": "Лимит GitHub API исчерпан.",
+    "description": "User-facing extension text: contentRateLimited."
+  },
+  "contentRateLimitedUntil": {
+    "message": "Лимит GitHub API исчерпан. Повторите после $TIME$.",
+    "placeholders": {
+      "time": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: contentRateLimitedUntil."
+  },
+  "contentReasonArch": {
+    "message": "Совпадает с архитектурой: $ARCH$",
+    "placeholders": {
+      "arch": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: contentReasonArch."
+  },
+  "contentReasonFormat": {
+    "message": "Подходящий формат: $FORMAT$",
+    "placeholders": {
+      "format": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: contentReasonFormat."
+  },
+  "contentReasonOs": {
+    "message": "Совпадает с вашей системой: $OS$",
+    "placeholders": {
+      "os": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: contentReasonOs."
+  },
+  "contentReasonPopularity": {
+    "message": "Популярный вариант среди пользователей",
+    "description": "User-facing extension text: contentReasonPopularity."
+  },
+  "contentReasonPreference": {
+    "message": "Совпадает с вашим предпочтением: $FORMAT$",
+    "placeholders": {
+      "format": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: contentReasonPreference."
+  },
+  "contentReasonUniversal": {
+    "message": "Универсальная сборка",
+    "description": "User-facing extension text: contentReasonUniversal."
+  },
+  "contentRecommended": {
+    "message": "Рекомендуется",
+    "description": "User-facing extension text: contentRecommended."
+  },
+  "contentSelectVersion": {
+    "message": "Выбрать версию релиза",
+    "description": "User-facing extension text: contentSelectVersion."
+  },
+  "contentSourceCode": {
+    "message": "Исходный код",
+    "description": "User-facing extension text: contentSourceCode."
+  },
+  "contentSourceTar": {
+    "message": "Исходный код (TAR.GZ)",
+    "description": "User-facing extension text: contentSourceTar."
+  },
+  "contentSourceZip": {
+    "message": "Исходный код (ZIP)",
+    "description": "User-facing extension text: contentSourceZip."
+  },
+  "contentStaleText": {
+    "message": "Он опубликован $DATE$. Проверьте, поддерживается ли проект, прежде чем скачивать.",
+    "placeholders": {
+      "date": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: contentStaleText."
+  },
+  "contentStaleTitle": {
+    "message": "Релиз может быть устаревшим",
+    "description": "User-facing extension text: contentStaleTitle."
+  },
+  "contentSuitable": {
+    "message": "Подходит для вашего устройства",
+    "description": "User-facing extension text: contentSuitable."
+  },
+  "contentUniversal": {
+    "message": "универсальная",
+    "description": "User-facing extension text: contentUniversal."
+  },
+  "contentUnknownPlatform": {
+    "message": "другая платформа",
+    "description": "User-facing extension text: contentUnknownPlatform."
+  },
+  "contentVersionLabel": {
+    "message": "Версия",
+    "description": "User-facing extension text: contentVersionLabel."
+  },
+  "contentWatchEnable": {
+    "message": "Следить",
+    "description": "User-facing extension text: contentWatchEnable."
+  },
+  "contentWatchLater": {
+    "message": "Не сейчас",
+    "description": "User-facing extension text: contentWatchLater."
+  },
+  "contentWatchQuestion": {
+    "message": "Следить за обновлениями $REPOSITORY$?",
+    "placeholders": {
+      "repository": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: contentWatchQuestion."
+  },
+  "contentWatchText": {
+    "message": "Расширение будет локально проверять новые GitHub Releases.",
+    "description": "User-facing extension text: contentWatchText."
+  },
+  "contentWatchingEnabled": {
+    "message": "Отслеживание обновлений включено",
+    "description": "User-facing extension text: contentWatchingEnabled."
+  },
+  "contentWatchingUpdated": {
+    "message": "Загрузка записана, отслеживание обновлено",
+    "description": "User-facing extension text: contentWatchingUpdated."
+  },
+  "contentWhyRecommended": {
+    "message": "Почему выбран этот файл",
+    "description": "User-facing extension text: contentWhyRecommended."
+  },
+  "extensionDescription": {
+    "message": "Добавляет умную кнопку загрузки GitHub Releases, запоминает загрузки и по желанию отслеживает новые версии выбранных репозиториев.",
+    "description": "User-facing extension text: extensionDescription."
+  },
+  "extensionName": {
+    "message": "GitHub Download Now",
+    "description": "User-facing extension text: extensionName."
+  },
+  "guideAabSummary": {
+    "message": "AAB предназначен для публикации и сборочных инструментов, а не для прямой установки на телефон.",
+    "description": "User-facing extension text: guideAabSummary."
+  },
+  "guideAabTitle": {
+    "message": "Android App Bundle",
+    "description": "User-facing extension text: guideAabTitle."
+  },
+  "guideAllowExecution": {
+    "message": "Разрешите выполнение",
+    "description": "User-facing extension text: guideAllowExecution."
+  },
+  "guideApkSummary": {
+    "message": "Откройте файл на Android. Система может попросить разрешить установку из этого приложения-источника.",
+    "description": "User-facing extension text: guideApkSummary."
+  },
+  "guideApkTitle": {
+    "message": "Как установить APK",
+    "description": "User-facing extension text: guideApkTitle."
+  },
+  "guideApkWarning": {
+    "message": "Установка приложений вне Google Play повышает риск вредоносного ПО.",
+    "description": "User-facing extension text: guideApkWarning."
+  },
+  "guideApksSummary": {
+    "message": "Это набор split APK, который нельзя установить как обычный APK. Нужен совместимый установщик наборов APK.",
+    "description": "User-facing extension text: guideApksSummary."
+  },
+  "guideApksTitle": {
+    "message": "Как установить APKS",
+    "description": "User-facing extension text: guideApksTitle."
+  },
+  "guideAppimageSummary": {
+    "message": "AppImage не требует установки, но файлу нужно разрешить выполнение.",
+    "description": "User-facing extension text: guideAppimageSummary."
+  },
+  "guideAppimageTitle": {
+    "message": "Как запустить AppImage",
+    "description": "User-facing extension text: guideAppimageTitle."
+  },
+  "guideArchiveSummary": {
+    "message": "Это архив, а не универсальный установщик. После распаковки прочитайте документацию проекта.",
+    "description": "User-facing extension text: guideArchiveSummary."
+  },
+  "guideCheckAppSource": {
+    "message": "Проверьте название приложения, разрешения и источник",
+    "description": "User-facing extension text: guideCheckAppSource."
+  },
+  "guideCheckDeveloper": {
+    "message": "Проверьте имя разработчика перед подтверждением",
+    "description": "User-facing extension text: guideCheckDeveloper."
+  },
+  "guideCheckWindowsPublisher": {
+    "message": "Проверьте имя проекта и издателя в предупреждении Windows",
+    "description": "User-facing extension text: guideCheckWindowsPublisher."
+  },
+  "guideCrxSummary": {
+    "message": "Chrome обычно не устанавливает CRX напрямую с произвольных сайтов. Используйте официальный магазин или распакованную версию в режиме разработчика.",
+    "description": "User-facing extension text: guideCrxSummary."
+  },
+  "guideCrxTitle": {
+    "message": "Расширение Chromium",
+    "description": "User-facing extension text: guideCrxTitle."
+  },
+  "guideCrxWarning": {
+    "message": "Не отключайте защиту браузера ради неизвестного CRX",
+    "description": "User-facing extension text: guideCrxWarning."
+  },
+  "guideDebSummary": {
+    "message": "Команда подходит для Debian, Ubuntu, Linux Mint и большинства производных.",
+    "description": "User-facing extension text: guideDebSummary."
+  },
+  "guideDebTitle": {
+    "message": "Как установить DEB",
+    "description": "User-facing extension text: guideDebTitle."
+  },
+  "guideDmgSummary": {
+    "message": "Откройте образ. Обычно приложение нужно перетащить в папку Applications.",
+    "description": "User-facing extension text: guideDmgSummary."
+  },
+  "guideDmgTitle": {
+    "message": "Как установить приложение из DMG",
+    "description": "User-facing extension text: guideDmgTitle."
+  },
+  "guideEjectDmg": {
+    "message": "После установки извлеките образ в Finder",
+    "description": "User-facing extension text: guideEjectDmg."
+  },
+  "guideExeSummary": {
+    "message": "Откройте скачанный файл и следуйте инструкциям установщика. Для portable-сборки установка может не требоваться.",
+    "description": "User-facing extension text: guideExeSummary."
+  },
+  "guideExeTitle": {
+    "message": "Как запустить EXE",
+    "description": "User-facing extension text: guideExeTitle."
+  },
+  "guideExplorerExtractAll": {
+    "message": "В Проводнике выберите «Извлечь всё»",
+    "description": "User-facing extension text: guideExplorerExtractAll."
+  },
+  "guideExtractArchive": {
+    "message": "Распакуйте архив",
+    "description": "User-facing extension text: guideExtractArchive."
+  },
+  "guideFindApk": {
+    "message": "Для обычной установки найдите APK или APKS этого релиза",
+    "description": "User-facing extension text: guideFindApk."
+  },
+  "guideFlatpakSummary": {
+    "message": "Для команды должен быть установлен Flatpak.",
+    "description": "User-facing extension text: guideFlatpakSummary."
+  },
+  "guideFlatpakTitle": {
+    "message": "Как установить Flatpak",
+    "description": "User-facing extension text: guideFlatpakTitle."
+  },
+  "guideFollowInstaller": {
+    "message": "Следуйте инструкциям системного установщика",
+    "description": "User-facing extension text: guideFollowInstaller."
+  },
+  "guideInstallDownloadedFile": {
+    "message": "Установите загруженный файл",
+    "description": "User-facing extension text: guideInstallDownloadedFile."
+  },
+  "guideInstallLocalPackage": {
+    "message": "Установите локальный пакет вместе с зависимостями",
+    "description": "User-facing extension text: guideInstallLocalPackage."
+  },
+  "guideInstallTrustedFile": {
+    "message": "Устанавливайте только файл от доверенного автора",
+    "description": "User-facing extension text: guideInstallTrustedFile."
+  },
+  "guideInstallVsix": {
+    "message": "Установите через командную строку VS Code",
+    "description": "User-facing extension text: guideInstallVsix."
+  },
+  "guideJarSummary": {
+    "message": "Нужна установленная совместимая Java Runtime Environment.",
+    "description": "User-facing extension text: guideJarSummary."
+  },
+  "guideJarTitle": {
+    "message": "Как запустить JAR",
+    "description": "User-facing extension text: guideJarTitle."
+  },
+  "guideMakeExecutable": {
+    "message": "Сделайте файл исполняемым",
+    "description": "User-facing extension text: guideMakeExecutable."
+  },
+  "guideMsiAlternative": {
+    "message": "Альтернативный запуск через Windows Installer",
+    "description": "User-facing extension text: guideMsiAlternative."
+  },
+  "guideMsiSummary": {
+    "message": "Обычно достаточно открыть файл двойным щелчком.",
+    "description": "User-facing extension text: guideMsiSummary."
+  },
+  "guideMsiTitle": {
+    "message": "Как установить MSI",
+    "description": "User-facing extension text: guideMsiTitle."
+  },
+  "guidePkgSummary": {
+    "message": "Откройте пакет двойным щелчком и следуйте указаниям установщика macOS.",
+    "description": "User-facing extension text: guidePkgSummary."
+  },
+  "guidePkgTitle": {
+    "message": "Как установить PKG",
+    "description": "User-facing extension text: guidePkgTitle."
+  },
+  "guideReadAfterExtract": {
+    "message": "После распаковки прочитайте README или INSTALL.",
+    "description": "User-facing extension text: guideReadAfterExtract."
+  },
+  "guideRpmFedora": {
+    "message": "Fedora / RHEL / Rocky / AlmaLinux",
+    "description": "RPM installation option for Fedora-family distributions."
+  },
+  "guideRpmOpenSuse": {
+    "message": "openSUSE / SLES",
+    "description": "RPM installation option for openSUSE-family distributions."
+  },
+  "guideRpmSummary": {
+    "message": "Выберите команду для своего дистрибутива.",
+    "description": "User-facing extension text: guideRpmSummary."
+  },
+  "guideRpmTitle": {
+    "message": "Как установить RPM",
+    "description": "User-facing extension text: guideRpmTitle."
+  },
+  "guideRunFromDownloads": {
+    "message": "Запустите его из папки загрузок",
+    "description": "User-facing extension text: guideRunFromDownloads."
+  },
+  "guideRunSummary": {
+    "message": "Сначала просмотрите содержимое и убедитесь, что доверяете проекту.",
+    "description": "User-facing extension text: guideRunSummary."
+  },
+  "guideRunTitle": {
+    "message": "Как запустить файл",
+    "description": "User-facing extension text: guideRunTitle."
+  },
+  "guideRunTrustedOnly": {
+    "message": "Запускайте только файлы от доверенного проекта",
+    "description": "User-facing extension text: guideRunTrustedOnly."
+  },
+  "guideRunWithJava": {
+    "message": "Запустите приложение через Java",
+    "description": "User-facing extension text: guideRunWithJava."
+  },
+  "guideRunWithoutSudo": {
+    "message": "Запустите без sudo",
+    "description": "User-facing extension text: guideRunWithoutSudo."
+  },
+  "guideScriptWarning": {
+    "message": "Скрипт может изменять файлы и настройки системы. Не добавляйте sudo без явной инструкции проекта.",
+    "description": "User-facing extension text: guideScriptWarning."
+  },
+  "guideSevenZipSummary": {
+    "message": "Нужна утилита 7-Zip или p7zip.",
+    "description": "User-facing extension text: guideSevenZipSummary."
+  },
+  "guideSevenZipTitle": {
+    "message": "Как распаковать 7Z",
+    "description": "User-facing extension text: guideSevenZipTitle."
+  },
+  "guideSnapSummary": {
+    "message": "Локальные Snap-файлы с GitHub обычно не имеют утверждения из Snap Store.",
+    "description": "User-facing extension text: guideSnapSummary."
+  },
+  "guideSnapTitle": {
+    "message": "Как установить локальный Snap",
+    "description": "User-facing extension text: guideSnapTitle."
+  },
+  "guideSnapWarning": {
+    "message": "Параметр --dangerous отключает проверку утверждений и подписи Snap Store.",
+    "description": "User-facing extension text: guideSnapWarning."
+  },
+  "guideTarBz2Title": {
+    "message": "Как распаковать TAR.BZ2",
+    "description": "User-facing extension text: guideTarBz2Title."
+  },
+  "guideTarGzTitle": {
+    "message": "Как распаковать TAR.GZ",
+    "description": "User-facing extension text: guideTarGzTitle."
+  },
+  "guideTarXzTitle": {
+    "message": "Как распаковать TAR.XZ",
+    "description": "User-facing extension text: guideTarXzTitle."
+  },
+  "guideTarZstTitle": {
+    "message": "Как распаковать TAR.ZST",
+    "description": "User-facing extension text: guideTarZstTitle."
+  },
+  "guideTrustedExtensions": {
+    "message": "Устанавливайте расширения только из доверенных источников",
+    "description": "User-facing extension text: guideTrustedExtensions."
+  },
+  "guideUseTrustedInstaller": {
+    "message": "Проверьте документацию проекта и используйте доверенный установщик",
+    "description": "User-facing extension text: guideUseTrustedInstaller."
+  },
+  "guideVsixSummary": {
+    "message": "Пакет предназначен для Visual Studio Code и совместимых редакторов.",
+    "description": "User-facing extension text: guideVsixSummary."
+  },
+  "guideVsixTitle": {
+    "message": "Как установить VSIX",
+    "description": "User-facing extension text: guideVsixTitle."
+  },
+  "guideWindowsPackageSummary": {
+    "message": "Откройте файл в App Installer и проверьте сведения об издателе перед установкой.",
+    "description": "User-facing extension text: guideWindowsPackageSummary."
+  },
+  "guideWindowsPackageTitle": {
+    "message": "Как установить пакет Windows",
+    "description": "User-facing extension text: guideWindowsPackageTitle."
+  },
+  "guideXpiSummary": {
+    "message": "Откройте файл в Firefox и подтвердите установку дополнения.",
+    "description": "User-facing extension text: guideXpiSummary."
+  },
+  "guideXpiTitle": {
+    "message": "Как установить XPI",
+    "description": "User-facing extension text: guideXpiTitle."
+  },
+  "guideZipSummary": {
+    "message": "После распаковки прочитайте README или INSTALL внутри архива.",
+    "description": "User-facing extension text: guideZipSummary."
+  },
+  "guideZipTitle": {
+    "message": "Как распаковать ZIP",
+    "description": "User-facing extension text: guideZipTitle."
+  },
+  "guideZipWindowsSummary": {
+    "message": "Распакуйте архив, затем найдите EXE-файл или README.",
+    "description": "User-facing extension text: guideZipWindowsSummary."
+  },
+  "guideZipWindowsTitle": {
+    "message": "Как открыть ZIP",
+    "description": "User-facing extension text: guideZipWindowsTitle."
+  },
+  "localeName": {
+    "message": "Русский",
+    "description": "User-facing extension text: localeName."
+  },
+  "notificationBadgeOne": {
+    "message": "Доступно обновлений: $COUNT$",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: notificationBadgeOne."
+  },
+  "notificationBadgeOther": {
+    "message": "Доступно обновлений: $COUNT$",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: notificationBadgeOther."
+  },
+  "notificationNewRelease": {
+    "message": "новый релиз",
+    "description": "User-facing extension text: notificationNewRelease."
+  },
+  "notificationNewReleaseLabel": {
+    "message": "Новый релиз",
+    "description": "User-facing extension text: notificationNewReleaseLabel."
+  },
+  "notificationNoAsset": {
+    "message": "Подходящий файл не найден",
+    "description": "User-facing extension text: notificationNoAsset."
+  },
+  "notificationPreviousRelease": {
+    "message": "Предыдущий релиз",
+    "description": "User-facing extension text: notificationPreviousRelease."
+  },
+  "notificationUpdatesAvailable": {
+    "message": "Доступно обновлений GitHub: $COUNT$",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: notificationUpdatesAvailable."
+  },
+  "optionsActionDownload": {
+    "message": "Скачать рекомендацию",
+    "description": "User-facing extension text: optionsActionDownload."
+  },
+  "optionsActionMenu": {
+    "message": "Всегда открыть меню",
+    "description": "User-facing extension text: optionsActionMenu."
+  },
+  "optionsActionRelease": {
+    "message": "Открыть страницу Releases",
+    "description": "User-facing extension text: optionsActionRelease."
+  },
+  "optionsAfterDownload": {
+    "message": "После загрузки",
+    "description": "User-facing extension text: optionsAfterDownload."
+  },
+  "optionsAlways": {
+    "message": "Всегда начинать слежение",
+    "description": "User-facing extension text: optionsAlways."
+  },
+  "optionsArch": {
+    "message": "Архитектура",
+    "description": "User-facing extension text: optionsArch."
+  },
+  "optionsAsk": {
+    "message": "Спрашивать о слежении",
+    "description": "User-facing extension text: optionsAsk."
+  },
+  "optionsAuthAccount": {
+    "message": "GitHub подключён",
+    "description": "User-facing extension text: optionsAuthAccount."
+  },
+  "optionsAuthBenefitDiscovery": {
+    "message": "Надёжнее находит инструкции в связанных README и проверяет отслеживаемые репозитории.",
+    "description": "User-facing extension text: optionsAuthBenefitDiscovery."
+  },
+  "optionsAuthBenefitLimit": {
+    "message": "До 5 000 API-запросов в час вместо общего анонимного лимита.",
+    "description": "User-facing extension text: optionsAuthBenefitLimit."
+  },
+  "optionsAuthBenefitPrivacy": {
+    "message": "Без пароля и cookies. Приватные репозитории не читаются; токен хранится локально и не синхронизируется. Отключение удаляет локальную копию.",
+    "description": "User-facing extension text: optionsAuthBenefitPrivacy."
+  },
+  "optionsAuthChecking": {
+    "message": "Ожидаем подтверждения на GitHub…",
+    "description": "User-facing extension text: optionsAuthChecking."
+  },
+  "optionsAuthCodeLabel": {
+    "message": "Одноразовый код",
+    "description": "User-facing extension text: optionsAuthCodeLabel."
+  },
+  "optionsAuthConnect": {
+    "message": "Подключить GitHub",
+    "description": "User-facing extension text: optionsAuthConnect."
+  },
+  "optionsAuthConnected": {
+    "message": "Подключено",
+    "description": "User-facing extension text: optionsAuthConnected."
+  },
+  "optionsAuthConsentDenied": {
+    "message": "Без разрешения на передачу данных авторизации GitHub подключение не выполняется.",
+    "description": "User-facing extension text: optionsAuthConsentDenied."
+  },
+  "optionsAuthDenied": {
+    "message": "Подключение отменено на GitHub.",
+    "description": "User-facing extension text: optionsAuthDenied."
+  },
+  "optionsAuthDisconnect": {
+    "message": "Отключить на этом устройстве",
+    "description": "User-facing extension text: optionsAuthDisconnect."
+  },
+  "optionsAuthDone": {
+    "message": "GitHub успешно подключён.",
+    "description": "User-facing extension text: optionsAuthDone."
+  },
+  "optionsAuthError": {
+    "message": "Не удалось подключить GitHub. Повторите попытку.",
+    "description": "User-facing extension text: optionsAuthError."
+  },
+  "optionsAuthExpired": {
+    "message": "Одноразовый код истёк. Начните подключение заново.",
+    "description": "User-facing extension text: optionsAuthExpired."
+  },
+  "optionsAuthNote": {
+    "message": "Необязательно. Официальная авторизация GitHub повышает API-лимит и делает поиск связанных инструкций и проверку обновлений стабильнее.",
+    "description": "User-facing extension text: optionsAuthNote."
+  },
+  "optionsAuthOpen": {
+    "message": "Открыть GitHub",
+    "description": "User-facing extension text: optionsAuthOpen."
+  },
+  "optionsAuthOptional": {
+    "message": "Необязательно",
+    "description": "User-facing extension text: optionsAuthOptional."
+  },
+  "optionsAuthPendingNote": {
+    "message": "Введите код на официальной странице GitHub. Расширение проверит подключение автоматически.",
+    "description": "User-facing extension text: optionsAuthPendingNote."
+  },
+  "optionsAuthRate": {
+    "message": "GitHub API: осталось $REMAINING$ из $LIMIT$",
+    "placeholders": {
+      "remaining": {
+        "content": "$1"
+      },
+      "limit": {
+        "content": "$2"
+      }
+    },
+    "description": "User-facing extension text: optionsAuthRate."
+  },
+  "optionsAuthRateFallback": {
+    "message": "GitHub API подключён",
+    "description": "User-facing extension text: optionsAuthRateFallback."
+  },
+  "optionsAuthRemoved": {
+    "message": "Подключение GitHub удалено с этого устройства.",
+    "description": "User-facing extension text: optionsAuthRemoved."
+  },
+  "optionsAuthStarting": {
+    "message": "Запрашиваем одноразовый код…",
+    "description": "User-facing extension text: optionsAuthStarting."
+  },
+  "optionsAuthTitle": {
+    "message": "Подключение GitHub",
+    "description": "User-facing extension text: optionsAuthTitle."
+  },
+  "optionsAuthWaiting": {
+    "message": "Ожидает подтверждения",
+    "description": "User-facing extension text: optionsAuthWaiting."
+  },
+  "optionsBadge": {
+    "message": "Показывать счётчик на иконке",
+    "description": "User-facing extension text: optionsBadge."
+  },
+  "optionsBrowserLanguage": {
+    "message": "Как в браузере",
+    "description": "User-facing extension text: optionsBrowserLanguage."
+  },
+  "optionsButtonAccent": {
+    "message": "Зелёная акцентная",
+    "description": "User-facing extension text: optionsButtonAccent."
+  },
+  "optionsButtonCompact": {
+    "message": "Компактная",
+    "description": "User-facing extension text: optionsButtonCompact."
+  },
+  "optionsButtonNative": {
+    "message": "Нативная GitHub",
+    "description": "User-facing extension text: optionsButtonNative."
+  },
+  "optionsButtonStyle": {
+    "message": "Стиль кнопки",
+    "description": "User-facing extension text: optionsButtonStyle."
+  },
+  "optionsChannel": {
+    "message": "Какой релиз использовать",
+    "description": "User-facing extension text: optionsChannel."
+  },
+  "optionsCheckNow": {
+    "message": "Проверить обновления",
+    "description": "User-facing extension text: optionsCheckNow."
+  },
+  "optionsCheckProgress": {
+    "message": " · Проверено: $CHECKED$ из $TOTAL$",
+    "placeholders": {
+      "checked": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    },
+    "description": "User-facing extension text: optionsCheckProgress."
+  },
+  "optionsCheckSummary": {
+    "message": "Найдено: $FOUND$ · Ошибок: $FAILED$",
+    "placeholders": {
+      "found": {
+        "content": "$1"
+      },
+      "failed": {
+        "content": "$2"
+      }
+    },
+    "description": "User-facing extension text: optionsCheckSummary."
+  },
+  "optionsChecking": {
+    "message": "Проверка…",
+    "description": "User-facing extension text: optionsChecking."
+  },
+  "optionsClearHistory": {
+    "message": "Очистить историю",
+    "description": "User-facing extension text: optionsClearHistory."
+  },
+  "optionsClearTracking": {
+    "message": "Удалить все подписки",
+    "description": "User-facing extension text: optionsClearTracking."
+  },
+  "optionsDaily": {
+    "message": "Раз в день",
+    "description": "User-facing extension text: optionsDaily."
+  },
+  "optionsEnabled": {
+    "message": "Расширение включено",
+    "description": "User-facing extension text: optionsEnabled."
+  },
+  "optionsEvery3Days": {
+    "message": "Раз в 3 дня",
+    "description": "User-facing extension text: optionsEvery3Days."
+  },
+  "optionsEvery6Hours": {
+    "message": "Каждые 6 часов",
+    "description": "User-facing extension text: optionsEvery6Hours."
+  },
+  "optionsFormats": {
+    "message": "Предпочитаемые форматы",
+    "description": "User-facing extension text: optionsFormats."
+  },
+  "optionsGeneral": {
+    "message": "Общие настройки",
+    "description": "User-facing extension text: optionsGeneral."
+  },
+  "optionsGuidanceBeginner": {
+    "message": "Показывать после загрузки и в меню",
+    "description": "User-facing extension text: optionsGuidanceBeginner."
+  },
+  "optionsGuidanceCompact": {
+    "message": "Только по запросу в меню",
+    "description": "User-facing extension text: optionsGuidanceCompact."
+  },
+  "optionsGuidanceOff": {
+    "message": "Не показывать",
+    "description": "User-facing extension text: optionsGuidanceOff."
+  },
+  "optionsHistoryEnabled": {
+    "message": "Записывать загрузки через расширение",
+    "description": "User-facing extension text: optionsHistoryEnabled."
+  },
+  "optionsInstallGuidance": {
+    "message": "Подсказки по установке",
+    "description": "User-facing extension text: optionsInstallGuidance."
+  },
+  "optionsInterval": {
+    "message": "Проверять обновления",
+    "description": "User-facing extension text: optionsInterval."
+  },
+  "optionsLanguage": {
+    "message": "Язык",
+    "description": "User-facing extension text: optionsLanguage."
+  },
+  "optionsManual": {
+    "message": "Только вручную",
+    "description": "User-facing extension text: optionsManual."
+  },
+  "optionsMonthsFew": {
+    "message": "$COUNT$ месяца",
+    "description": "Localized month count for the few plural category.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "optionsMonthsMany": {
+    "message": "$COUNT$ месяцев",
+    "description": "Localized month count for the many plural category.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "optionsMonthsOne": {
+    "message": "$COUNT$ месяц",
+    "description": "Localized month count for the one plural category.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "optionsMonthsOther": {
+    "message": "$COUNT$ месяца",
+    "description": "Localized month count for the other plural category.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "optionsNever": {
+    "message": "Не предупреждать",
+    "description": "User-facing extension text: optionsNever."
+  },
+  "optionsNeverAsk": {
+    "message": "Никогда не предлагать",
+    "description": "User-facing extension text: optionsNeverAsk."
+  },
+  "optionsNewest": {
+    "message": "Самый новый, включая prerelease",
+    "description": "User-facing extension text: optionsNewest."
+  },
+  "optionsNotifications": {
+    "message": "Показывать системные уведомления",
+    "description": "User-facing extension text: optionsNotifications."
+  },
+  "optionsOs": {
+    "message": "Операционная система",
+    "description": "User-facing extension text: optionsOs."
+  },
+  "optionsOtherPlatforms": {
+    "message": "Показывать другие платформы",
+    "description": "User-facing extension text: optionsOtherPlatforms."
+  },
+  "optionsPageTitle": {
+    "message": "GitHub Download Now — Настройки",
+    "description": "User-facing extension text: optionsPageTitle."
+  },
+  "optionsPermissionDenied": {
+    "message": "Разрешение на уведомления не выдано",
+    "description": "User-facing extension text: optionsPermissionDenied."
+  },
+  "optionsPrimaryAction": {
+    "message": "Нажатие основной кнопки",
+    "description": "User-facing extension text: optionsPrimaryAction."
+  },
+  "optionsRateLimited": {
+    "message": "Лимит GitHub API исчерпан",
+    "description": "User-facing extension text: optionsRateLimited."
+  },
+  "optionsRateLimitedUntil": {
+    "message": "Лимит GitHub API исчерпан до $TIME$",
+    "placeholders": {
+      "time": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: optionsRateLimitedUntil."
+  },
+  "optionsReasons": {
+    "message": "Объяснять рекомендацию",
+    "description": "User-facing extension text: optionsReasons."
+  },
+  "optionsReleases": {
+    "message": "Релизы",
+    "description": "User-facing extension text: optionsReleases."
+  },
+  "optionsReset": {
+    "message": "Сбросить настройки",
+    "description": "User-facing extension text: optionsReset."
+  },
+  "optionsResetDone": {
+    "message": "Настройки сброшены",
+    "description": "User-facing extension text: optionsResetDone."
+  },
+  "optionsShowOn": {
+    "message": "Где показывать кнопку",
+    "description": "User-facing extension text: optionsShowOn."
+  },
+  "optionsShowOnAll": {
+    "message": "На всех страницах репозитория",
+    "description": "User-facing extension text: optionsShowOnAll."
+  },
+  "optionsShowOnMain": {
+    "message": "Только на главной",
+    "description": "User-facing extension text: optionsShowOnMain."
+  },
+  "optionsShowOnMainReleases": {
+    "message": "На главной и в Releases",
+    "description": "User-facing extension text: optionsShowOnMainReleases."
+  },
+  "optionsShowSubtitle": {
+    "message": "Показывать ОС и архитектуру",
+    "description": "User-facing extension text: optionsShowSubtitle."
+  },
+  "optionsSourceCode": {
+    "message": "Показывать исходный код",
+    "description": "User-facing extension text: optionsSourceCode."
+  },
+  "optionsStable": {
+    "message": "Последний стабильный",
+    "description": "User-facing extension text: optionsStable."
+  },
+  "optionsStale": {
+    "message": "Предупреждать, если релиз старше",
+    "description": "User-facing extension text: optionsStale."
+  },
+  "optionsSubtitle": {
+    "message": "Настройка рекомендаций, интерфейса и фоновой проверки обновлений.",
+    "description": "User-facing extension text: optionsSubtitle."
+  },
+  "optionsSystem": {
+    "message": "Система и архитектура",
+    "description": "User-facing extension text: optionsSystem."
+  },
+  "optionsSystemNote": {
+    "message": "Оставьте автоопределение, если расширение правильно распознаёт ваше устройство.",
+    "description": "User-facing extension text: optionsSystemNote."
+  },
+  "optionsUpdatesNote": {
+    "message": "История и список отслеживания хранятся локально на этом устройстве.",
+    "description": "User-facing extension text: optionsUpdatesNote."
+  },
+  "optionsUpdatesTitle": {
+    "message": "История и обновления",
+    "description": "User-facing extension text: optionsUpdatesTitle."
+  },
+  "optionsWeekly": {
+    "message": "Раз в неделю",
+    "description": "User-facing extension text: optionsWeekly."
+  },
+  "popupAction": {
+    "message": "Действие основной кнопки",
+    "description": "User-facing extension text: popupAction."
+  },
+  "popupAfterDownload": {
+    "message": "После загрузки",
+    "description": "User-facing extension text: popupAfterDownload."
+  },
+  "popupAlways": {
+    "message": "Всегда следить",
+    "description": "User-facing extension text: popupAlways."
+  },
+  "popupAsk": {
+    "message": "Спрашивать о слежении",
+    "description": "User-facing extension text: popupAsk."
+  },
+  "popupBadge": {
+    "message": "Счётчик на иконке",
+    "description": "User-facing extension text: popupBadge."
+  },
+  "popupCheckNow": {
+    "message": "Проверить",
+    "description": "User-facing extension text: popupCheckNow."
+  },
+  "popupCheckProgress": {
+    "message": "Проверено репозиториев: $CHECKED$ из $TOTAL$",
+    "placeholders": {
+      "checked": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    },
+    "description": "User-facing extension text: popupCheckProgress."
+  },
+  "popupCheckSummary": {
+    "message": "Найдено: $FOUND$ · Ошибок: $FAILED$",
+    "placeholders": {
+      "found": {
+        "content": "$1"
+      },
+      "failed": {
+        "content": "$2"
+      }
+    },
+    "description": "User-facing extension text: popupCheckSummary."
+  },
+  "popupChecked": {
+    "message": "Проверено",
+    "description": "User-facing extension text: popupChecked."
+  },
+  "popupChecking": {
+    "message": "Проверяю…",
+    "description": "User-facing extension text: popupChecking."
+  },
+  "popupClear": {
+    "message": "Очистить",
+    "description": "User-facing extension text: popupClear."
+  },
+  "popupCurrent": {
+    "message": "Текущая",
+    "description": "User-facing extension text: popupCurrent."
+  },
+  "popupDaily": {
+    "message": "Раз в день",
+    "description": "User-facing extension text: popupDaily."
+  },
+  "popupDaysAgo": {
+    "message": "$COUNT$ дн. назад",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: popupDaysAgo."
+  },
+  "popupDetected": {
+    "message": "Обнаружено",
+    "description": "User-facing extension text: popupDetected."
+  },
+  "popupDownload": {
+    "message": "Скачать",
+    "description": "User-facing extension text: popupDownload."
+  },
+  "popupDownloadAction": {
+    "message": "Скачать рекомендацию",
+    "description": "User-facing extension text: popupDownloadAction."
+  },
+  "popupEnabledLabel": {
+    "message": "Включить расширение",
+    "description": "User-facing extension text: popupEnabledLabel."
+  },
+  "popupEvery3Days": {
+    "message": "Раз в 3 дня",
+    "description": "User-facing extension text: popupEvery3Days."
+  },
+  "popupEvery6Hours": {
+    "message": "Каждые 6 часов",
+    "description": "User-facing extension text: popupEvery6Hours."
+  },
+  "popupFormat": {
+    "message": "Предпочитаемый формат",
+    "description": "User-facing extension text: popupFormat."
+  },
+  "popupHistory": {
+    "message": "История",
+    "description": "User-facing extension text: popupHistory."
+  },
+  "popupHistoryEnabled": {
+    "message": "Записывать историю загрузок",
+    "description": "User-facing extension text: popupHistoryEnabled."
+  },
+  "popupHistoryNote": {
+    "message": "Только загрузки, начатые через расширение.",
+    "description": "User-facing extension text: popupHistoryNote."
+  },
+  "popupHistoryTitle": {
+    "message": "Недавние загрузки",
+    "description": "User-facing extension text: popupHistoryTitle."
+  },
+  "popupHoursAgo": {
+    "message": "$COUNT$ ч. назад",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: popupHoursAgo."
+  },
+  "popupInterval": {
+    "message": "Проверка обновлений",
+    "description": "User-facing extension text: popupInterval."
+  },
+  "popupJustNow": {
+    "message": "только что",
+    "description": "User-facing extension text: popupJustNow."
+  },
+  "popupLastChecked": {
+    "message": "Проверено $VALUE$",
+    "placeholders": {
+      "value": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: popupLastChecked."
+  },
+  "popupManual": {
+    "message": "Только вручную",
+    "description": "User-facing extension text: popupManual."
+  },
+  "popupMenuAction": {
+    "message": "Всегда открывать меню",
+    "description": "User-facing extension text: popupMenuAction."
+  },
+  "popupMinutesAgo": {
+    "message": "$COUNT$ мин. назад",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: popupMinutesAgo."
+  },
+  "popupNever": {
+    "message": "Никогда не предлагать",
+    "description": "User-facing extension text: popupNever."
+  },
+  "popupNeverChecked": {
+    "message": "Ещё не проверялось",
+    "description": "User-facing extension text: popupNeverChecked."
+  },
+  "popupNoAsset": {
+    "message": "Подходящий файл не найден",
+    "description": "User-facing extension text: popupNoAsset."
+  },
+  "popupNoHistory": {
+    "message": "История загрузок пока пуста.",
+    "description": "User-facing extension text: popupNoHistory."
+  },
+  "popupNoTracking": {
+    "message": "После загрузки разрешите следить за проектом — он появится здесь.",
+    "description": "User-facing extension text: popupNoTracking."
+  },
+  "popupNoUpdates": {
+    "message": "Новых версий пока нет.",
+    "description": "User-facing extension text: popupNoUpdates."
+  },
+  "popupNotifications": {
+    "message": "Системные уведомления",
+    "description": "User-facing extension text: popupNotifications."
+  },
+  "popupOptions": {
+    "message": "Открыть все настройки",
+    "description": "User-facing extension text: popupOptions."
+  },
+  "popupPermissionDenied": {
+    "message": "Разрешение на уведомления не выдано",
+    "description": "User-facing extension text: popupPermissionDenied."
+  },
+  "popupPublished": {
+    "message": "выпущено",
+    "description": "User-facing extension text: popupPublished."
+  },
+  "popupRateLimited": {
+    "message": "Лимит GitHub API исчерпан",
+    "description": "User-facing extension text: popupRateLimited."
+  },
+  "popupRateLimitedUntil": {
+    "message": "Лимит GitHub API исчерпан до $TIME$",
+    "placeholders": {
+      "time": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: popupRateLimitedUntil."
+  },
+  "popupRelease": {
+    "message": "Релиз",
+    "description": "User-facing extension text: popupRelease."
+  },
+  "popupReleaseAction": {
+    "message": "Открыть страницу Releases",
+    "description": "User-facing extension text: popupReleaseAction."
+  },
+  "popupSectionsAria": {
+    "message": "Разделы",
+    "description": "User-facing extension text: popupSectionsAria."
+  },
+  "popupSettings": {
+    "message": "Настройки",
+    "description": "User-facing extension text: popupSettings."
+  },
+  "popupSkip": {
+    "message": "Пропустить",
+    "description": "User-facing extension text: popupSkip."
+  },
+  "popupStop": {
+    "message": "Не следить",
+    "description": "User-facing extension text: popupStop."
+  },
+  "popupTracking": {
+    "message": "Слежение",
+    "description": "User-facing extension text: popupTracking."
+  },
+  "popupTrackingNote": {
+    "message": "Проверяются только выбранные вами репозитории.",
+    "description": "User-facing extension text: popupTrackingNote."
+  },
+  "popupTrackingTitle": {
+    "message": "Отслеживаемые проекты",
+    "description": "User-facing extension text: popupTrackingTitle."
+  },
+  "popupUpdateFoundOne": {
+    "message": "Найдено обновлений: $COUNT$",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: popupUpdateFoundOne."
+  },
+  "popupUpdateFoundOther": {
+    "message": "Найдено обновлений: $COUNT$",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    },
+    "description": "User-facing extension text: popupUpdateFoundOther."
+  },
+  "popupUpdates": {
+    "message": "Обновления",
+    "description": "User-facing extension text: popupUpdates."
+  },
+  "popupUpdatesTitle": {
+    "message": "Доступные обновления",
+    "description": "User-facing extension text: popupUpdatesTitle."
+  },
+  "popupWeekly": {
+    "message": "Раз в неделю",
+    "description": "User-facing extension text: popupWeekly."
+  }
+}

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "GitHub Download Now",
+  "name": "__MSG_extensionName__",
   "version": "1.1.0",
-  "description": "Adds a smart GitHub release download button, remembers downloads, and optionally watches repositories for new releases.",
+  "description": "__MSG_extensionDescription__",
   "icons": {
     "16": "icons/icon-16.png",
     "32": "icons/icon-32.png",
@@ -15,6 +15,8 @@
   ],
   "background": {
     "scripts": [
+      "i18n-catalogs.js",
+      "i18n.js",
       "settings.js",
       "url-policy.js",
       "asset-selector.js",
@@ -30,6 +32,8 @@
         "https://github.com/*"
       ],
       "js": [
+        "i18n-catalogs.js",
+        "i18n.js",
         "settings.js",
         "url-policy.js",
         "asset-selector.js",
@@ -64,7 +68,7 @@
     "alarms"
   ],
   "action": {
-    "default_title": "GitHub Download Now",
+    "default_title": "__MSG_extensionName__",
     "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon-16.png",
@@ -81,5 +85,6 @@
   ],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'none'"
-  }
+  },
+  "default_locale": "en"
 }

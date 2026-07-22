@@ -12,6 +12,10 @@ Thanks for helping improve GitHub Download Now.
 
 Keep the extension privacy-friendly: no telemetry, remote code, broad host permissions, private-repository access or unnecessary account data.
 
+## Translations
+
+Translations live in `src/_locales/<locale>/messages.json`. See [`docs/TRANSLATING.md`](../docs/TRANSLATING.md) for the complete workflow. Do not add user-facing strings directly to JavaScript when a locale message can be used.
+
 ## Pull requests
 
 - Keep each pull request focused.

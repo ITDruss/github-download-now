@@ -3,53 +3,47 @@
 (() => {
   const extensionApi = typeof browser !== "undefined" ? browser : chrome;
   const settingsApi = globalThis.GHDNSettings;
-  const russian = /^(ru|uk|be|kk)(-|$)/i.test(navigator.language || "");
+  const i18n = globalThis.GHDNI18n;
   let settings;
   let dashboard = { history: [], watches: [], updates: [], meta: {} };
   let platform;
 
-  const t = russian ? {
-    updates: "Обновления", tracking: "Слежение", history: "История", settings: "Настройки",
-    updatesTitle: "Доступные обновления", trackingTitle: "Отслеживаемые проекты", historyTitle: "Недавние загрузки",
-    trackingNote: "Проверяются только выбранные вами репозитории.", historyNote: "Только загрузки, начатые через расширение.",
-    checkNow: "Проверить", checking: "Проверяю…", neverChecked: "Ещё не проверялось", lastChecked: (v) => `Проверено ${v}`,
-    noUpdates: "Новых версий пока нет.", noTracking: "После загрузки разрешите следить за проектом — он появится здесь.", noHistory: "История загрузок пока пуста.",
-    download: "Скачать", release: "Релиз", skip: "Пропустить", stop: "Не следить", clear: "Очистить", checked: "Проверено",
-    detected: "Обнаружено", format: "Предпочитаемый формат", action: "Действие основной кнопки",
-    downloadAction: "Скачать рекомендацию", menuAction: "Всегда открывать меню", releaseAction: "Открыть страницу Releases",
-    afterDownload: "После загрузки", ask: "Спрашивать о слежении", always: "Всегда следить", never: "Никогда не предлагать",
-    interval: "Проверка обновлений", manual: "Только вручную", every6h: "Каждые 6 часов", daily: "Раз в день", every3d: "Раз в 3 дня", weekly: "Раз в неделю",
-    notifications: "Системные уведомления", badge: "Счётчик на иконке", historyEnabled: "Записывать историю загрузок", enabledLabel: "Включить расширение",
-    options: "Открыть все настройки", saved: "Сохранено", permissionDenied: "Разрешение на уведомления не выдано",
-    updateFound: (n) => `Найдено обновлений: ${n}`, checkSummary: (found, failed) => `Найдено: ${found} · Ошибок: ${failed}`,
-    checkProgress: (checked, total) => `Проверено репозиториев: ${checked} из ${total}`,
-    rateLimited: (time) => time ? `Лимит GitHub API исчерпан до ${time}` : "Лимит GitHub API исчерпан",
-    auto: "Автоматически", noAsset: "Подходящий файл не найден", current: "Текущая", published: "выпущено"
-  } : {
-    updates: "Updates", tracking: "Tracking", history: "History", settings: "Settings",
-    updatesTitle: "Available updates", trackingTitle: "Watched repositories", historyTitle: "Recent downloads",
-    trackingNote: "Only repositories you explicitly watch are checked.", historyNote: "Only downloads started through this extension.",
-    checkNow: "Check now", checking: "Checking…", neverChecked: "Not checked yet", lastChecked: (v) => `Checked ${v}`,
-    noUpdates: "No new releases yet.", noTracking: "Allow tracking after a download and the project will appear here.", noHistory: "Download history is empty.",
-    download: "Download", release: "Release", skip: "Skip", stop: "Unwatch", clear: "Clear", checked: "Checked",
-    detected: "Detected", format: "Preferred format", action: "Main button action",
-    downloadAction: "Download recommendation", menuAction: "Always open menu", releaseAction: "Open Releases page",
-    afterDownload: "After a download", ask: "Ask whether to watch", always: "Always start watching", never: "Never ask",
-    interval: "Update checks", manual: "Manual only", every6h: "Every 6 hours", daily: "Once a day", every3d: "Every 3 days", weekly: "Once a week",
-    notifications: "System notifications", badge: "Toolbar badge", historyEnabled: "Keep download history", enabledLabel: "Enable extension",
-    options: "Open all settings", saved: "Saved", permissionDenied: "Notification permission was not granted",
-    updateFound: (n) => `${n} update${n === 1 ? "" : "s"} found`, checkSummary: (found, failed) => `Found: ${found} · Failed: ${failed}`,
-    checkProgress: (checked, total) => `Repositories checked: ${checked} of ${total}`,
-    rateLimited: (time) => time ? `GitHub API limit reached until ${time}` : "GitHub API limit reached",
-    auto: "Automatic", noAsset: "No matching asset found", current: "Current", published: "published"
-  };
+  let tr;
+  let t;
 
-  const formatOptions = {
-    linux: [["auto", t.auto], ["appimage", "AppImage"], ["deb", "DEB"], ["rpm", "RPM"], ["flatpak", "Flatpak"], ["snap", "Snap"], ["archive", russian ? "Архив" : "Archive"]],
-    windows: [["auto", t.auto], ["exe", "EXE"], ["msi", "MSI"], ["msix", "MSIX"], ["portable", "Portable"]],
-    macos: [["auto", t.auto], ["dmg", "DMG"], ["pkg", "PKG"], ["zip", "ZIP"]],
-    android: [["auto", t.auto], ["apk", "APK"], ["apks", "APKS"]]
-  };
+  function createStrings(translator) {
+    const message = translator.t;
+    return {
+      error: message("commonError"),
+      updates: message("popupUpdates"), tracking: message("popupTracking"), history: message("popupHistory"), settings: message("popupSettings"),
+      updatesTitle: message("popupUpdatesTitle"), trackingTitle: message("popupTrackingTitle"), historyTitle: message("popupHistoryTitle"),
+      trackingNote: message("popupTrackingNote"), historyNote: message("popupHistoryNote"),
+      checkNow: message("popupCheckNow"), checking: message("popupChecking"), neverChecked: message("popupNeverChecked"), lastChecked: (value) => message("popupLastChecked", [value]),
+      noUpdates: message("popupNoUpdates"), noTracking: message("popupNoTracking"), noHistory: message("popupNoHistory"),
+      download: message("popupDownload"), release: message("popupRelease"), skip: message("popupSkip"), stop: message("popupStop"), clear: message("popupClear"), checked: message("popupChecked"),
+      detected: message("popupDetected"), format: message("popupFormat"), action: message("popupAction"),
+      downloadAction: message("popupDownloadAction"), menuAction: message("popupMenuAction"), releaseAction: message("popupReleaseAction"),
+      afterDownload: message("popupAfterDownload"), ask: message("popupAsk"), always: message("popupAlways"), never: message("popupNever"),
+      interval: message("popupInterval"), manual: message("popupManual"), every6h: message("popupEvery6Hours"), daily: message("popupDaily"), every3d: message("popupEvery3Days"), weekly: message("popupWeekly"),
+      notifications: message("popupNotifications"), badge: message("popupBadge"), historyEnabled: message("popupHistoryEnabled"), enabledLabel: message("popupEnabledLabel"),
+      options: message("popupOptions"), saved: message("commonSaved"), permissionDenied: message("popupPermissionDenied"),
+      updateFound: (count) => message(translator.pluralCategory(count) === "one" ? "popupUpdateFoundOne" : "popupUpdateFoundOther", [count]),
+      checkSummary: (found, failed) => message("popupCheckSummary", [found, failed]),
+      checkProgress: (checked, total) => message("popupCheckProgress", [checked, total]),
+      rateLimited: (time) => time ? message("popupRateLimitedUntil", [time]) : message("popupRateLimited"),
+      auto: message("commonAutomatic"), archive: message("commonArchive"), noAsset: message("popupNoAsset"), current: message("popupCurrent"), published: message("popupPublished"),
+      justNow: message("popupJustNow"), minutesAgo: (count) => message("popupMinutesAgo", [count]), hoursAgo: (count) => message("popupHoursAgo", [count]), daysAgo: (count) => message("popupDaysAgo", [count])
+    };
+  }
+
+  function formatOptions() {
+    return {
+      linux: [["auto", t.auto], ["appimage", "AppImage"], ["deb", "DEB"], ["rpm", "RPM"], ["flatpak", "Flatpak"], ["snap", "Snap"], ["archive", t.archive]],
+      windows: [["auto", t.auto], ["exe", "EXE"], ["msi", "MSI"], ["msix", "MSIX"], ["portable", "Portable"]],
+      macos: [["auto", t.auto], ["dmg", "DMG"], ["pkg", "PKG"], ["zip", "ZIP"]],
+      android: [["auto", t.auto], ["apk", "APK"], ["apks", "APKS"]]
+    };
+  }
 
   function detectPlatform() {
     const ua = navigator.userAgent || "";
@@ -78,14 +72,14 @@
     if (relative) {
       const diff = Date.now() - date.getTime();
       const mins = Math.max(0, Math.round(diff / 60000));
-      if (mins < 2) return russian ? "только что" : "just now";
-      if (mins < 60) return russian ? `${mins} мин. назад` : `${mins}m ago`;
+      if (mins < 2) return t.justNow;
+      if (mins < 60) return t.minutesAgo(mins);
       const hours = Math.round(mins / 60);
-      if (hours < 24) return russian ? `${hours} ч. назад` : `${hours}h ago`;
+      if (hours < 24) return t.hoursAgo(hours);
       const days = Math.round(hours / 24);
-      return russian ? `${days} дн. назад` : `${days}d ago`;
+      return t.daysAgo(days);
     }
-    return date.toLocaleDateString(russian ? "ru-RU" : "en-US", { year: "numeric", month: "short", day: "numeric" });
+    return date.toLocaleDateString(tr.tag, { year: "numeric", month: "short", day: "numeric" });
   }
 
   function formatBytes(value) {
@@ -106,7 +100,7 @@
     const errors = result && Array.isArray(result.errors) ? result.errors : [];
     const limited = errors.find((item) => item && item.error === "rate_limited");
     if (limited) {
-      const time = limited.resetAt ? new Date(limited.resetAt).toLocaleTimeString(russian ? "ru-RU" : "en-US", { hour: "2-digit", minute: "2-digit" }) : "";
+      const time = limited.resetAt ? new Date(limited.resetAt).toLocaleTimeString(tr.tag, { hour: "2-digit", minute: "2-digit" }) : "";
       return { message: t.rateLimited(time), error: true };
     }
     const checked = Number(result && (result.checked ?? result.meta?.lastCheckChecked));
@@ -119,7 +113,8 @@
   }
 
   function setLabels() {
-    document.documentElement.lang = russian ? "ru" : "en";
+    document.documentElement.lang = tr.tag;
+    document.querySelector(".tabs").setAttribute("aria-label", tr.t("popupSectionsAria"));
     const enabledSwitch = document.getElementById("enabledSwitch");
     enabledSwitch.title = t.enabledLabel;
     document.getElementById("enabled").setAttribute("aria-label", t.enabledLabel);
@@ -143,7 +138,7 @@
 
   function fillFormats() {
     const select = document.getElementById("preferredFormat");
-    select.replaceChildren(...formatOptions[platform.os].map(([value, label]) => { const option = el("option", "", label); option.value = value; return option; }));
+    select.replaceChildren(...formatOptions()[platform.os].map(([value, label]) => { const option = el("option", "", label); option.value = value; return option; }));
     select.value = settings[settingKey(platform.os)];
   }
 
@@ -233,11 +228,13 @@
   }
 
   async function init() {
+    settings = await settingsApi.get();
+    tr = i18n.create(settings.language, navigator.language || "");
+    t = createStrings(tr);
     setLabels();
     document.getElementById("version").textContent = `v${extensionApi.runtime.getManifest().version}`;
     platform = detectPlatform();
     document.getElementById("detectedPlatform").textContent = `${{ linux: "Linux", windows: "Windows", macos: "macOS", android: "Android" }[platform.os]} · ${platform.arch}`;
-    settings = await settingsApi.get();
     document.getElementById("enabled").checked = settings.enabled;
     document.body.classList.toggle("disabled", !settings.enabled);
     fillFormats();
@@ -277,13 +274,13 @@
         const summary = checkStatus(result);
         status(summary.message, summary.error);
       }
-      catch (_error) { status("Error", true); }
+      catch (_error) { status(t.error, true); }
       finally { button.disabled = false; button.textContent = t.checkNow; }
     });
     document.getElementById("clearHistory").addEventListener("click", async () => { await send({ type: "GHDN_CLEAR_HISTORY" }); await refresh(); });
     document.getElementById("openOptions").addEventListener("click", async () => {
       const result = await send({ type: "GHDN_OPEN_OPTIONS" });
-      if (!result || !result.ok) status("Error", true);
+      if (!result || !result.ok) status(t.error, true);
     });
     await refresh();
   }

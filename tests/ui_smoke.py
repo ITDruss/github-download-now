@@ -14,6 +14,14 @@ html = html.replace(
     f'<style>{(ROOT / "src" / "styles.css").read_text(encoding="utf-8")}</style>'
 )
 html = html.replace(
+    '<script src="../../src/i18n-catalogs.js"></script>',
+    f'<script>{(ROOT / "src" / "i18n-catalogs.js").read_text(encoding="utf-8")}</script>'
+)
+html = html.replace(
+    '<script src="../../src/i18n.js"></script>',
+    f'<script>{(ROOT / "src" / "i18n.js").read_text(encoding="utf-8")}</script>'
+)
+html = html.replace(
     '<script src="../../src/settings.js"></script>',
     f'<script>{(ROOT / "src" / "settings.js").read_text(encoding="utf-8")}</script>'
 )
@@ -94,6 +102,20 @@ with sync_playwright() as p:
         )
         assert namespaces and all(value == "http://www.w3.org/2000/svg" for value in namespaces)
         context.close()
+
+    # A manual language choice overrides the browser UI language.
+    context = browser.new_context(viewport={"width": 1280, "height": 800}, locale="ru-RU", device_scale_factor=1)
+    page = context.new_page()
+    manual_english_html = html.replace("const storedSettings = {};", 'const storedSettings = {language:"en"};')
+    page.set_content(manual_english_html, wait_until="load")
+    page.wait_for_selector("#ghdn-root")
+    page.hover(".ghdn-button-group")
+    page.wait_for_function("document.querySelector('.ghdn-primary-title-full')?.textContent.includes('AppImage')")
+    page.click("[data-role='menu']")
+    page.wait_for_selector("#ghdn-menu:not([hidden])")
+    assert page.locator(".ghdn-badge").first.text_content() == "Recommended"
+    assert page.locator(".ghdn-section-heading").first.text_content().strip() == "Suitable for your device"
+    context.close()
 
     # GitHub row-reverse toolbar: visual placement is to the right of Star,
     # while Fork and Star split groups remain untouched.

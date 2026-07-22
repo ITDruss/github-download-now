@@ -9,7 +9,7 @@ OUTPUTS.mkdir(parents=True, exist_ok=True)
 
 MOCK = r'''
 <script>
-const __settings = {preferredLinux:"deb", primaryAction:"menu", enabled:true};
+const __settings = {preferredLinux:"deb", primaryAction:"menu", enabled:true, language:"ru"};
 window.__dashboard = {
   ok: true,
   history: [],
@@ -74,7 +74,7 @@ with sync_playwright() as p:
 
     context = browser.new_context(viewport={"width": 380, "height": 560}, locale="ru-RU")
     page = context.new_page()
-    page.set_content(inline_page("popup.html", ["settings.js", "popup.js"], "popup.css"), wait_until="load")
+    page.set_content(inline_page("popup.html", ["i18n-catalogs.js", "i18n.js", "settings.js", "popup.js"], "popup.css"), wait_until="load")
     page.wait_for_function("document.querySelector('#preferredFormat')?.value === 'deb'")
     assert page.locator("#detectedPlatform").text_content().startswith("Linux")
     assert page.locator("#primaryAction").input_value() == "menu"
@@ -89,9 +89,13 @@ with sync_playwright() as p:
 
     context = browser.new_context(viewport={"width": 1280, "height": 800}, locale="ru-RU")
     page = context.new_page()
-    page.set_content(inline_page("options.html", ["settings.js", "options.js"], "options.css"), wait_until="load")
+    page.set_content(inline_page("options.html", ["i18n-catalogs.js", "i18n.js", "settings.js", "options.js"], "options.css"), wait_until="load")
     page.wait_for_function("document.querySelector('#preferredLinux')?.value === 'deb'")
     assert page.locator("#generalTitle").text_content() == "Общие настройки"
+    assert page.locator("#language option").count() == 3
+    assert page.locator("#language").input_value() == "ru"
+    assert page.locator("#language option[value=\"en\"]").text_content() == "English"
+    assert page.locator("#language option[value=\"ru\"]").text_content() == "Русский"
     page.evaluate("document.querySelector('#buttonStyle').value='native'; document.querySelector('#buttonStyle').dispatchEvent(new Event('change',{bubbles:true}));")
     page.wait_for_function("__settings.buttonStyle === 'native'")
     page.screenshot(path=str(OUTPUTS / "options-settings-ru.png"), full_page=False)
@@ -101,6 +105,15 @@ with sync_playwright() as p:
     assert "5 000" in page.locator("#githubAuthBenefitLimit").text_content()
     assert page.locator("#githubAuthPending").is_hidden()
     assert page.locator("#githubAuthConnected").is_hidden()
+    context.close()
+
+    context = browser.new_context(viewport={"width": 1280, "height": 800}, locale="ru-RU")
+    page = context.new_page()
+    english_options = inline_page("options.html", ["i18n-catalogs.js", "i18n.js", "settings.js", "options.js"], "options.css").replace('language:"ru"', 'language:"en"')
+    page.set_content(english_options, wait_until="load")
+    page.wait_for_function("document.querySelector('#language')?.value === 'en'")
+    assert page.locator("#generalTitle").text_content() == "General"
+    assert page.locator("#githubAuthConnect").text_content() == "Connect GitHub"
     context.close()
 
     browser.close()
