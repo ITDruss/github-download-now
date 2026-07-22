@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ALLOWED_SOURCE_FILES } from "./build-files.mjs";
-import { assert, lineCount } from "./file-utils.mjs";
+import { assert, lineCount, scriptsFromHtml } from "./file-utils.mjs";
 import {
   BACKGROUND_IMPORTS,
   CONTENT_SCRIPTS,
@@ -23,10 +23,6 @@ const references = new Map();
 
 function arraysEqual(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
-}
-
-function scriptsFromHtml(text) {
-  return [...text.matchAll(/<script\s+[^>]*src="([^"]+)"[^>]*><\/script>/gi)].map((match) => match[1]);
 }
 
 function contextFor(relative) {

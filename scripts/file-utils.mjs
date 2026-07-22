@@ -18,6 +18,21 @@ export function lineCount(text) {
   return text.split(/\r?\n/).length;
 }
 
+export function scriptsFromHtml(text) {
+  const sources = [];
+
+  for (const match of text.matchAll(/<script\b[^>]*>/gi)) {
+    const sourceMatch = match[0].match(
+      /\bsrc\s*=\s*(?:"([^"]+)"|'([^']+)')/i
+    );
+    const source = sourceMatch?.[1] ?? sourceMatch?.[2];
+
+    if (source) sources.push(source);
+  }
+
+  return sources;
+}
+
 export function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
