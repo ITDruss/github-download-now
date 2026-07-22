@@ -11,7 +11,7 @@ The extension runs in four isolated contexts:
 | Context | Entry point | Responsibility |
 |---|---|---|
 | GitHub page | `src/content.js` plus `src/content/` modules | Coordinate repository detection, placement, release-page parsing, UI rendering and privileged background requests. |
-| Background | `src/background.js` | GitHub API access, OAuth Device Flow, local tracking state, update checks, notifications and trusted navigation. |
+| Background | `src/background.js` plus `src/background/` services | Compose GitHub API, OAuth, tracking, alarms, notifications and trusted navigation services, then register browser events. |
 | Popup | `src/popup.js` | Show updates, watched repositories, history and common settings. |
 | Options | `src/options.js` | Full settings editor and optional GitHub connection. |
 
@@ -94,7 +94,7 @@ The content decomposition is split across route/DOM, state, loading, lifecycle a
 | `content/ui/asset-list.js` | Render ranked asset rows, recommendation explanations and source links. |
 | `content/ui/release-menu.js` | Compose the release menu, version selector, asset sections and footer. |
 
-Every module exposes a small `GHDN*` API and is CommonJS-compatible for Node tests. DOM parsing remains separate from network access, while UI construction remains in `content.js` until the next extraction stage.
+Every module exposes a small `GHDN*` API and is CommonJS-compatible for Node tests. DOM parsing, network access and reusable UI construction remain in separate modules; `content.js` only composes them.
 
 ### Content boundary rules
 
@@ -124,6 +124,34 @@ src/styles/
 ```
 
 Do not recreate a monolithic `styles.css`. Put a selector in the narrowest matching component file, preserve manifest order when dependencies exist, and update both manifests plus UI-test inlining when adding or renaming a stylesheet.
+
+## Background services
+
+`src/background.js` is a stable composition root. Chromium loads it as the Manifest V3 service worker and it imports the service modules with local `importScripts`; Firefox loads the same modules explicitly before `background.js`. Reusable background behavior belongs in `src/background/`:
+
+| Module | Responsibility |
+|---|---|
+| `background/storage.js` | Wrap local-storage access and restrict it to trusted extension contexts where supported. |
+| `background/github-client.js` | Own authenticated/anonymous GitHub API requests, response limits, rate-limit metadata and OAuth-token cache access. |
+| `background/release-service.js` | Sanitize GitHub release JSON, cache release responses and rank assets. |
+| `background/build-service.js` | Discover README/build documents with bounded, rate-limit-aware guided traversal. |
+| `background/navigation.js` | Open only URL-policy-approved GitHub pages and local extension pages. |
+| `background/auth-service.js` | Run scope-free GitHub OAuth Device Flow and expose only public authorization state. |
+| `background/tracker-state.js` | Sanitize and persist download history, watched repositories, pending updates and tracker metadata. |
+| `background/alarms.js` | Own update-check alarm cadence and alarm-name matching. |
+| `background/notifications.js` | Own optional notifications, badge state and notification-click routing. |
+| `background/tracking-service.js` | Record downloads, manage watches, perform batched update checks and expose dashboard operations. |
+| `background/message-router.js` | Map canonical runtime message types to service methods and enforce trusted auth callers. |
+
+### Background boundary rules
+
+- GitHub API and raw-content `fetch` calls belong only in `github-client.js`; OAuth POST requests belong only in `auth-service.js`.
+- Release sanitization and release caches belong only in `release-service.js`.
+- README-guided discovery and its cache belong only in `build-service.js`.
+- Local tracker data must cross `tracker-state.js` so stored URLs are revalidated before privileged use.
+- Browser notification and badge APIs belong only in `notifications.js`; alarm creation belongs only in `alarms.js`.
+- Runtime message names belong in `shared/messages.js`; routing belongs only in `message-router.js`.
+- `background.js` must remain a composition root under 250 lines and must not regain release, OAuth, build-discovery or update-check algorithms.
 
 ## Existing domain modules
 
@@ -157,9 +185,11 @@ release-loader.js parses GitHub HTML through page-client.js
         ↓ fallback when page data is unavailable
 GHDN_GET_LATEST_RELEASE / GHDN_GET_RELEASE_BY_TAG
         ↓
-background.js validates the request
+background/message-router.js validates and routes the request
         ↓
-GitHub API client logic
+background/release-service.js
+        ↓
+background/github-client.js performs the trusted API request
         ↓
 asset-selector.js ranks assets
         ↓
@@ -202,7 +232,7 @@ feature/domain modules
 entry script
 ```
 
-The background context does not need presentation formatting, so it loads `shared/messages.js` and `shared/browser-api.js`, followed by its domain dependencies and `background.js`.
+The background context does not need presentation formatting. Firefox lists shared/domain dependencies and `background/*` services explicitly before `background.js`; Chromium starts `background.js`, which imports those same local files in the documented order. No remote or generated runtime imports are allowed.
 
 When adding a source file, update all applicable places:
 
@@ -215,7 +245,8 @@ When adding a source file, update all applicable places:
 ## Testing layers
 
 - `tests/*.test.js` — shared/domain Node unit and integration tests;
-- `tests/content/` — repository, GitHub DOM, placement and release-page parser tests;
+- `tests/content/` — content route, DOM, lifecycle, loading and presentation-unit tests;
+- `tests/background/` — background storage, GitHub client, release, tracker-state and routing-unit tests;
 - `tests/helpers/` — reusable WebExtension mocks and fixtures;
 - `tests/ui_smoke.py` — content-script behavior in Chromium;
 - `tests/settings_ui_smoke.py` — popup, options, settings and auth UI;
@@ -224,56 +255,26 @@ When adding a source file, update all applicable places:
 
 Every behavior-preserving extraction must keep all existing tests green. New shared helpers require dedicated unit tests.
 
-## Planned decomposition
+## Current layout and remaining decomposition
 
-Content UI and styles are now decomposed. The current content structure is:
+Content and background runtime code are now decomposed. Stable entry points remain intentionally named `src/content.js` and `src/background.js`; renaming them would add manifest churn without improving the boundary.
 
-```text
-src/content/
-├── strings.js
-├── platform.js
-├── repository-context.js
-├── github-dom.js
-├── placement.js
-├── state.js
-├── page-client.js
-├── lifecycle.js
-├── release/
-│   ├── page-parser.js
-│   ├── release-loader.js
-│   └── version-controller.js
-└── ui/
-    ├── icons.js
-    ├── elements.js
-    ├── download-button.js
-    ├── menu-shell.js
-    ├── notices.js
-    ├── install-guidance.js
-    ├── build-documents.js
-    ├── asset-list.js
-    └── release-menu.js
-```
-
-`src/content.js` remains the stable manifest entry point and composition root. Renaming it to `entry.js` would add churn without improving the boundary, so it stays intentionally small and explicit.
-
-The next major target is the background context:
+The remaining architectural work is limited to popup/options presentation modules and mirrored UI tests:
 
 ```text
-src/background/
-├── entry.js
-├── message-router.js
-├── github-client.js
-├── release-service.js
-├── build-service.js
-├── auth-service.js
-├── storage.js
-├── tracking-service.js
-├── update-service.js
-├── alarms.js
-└── notifications.js
+src/popup/
+├── dashboard-view.js
+├── updates-view.js
+├── history-view.js
+└── settings-summary.js
+
+src/options/
+├── settings-form.js
+├── auth-panel.js
+└── updates-panel.js
 ```
 
-The remaining extraction order is background services, then popup/options presentation modules and mirrored tests. No step should combine architectural movement with unrelated product features.
+That future extraction must stay behavior-preserving and must not be combined with new product features, permission changes or release-version changes.
 
 ## Contribution checklist
 

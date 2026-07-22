@@ -1,1329 +1,157 @@
 "use strict";
 
-if (typeof importScripts === "function") {
-  if (!globalThis.GHDNMessages) importScripts("shared/messages.js");
-  if (!globalThis.GHDNBrowser) importScripts("shared/browser-api.js");
-  if (!globalThis.GHDNLocaleCatalogs) importScripts("i18n-catalogs.js");
-  if (!globalThis.GHDNI18n) importScripts("i18n.js");
-  if (!globalThis.GHDNSettings) importScripts("settings.js");
-  if (!globalThis.GHDNAssetSelector) importScripts("asset-selector.js");
-  if (!globalThis.GHDNTracker) importScripts("tracker.js");
-  if (!globalThis.GHDNUrlPolicy) importScripts("url-policy.js");
-  if (!globalThis.GHDNBuildInstructions) importScripts("build-instructions.js");
-  if (!globalThis.GHDNGitHubAuth) importScripts("github-auth.js");
-}
-
-const browserApi = globalThis.GHDNBrowser;
-const extensionApi = browserApi.api;
-const messages = globalThis.GHDNMessages;
-const i18n = globalThis.GHDNI18n;
-const settingsApi = globalThis.GHDNSettings;
-const selector = globalThis.GHDNAssetSelector;
-const tracker = globalThis.GHDNTracker;
-const buildInstructions = globalThis.GHDNBuildInstructions;
-const urlPolicy = globalThis.GHDNUrlPolicy;
-const githubAuth = globalThis.GHDNGitHubAuth;
-const CACHE_TTL_MS = 5 * 60 * 1000;
-const BUILD_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-const MAX_CACHE_ENTRIES = 50;
-const UPDATE_BATCH_SIZE = 8;
-const MAX_RELEASE_ASSETS = 500;
-const MAX_API_RESPONSE_CHARS = 8_000_000;
-const MAX_BUILD_DOCUMENT_CHARS = 2_000_000;
-const GUIDED_LINK_LIMIT = 3;
-const GUIDED_DIRECTORY_LIMIT = 2;
-const GUIDED_DOCUMENT_LIMIT = 3;
-const BUILD_RATE_LIMIT_RESERVE = 10;
-const releaseCache = new Map();
-const buildInstructionsCache = new Map();
-let githubAuthCache;
-const VALID_PART = /^[A-Za-z0-9_.-]{1,100}$/;
-const UPDATE_ALARM = "ghdn-update-check";
-const NOTIFICATION_PREFIX = "ghdn-update:";
-const SUMMARY_NOTIFICATION = "ghdn-updates-summary";
-const INTERVAL_MINUTES = Object.freeze({ "6h": 360, "24h": 1440, "72h": 4320, "168h": 10080 });
-
-function setLimitedCache(cache, key, value) {
-  if (cache.has(key)) cache.delete(key);
-  cache.set(key, value);
-  while (cache.size > MAX_CACHE_ENTRIES) cache.delete(cache.keys().next().value);
-}
-
-function sanitizeAsset(asset, owner, repo, expectedTag) {
-  if (!asset || typeof asset !== "object") return null;
-  if (asset.state && asset.state !== "uploaded") return null;
-  const trusted = urlPolicy && urlPolicy.releaseAsset(
-    asset.browser_download_url,
-    owner,
-    repo,
-    expectedTag
-  );
-  if (!trusted) return null;
-  return {
-    id: Number(asset.id) || null,
-    name: trusted.name.slice(0, 300),
-    size: Math.max(0, Number(asset.size) || 0),
-    state: "uploaded",
-    content_type: String(asset.content_type || "application/octet-stream").slice(0, 200),
-    download_count: Math.max(0, Number(asset.download_count) || 0),
-    browser_download_url: trusted.href,
-    created_at: String(asset.created_at || "").slice(0, 80),
-    updated_at: String(asset.updated_at || "").slice(0, 80)
-  };
-}
-
-function sanitizeRelease(release, owner, repo) {
-  if (!release || typeof release !== "object" || !urlPolicy) return null;
-  const tag = validGitRef(release.tag_name);
-  if (tag === null || !tag) return null;
-  const encodedOwner = encodeURIComponent(owner);
-  const encodedRepo = encodeURIComponent(repo);
-  const encodedTag = encodeURIComponent(tag);
-  const releaseUrl = urlPolicy.releaseTag(release.html_url, owner, repo);
-  const trustedReleaseUrl = releaseUrl && releaseUrl.tag === tag
-    ? releaseUrl.href
-    : `https://github.com/${encodedOwner}/${encodedRepo}/releases/tag/${encodedTag}`;
-  const zipUrl = urlPolicy.apiArchive(release.zipball_url, owner, repo);
-  const tarUrl = urlPolicy.apiArchive(release.tarball_url, owner, repo);
-  return {
-    id: Number(release.id) || null,
-    tag_name: tag,
-    name: String(release.name || tag).slice(0, 300),
-    html_url: trustedReleaseUrl,
-    published_at: String(release.published_at || "").slice(0, 80),
-    created_at: String(release.created_at || "").slice(0, 80),
-    draft: Boolean(release.draft),
-    prerelease: Boolean(release.prerelease),
-    assets: Array.isArray(release.assets)
-      ? release.assets.slice(0, MAX_RELEASE_ASSETS).map((asset) => sanitizeAsset(asset, owner, repo, tag)).filter(Boolean)
-      : [],
-    zipball_url: zipUrl ? zipUrl.href : `https://api.github.com/repos/${encodedOwner}/${encodedRepo}/zipball/${encodedTag}`,
-    tarball_url: tarUrl ? tarUrl.href : `https://api.github.com/repos/${encodedOwner}/${encodedRepo}/tarball/${encodedTag}`
-  };
-}
-
-function numericHeader(response, name) {
-  const raw = response.headers.get(name);
-  if (raw === null || raw === "") return null;
-  const parsed = Number(raw);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function rateLimitDetails(response) {
-  const limit = numericHeader(response, "x-ratelimit-limit");
-  const remaining = numericHeader(response, "x-ratelimit-remaining");
-  const used = numericHeader(response, "x-ratelimit-used");
-  const resetRaw = numericHeader(response, "x-ratelimit-reset");
-  const resetAt = Number.isFinite(resetRaw) && resetRaw > 0
-    ? new Date(resetRaw * 1000).toISOString()
-    : null;
-  return {
-    limit,
-    remaining,
-    used,
-    resetAt
-  };
-}
-
-async function getStoredGitHubAuth() {
-  if (!githubAuth) return null;
-  if (githubAuthCache !== undefined) return githubAuthCache;
-  const stored = await localGet({ [githubAuth.STORAGE_KEY]: null });
-  githubAuthCache = githubAuth.normalizeStoredAuth(stored[githubAuth.STORAGE_KEY]);
-  return githubAuthCache;
-}
-
-async function clearStoredGitHubAuth() {
-  githubAuthCache = null;
-  if (!githubAuth) return;
-  await localRemove([githubAuth.STORAGE_KEY]);
-}
-
-async function saveStoredGitHubAuth(value) {
-  const clean = githubAuth && githubAuth.normalizeStoredAuth(value);
-  if (!clean) throw new Error("Invalid GitHub authorization state");
-  githubAuthCache = clean;
-  await localSet({ [githubAuth.STORAGE_KEY]: clean });
-  return clean;
-}
-
-async function githubApiHeaders(options = {}) {
-  const headers = {
-    "Accept": options.accept || "application/vnd.github+json",
-    "X-GitHub-Api-Version": "2022-11-28"
-  };
-  const auth = options.token
-    ? { token: String(options.token) }
-    : options.skipAuth ? null : await getStoredGitHubAuth();
-  if (auth && githubAuth && githubAuth.TOKEN_PATTERN.test(auth.token)) {
-    headers.Authorization = `Bearer ${auth.token}`;
-  }
-  if (options.etag) headers["If-None-Match"] = options.etag;
-  return headers;
-}
-
-async function fetchJson(url, options = {}) {
-  const trusted = urlPolicy && urlPolicy.apiUrl(url);
-  if (!trusted) return { ok: false, error: "untrusted_url" };
-  const headers = await githubApiHeaders(options);
-  const usedStoredAuth = Boolean(headers.Authorization && !options.token && !options.skipAuth);
-
-  const response = await fetch(trusted.href, {
-    method: "GET",
-    headers,
-    credentials: "omit",
-    redirect: "error",
-    referrerPolicy: "no-referrer"
-  });
-  if (!urlPolicy.apiUrl(response.url || trusted.href)) return { ok: false, error: "untrusted_redirect" };
-  const rateLimit = rateLimitDetails(response);
-  if (response.status === 304) {
-    return {
-      ok: true,
-      notModified: true,
-      etag: options.etag || response.headers.get("etag") || "",
-      rateLimit
-    };
-  }
-
-  if (response.status === 401 && usedStoredAuth) {
-    await clearStoredGitHubAuth();
-    if (options.allowAnonymousFallback !== false) {
-      return fetchJson(trusted.href, { ...options, skipAuth: true, etag: "" });
+(function initializeBackgroundEntry(root) {
+  function loadDependency(globalName, browserPath, nodePath) {
+    if (root[globalName]) return root[globalName];
+    if (typeof importScripts === "function") {
+      importScripts(browserPath);
+      return root[globalName];
     }
-  }
-
-  if (!response.ok) {
-    if (response.status === 401) return { ok: false, error: "invalid_token", status: 401, rateLimit };
-    if (response.status === 404) return { ok: false, error: "no_release", status: 404, rateLimit };
-    if ((response.status === 403 || response.status === 429) && (rateLimit.remaining === 0 || response.status === 429)) {
-      return { ok: false, error: "rate_limited", status: response.status, resetAt: rateLimit.resetAt, rateLimit };
+    if (typeof module !== "undefined" && typeof module.require === "function") {
+      const loaded = module.require(nodePath);
+      root[globalName] = loaded;
+      return loaded;
     }
-    return { ok: false, error: "github_api_error", status: response.status, rateLimit };
-  }
-
-  const contentLength = numericHeader(response, "content-length");
-  if (contentLength !== null && contentLength > MAX_API_RESPONSE_CHARS) {
-    return { ok: false, error: "response_too_large", status: 413, rateLimit };
-  }
-  const text = await response.text();
-  if (text.length > MAX_API_RESPONSE_CHARS) {
-    return { ok: false, error: "response_too_large", status: 413, rateLimit };
-  }
-  try {
-    return {
-      ok: true,
-      data: JSON.parse(text),
-      etag: response.headers.get("etag") || "",
-      rateLimit
-    };
-  } catch (_error) {
-    return { ok: false, error: "invalid_response", status: 502, rateLimit };
-  }
-}
-
-async function getRelease(owner, repo, platform, releaseChannel, options = {}) {
-  if (!VALID_PART.test(owner) || !VALID_PART.test(repo)) return { ok: false, error: "invalid_repository" };
-
-  const channel = releaseChannel === "newest" ? "newest" : "stable";
-  const cacheKey = `${owner.toLowerCase()}/${repo.toLowerCase()}:${channel}`;
-  const cached = releaseCache.get(cacheKey);
-  if (!options.force && cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-    return buildResponse(cached.release, platform, true, cached.etag, null);
-  }
-
-  const encoded = `${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
-  const url = channel === "newest"
-    ? `https://api.github.com/repos/${encoded}/releases?per_page=20`
-    : `https://api.github.com/repos/${encoded}/releases/latest`;
-  const result = await fetchJson(url, { etag: options.etag });
-  if (!result.ok || result.notModified) return result;
-
-  let release;
-  if (channel === "newest") {
-    const candidates = Array.isArray(result.data) ? result.data.filter((item) => item && !item.draft) : [];
-    if (!candidates.length) return { ok: false, error: "no_release", status: 404 };
-    release = sanitizeRelease(candidates[0], owner, repo);
-  } else {
-    release = sanitizeRelease(result.data, owner, repo);
-  }
-  if (!release) return { ok: false, error: "invalid_response", status: 502, rateLimit: result.rateLimit || null };
-
-  setLimitedCache(releaseCache, cacheKey, { timestamp: Date.now(), release, etag: result.etag || "" });
-  return buildResponse(release, platform, false, result.etag || "", result.rateLimit);
-}
-
-async function getReleaseByTag(owner, repo, requestedTag, platform, options = {}) {
-  if (!VALID_PART.test(owner) || !VALID_PART.test(repo)) {
-    return { ok: false, error: "invalid_repository" };
-  }
-
-  const tag = validGitRef(requestedTag);
-  if (tag === null || !tag) return { ok: false, error: "invalid_ref" };
-
-  const cacheKey = `${owner.toLowerCase()}/${repo.toLowerCase()}:tag:${tag}`;
-  const cached = releaseCache.get(cacheKey);
-  if (!options.force && cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-    return buildResponse(cached.release, platform, true, cached.etag, null);
-  }
-
-  const encoded = `${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
-  const url = `https://api.github.com/repos/${encoded}/releases/tags/${encodeURIComponent(tag)}`;
-  const result = await fetchJson(url, { etag: options.etag });
-  if (!result.ok || result.notModified) return result;
-
-  const release = sanitizeRelease(result.data, owner, repo);
-  if (!release) return { ok: false, error: "invalid_response", status: 502, rateLimit: result.rateLimit || null };
-  setLimitedCache(releaseCache, cacheKey, { timestamp: Date.now(), release, etag: result.etag || "" });
-  return buildResponse(release, platform, false, result.etag || "", result.rateLimit);
-}
-
-function buildResponse(release, platform, fromCache, etag = "", rateLimit = null) {
-  const selection = selector.recommendation(release.assets, platform || {});
-  return {
-    ok: true,
-    release,
-    rankedAssets: selection.ranked,
-    recommendation: {
-      best: selection.best,
-      confidence: selection.confidence,
-      gap: Number.isFinite(selection.gap) ? selection.gap : null
-    },
-    fromCache,
-    etag,
-    rateLimit
-  };
-}
-
-
-async function fetchText(url, options = {}) {
-  const trusted = urlPolicy && urlPolicy.apiUrl(url);
-  if (!trusted) return { ok: false, error: "untrusted_url" };
-  const headers = await githubApiHeaders({ ...options, accept: "application/vnd.github.raw+json" });
-  const usedStoredAuth = Boolean(headers.Authorization && !options.token && !options.skipAuth);
-  const response = await fetch(trusted.href, {
-    method: "GET",
-    credentials: "omit",
-    redirect: "error",
-    referrerPolicy: "no-referrer",
-    headers
-  });
-  if (!urlPolicy.apiUrl(response.url || trusted.href)) return { ok: false, error: "untrusted_redirect" };
-  const rateLimit = rateLimitDetails(response);
-
-  if (response.status === 401 && usedStoredAuth) {
-    await clearStoredGitHubAuth();
-    return fetchText(trusted.href, { ...options, skipAuth: true });
-  }
-  if (!response.ok) {
-    if (response.status === 401) return { ok: false, error: "invalid_token", status: 401, rateLimit };
-    if (response.status === 404) return { ok: false, error: "not_found", status: 404, rateLimit };
-    if ((response.status === 403 || response.status === 429) && (rateLimit.remaining === 0 || response.status === 429)) {
-      return { ok: false, error: "rate_limited", status: response.status, resetAt: rateLimit.resetAt, rateLimit };
-    }
-    return { ok: false, error: "github_api_error", status: response.status, rateLimit };
-  }
-
-  const contentLength = Number(response.headers.get("content-length"));
-  if (Number.isFinite(contentLength) && contentLength > MAX_BUILD_DOCUMENT_CHARS) {
-    return { ok: false, error: "document_too_large", status: 413, rateLimit };
-  }
-  const text = await response.text();
-  if (text.length > MAX_BUILD_DOCUMENT_CHARS) {
-    return { ok: false, error: "document_too_large", status: 413, rateLimit };
-  }
-  return { ok: true, text, rateLimit };
-}
-
-function validGitRef(value) {
-  const ref = String(value || "").trim();
-  if (!ref) return "";
-  if (ref.length > 240 || /[\u0000-\u001f\u007f]/.test(ref)) return null;
-  return ref;
-}
-
-function contentsUrl(owner, repo, path = "", ref = "") {
-  const encodedRepository = `${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
-  const encodedPath = String(path || "")
-    .split("/")
-    .filter(Boolean)
-    .map((part) => encodeURIComponent(part))
-    .join("/");
-  const suffix = encodedPath ? `/contents/${encodedPath}` : "/contents";
-  const query = ref ? `?ref=${encodeURIComponent(ref)}` : "";
-  return `https://api.github.com/repos/${encodedRepository}${suffix}${query}`;
-}
-
-function sanitizeContentEntry(entry, owner, repo) {
-  if (!entry || typeof entry !== "object") return null;
-  const type = entry.type === "dir" ? "dir" : entry.type === "file" ? "file" : "";
-  const path = String(entry.path || entry.name || "").replace(/^\/+|\/+$/g, "");
-  const pathParts = path.split("/");
-  if (
-    !type ||
-    !path ||
-    path.length > 500 ||
-    path.includes("\0") ||
-    path.includes("\\") ||
-    pathParts.some((part) => !part || part === "." || part === "..")
-  ) return null;
-  const htmlUrl = urlPolicy && urlPolicy.repositoryWebUrl(entry.html_url, owner, repo);
-  return {
-    type,
-    name: String(entry.name || path.split("/").pop() || "").slice(0, 240),
-    path,
-    html_url: htmlUrl ? htmlUrl.href : ""
-  };
-}
-
-async function getContentDirectory(owner, repo, path, ref) {
-  const result = await fetchJson(contentsUrl(owner, repo, path, ref));
-  if (!result.ok) return result;
-  const entries = Array.isArray(result.data)
-    ? result.data.map((entry) => sanitizeContentEntry(entry, owner, repo)).filter(Boolean)
-    : [];
-  return { ok: true, entries, rateLimit: result.rateLimit || null };
-}
-
-function repositoryDocumentUrl(owner, repo, ref, path, type = "file") {
-  const encodedPath = String(path || "")
-    .split("/")
-    .filter(Boolean)
-    .map((part) => encodeURIComponent(part))
-    .join("/");
-  if (!encodedPath) return "";
-  const mode = type === "dir" ? "tree" : "blob";
-  const encodedRef = encodeURIComponent(ref || "HEAD");
-  return `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/${mode}/${encodedRef}/${encodedPath}`;
-}
-
-function discoveryReserveReached(rateLimit) {
-  return Boolean(
-    rateLimit &&
-    Number.isFinite(rateLimit.remaining) &&
-    rateLimit.remaining <= BUILD_RATE_LIMIT_RESERVE
-  );
-}
-
-async function getBuildInstructions(owner, repo, requestedRef = "", platformInput = {}) {
-  if (!VALID_PART.test(owner) || !VALID_PART.test(repo)) return { ok: false, error: "invalid_repository" };
-  if (!buildInstructions || !urlPolicy) return { ok: false, error: "internal_error" };
-
-  const ref = validGitRef(requestedRef);
-  if (ref === null) return { ok: false, error: "invalid_ref" };
-  const platform = String(platformInput && platformInput.os || "unknown").toLowerCase();
-  const cacheKey = `${owner.toLowerCase()}/${repo.toLowerCase()}:${ref || "default"}:${platform}`;
-  const cached = buildInstructionsCache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < BUILD_CACHE_TTL_MS) return { ...cached.value, fromCache: true };
-
-  let refUsed = ref;
-  let rootResult = await getContentDirectory(owner, repo, "", refUsed);
-  let usedDefaultBranchFallback = false;
-  if (!rootResult.ok && rootResult.status === 404 && refUsed) {
-    refUsed = "";
-    usedDefaultBranchFallback = true;
-    rootResult = await getContentDirectory(owner, repo, "", "");
-  }
-  if (!rootResult.ok) return rootResult;
-
-  let lastRateLimit = rootResult.rateLimit || null;
-  const entries = [...rootResult.entries];
-  const checked = [];
-  const docsDirectories = rootResult.entries.filter((entry) => entry.type === "dir" && /^(docs?|documentation)$/i.test(entry.name));
-  for (const directory of docsDirectories.slice(0, 2)) {
-    if (discoveryReserveReached(lastRateLimit)) break;
-    const docsResult = await getContentDirectory(owner, repo, directory.path, refUsed);
-    if (!docsResult.ok) {
-      if (docsResult.error === "rate_limited") break;
-      continue;
-    }
-    lastRateLimit = docsResult.rateLimit || lastRateLimit;
-    entries.push(...docsResult.entries);
-  }
-
-  const candidates = buildInstructions.chooseCandidates(entries, 10);
-  const discovered = [];
-  const guidedLinks = [];
-  const seenGuided = new Set();
-
-  function addGuided(items) {
-    for (const item of items) {
-      const key = `${item.type}:${String(item.path).toLowerCase()}`;
-      if (seenGuided.has(key)) continue;
-      seenGuided.add(key);
-      guidedLinks.push(item);
-    }
-  }
-
-  function addFileDocument(candidate, trusted, scoreAdjustment = 0) {
-    discovered.push({
-      type: "file",
-      path: candidate.path,
-      title: candidate.path,
-      htmlUrl: trusted.href,
-      score: candidate.score + scoreAdjustment
-    });
-  }
-
-  for (const candidate of candidates) {
-    const trusted = urlPolicy.repositoryWebUrl(candidate.html_url, owner, repo);
-    if (!trusted) continue;
-    checked.push(candidate.path);
-    if (!buildInstructions.isReadme(candidate.path)) {
-      addFileDocument(candidate, trusted);
-      continue;
-    }
-
-    if (discoveryReserveReached(lastRateLimit)) {
-      addFileDocument(candidate, trusted, -12);
-      continue;
-    }
-    const raw = await fetchText(contentsUrl(owner, repo, candidate.path, refUsed));
-    if (raw.ok) {
-      lastRateLimit = raw.rateLimit || lastRateLimit;
-      const sections = buildInstructions.chooseReadmeSections(raw.text, platform, 5);
-      for (const section of sections) {
-        discovered.push({
-          type: "section",
-          path: candidate.path,
-          title: section.context || section.title,
-          htmlUrl: `${trusted.href}#${section.anchor}`,
-          score: section.score + Math.min(20, candidate.score / 5)
-        });
-      }
-      if (candidate.path.split("/").length <= 2) {
-        addGuided(buildInstructions.chooseGuidedLinks(
-          raw.text,
-          candidate.path,
-          owner,
-          repo,
-          GUIDED_LINK_LIMIT
-        ));
-      }
-    }
-    addFileDocument(candidate, trusted, -12);
-  }
-
-  let guidedDirectories = 0;
-  let guidedDocuments = 0;
-  for (const link of guidedLinks.slice(0, GUIDED_LINK_LIMIT)) {
-    if (guidedDocuments >= GUIDED_DOCUMENT_LIMIT || discoveryReserveReached(lastRateLimit)) break;
-    let linkedCandidates = [];
-
-    if (link.type === "dir") {
-      if (guidedDirectories >= GUIDED_DIRECTORY_LIMIT) continue;
-      guidedDirectories += 1;
-      const directoryResult = await getContentDirectory(owner, repo, link.path, refUsed);
-      if (!directoryResult.ok) {
-        if (directoryResult.error === "rate_limited") break;
-        continue;
-      }
-      lastRateLimit = directoryResult.rateLimit || lastRateLimit;
-      linkedCandidates = buildInstructions.chooseCandidates(directoryResult.entries, 4);
-    } else {
-      linkedCandidates = [{
-        type: "file",
-        name: link.path.split("/").pop(),
-        path: link.path,
-        html_url: repositoryDocumentUrl(owner, repo, refUsed, link.path),
-        score: link.score
-      }];
-    }
-
-    for (const candidate of linkedCandidates) {
-      if (guidedDocuments >= GUIDED_DOCUMENT_LIMIT || discoveryReserveReached(lastRateLimit)) break;
-      if (checked.some((path) => path.toLowerCase() === candidate.path.toLowerCase())) continue;
-      const htmlUrl = candidate.html_url || repositoryDocumentUrl(owner, repo, refUsed, candidate.path);
-      const trusted = urlPolicy.repositoryWebUrl(htmlUrl, owner, repo);
-      if (!trusted) continue;
-      checked.push(candidate.path);
-      guidedDocuments += 1;
-
-      const raw = await fetchText(contentsUrl(owner, repo, candidate.path, refUsed));
-      if (raw.ok) {
-        lastRateLimit = raw.rateLimit || lastRateLimit;
-        const sections = buildInstructions.chooseReadmeSections(raw.text, platform, 5);
-        for (const section of sections) {
-          discovered.push({
-            type: "section",
-            path: candidate.path,
-            title: section.context || section.title,
-            htmlUrl: `${trusted.href}#${section.anchor}`,
-            score: section.score + Math.min(28, (Number(link.score) || 0) / 6)
-          });
-        }
-      }
-      discovered.push({
-        type: "file",
-        path: candidate.path,
-        title: `${link.label || candidate.path} — ${candidate.path}`,
-        htmlUrl: trusted.href,
-        score: (Number(candidate.score) || Number(link.score) || 70) - 10
-      });
-    }
-  }
-
-  const documents = buildInstructions.rankDocuments(discovered, 6).map(({ type, path, title, htmlUrl }) => ({ type, path, title, htmlUrl }));
-  const repositoryUrl = `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
-  const value = {
-    ok: true,
-    found: documents.length > 0,
-    documents,
-    recommended: documents[0] || null,
-    repositoryUrl,
-    platform,
-    refRequested: ref,
-    refUsed: refUsed || "default",
-    usedDefaultBranchFallback,
-    guidedDiscovery: {
-      followed: guidedLinks.slice(0, GUIDED_LINK_LIMIT).map(({ path, type, label }) => ({ path, type, label })),
-      directoriesChecked: guidedDirectories,
-      documentsChecked: guidedDocuments
-    },
-    rateLimit: lastRateLimit,
-    checked
-  };
-  setLimitedCache(buildInstructionsCache, cacheKey, { timestamp: Date.now(), value });
-  return value;
-}
-
-async function localGet(defaults) {
-  return browserApi.storage.local.get(defaults);
-}
-
-async function localSet(values) {
-  return browserApi.storage.local.set(values);
-}
-
-async function localRemove(keys) {
-  return browserApi.storage.local.remove(keys);
-}
-
-async function restrictLocalStorageToTrustedContexts() {
-  try {
-    await browserApi.storage.local.setAccessLevel("TRUSTED_CONTEXTS");
-  } catch (_error) {}
-}
-
-async function oauthPost(endpoint, body) {
-  const trusted = urlPolicy && urlPolicy.oauthEndpoint(endpoint);
-  if (!trusted) return { ok: false, error: "untrusted_url" };
-  const response = await fetch(trusted.href, {
-    method: "POST",
-    headers: {
-      "Accept": "application/json",
-      "Content-Type": "application/x-www-form-urlencoded"
-    },
-    body,
-    credentials: "omit",
-    redirect: "error",
-    referrerPolicy: "no-referrer"
-  });
-  if (!urlPolicy.oauthEndpoint(response.url || trusted.href)) return { ok: false, error: "untrusted_redirect" };
-  if (!response.ok) return { ok: false, error: "oauth_http_error", status: response.status };
-  const contentLength = Number(response.headers.get("content-length"));
-  if (Number.isFinite(contentLength) && contentLength > 100_000) return { ok: false, error: "oauth_response_too_large" };
-  const text = await response.text();
-  if (text.length > 100_000) return { ok: false, error: "oauth_response_too_large" };
-  try { return { ok: true, data: JSON.parse(text) }; }
-  catch (_error) { return { ok: false, error: "invalid_oauth_response" }; }
-}
-
-async function readGitHubAuthPending() {
-  if (!githubAuth) return null;
-  const stored = await localGet({ [githubAuth.PENDING_KEY]: null });
-  const pending = stored[githubAuth.PENDING_KEY];
-  if (!pending || typeof pending !== "object") return null;
-  const expiresAt = Date.parse(pending.expiresAt || "");
-  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
-    await localRemove([githubAuth.PENDING_KEY]);
     return null;
   }
-  if (!githubAuth.TOKEN_PATTERN.test(String(pending.deviceCode || ""))) return null;
-  if (pending.verificationUri !== githubAuth.VERIFICATION_URI) return null;
-  return pending;
-}
 
-async function publicGitHubAuthStatus(options = {}) {
-  if (!githubAuth) return { ok: false, error: "auth_unavailable" };
-  let auth = await getStoredGitHubAuth();
-  const pending = await readGitHubAuthPending();
-  if (auth && options.refresh) {
-    const rate = await fetchJson("https://api.github.com/rate_limit", {
-      token: auth.token,
-      allowAnonymousFallback: false
-    });
-    if (!rate.ok && rate.error === "invalid_token") {
-      await clearStoredGitHubAuth();
-      auth = null;
-    } else if (rate.ok) {
-      const rateLimit = githubAuth.normalizeRateLimit(rate.data);
-      if (rateLimit) auth = await saveStoredGitHubAuth({ ...auth, rateLimit });
+  const messages = loadDependency("GHDNMessages", "shared/messages.js", "./shared/messages.js");
+  const browserApi = loadDependency("GHDNBrowser", "shared/browser-api.js", "./shared/browser-api.js");
+  loadDependency("GHDNLocaleCatalogs", "i18n-catalogs.js", "./i18n-catalogs.js");
+  const i18n = loadDependency("GHDNI18n", "i18n.js", "./i18n.js");
+  const settingsApi = loadDependency("GHDNSettings", "settings.js", "./settings.js");
+  const urlPolicy = loadDependency("GHDNUrlPolicy", "url-policy.js", "./url-policy.js");
+  const selector = loadDependency("GHDNAssetSelector", "asset-selector.js", "./asset-selector.js");
+  const tracker = loadDependency("GHDNTracker", "tracker.js", "./tracker.js");
+  const buildInstructions = loadDependency("GHDNBuildInstructions", "build-instructions.js", "./build-instructions.js");
+  const githubAuth = loadDependency("GHDNGitHubAuth", "github-auth.js", "./github-auth.js");
+
+  const storageModule = loadDependency("GHDNBackgroundStorage", "background/storage.js", "./background/storage.js");
+  const githubClientModule = loadDependency("GHDNBackgroundGitHubClient", "background/github-client.js", "./background/github-client.js");
+  const releaseServiceModule = loadDependency("GHDNBackgroundReleaseService", "background/release-service.js", "./background/release-service.js");
+  const buildServiceModule = loadDependency("GHDNBackgroundBuildService", "background/build-service.js", "./background/build-service.js");
+  const navigationModule = loadDependency("GHDNBackgroundNavigation", "background/navigation.js", "./background/navigation.js");
+  const authServiceModule = loadDependency("GHDNBackgroundAuthService", "background/auth-service.js", "./background/auth-service.js");
+  const trackerStateModule = loadDependency("GHDNBackgroundTrackerState", "background/tracker-state.js", "./background/tracker-state.js");
+  const alarmsModule = loadDependency("GHDNBackgroundAlarms", "background/alarms.js", "./background/alarms.js");
+  const notificationsModule = loadDependency("GHDNBackgroundNotifications", "background/notifications.js", "./background/notifications.js");
+  const trackingServiceModule = loadDependency("GHDNBackgroundTrackingService", "background/tracking-service.js", "./background/tracking-service.js");
+  const messageRouterModule = loadDependency("GHDNBackgroundMessageRouter", "background/message-router.js", "./background/message-router.js");
+
+  if (!messages || !browserApi || !i18n || !settingsApi || !urlPolicy || !selector || !tracker || !buildInstructions) {
+    throw new Error("Background entry dependencies are incomplete");
+  }
+
+  const extensionApi = browserApi.api;
+  const storage = storageModule.create({ browserApi });
+  const githubClient = githubClientModule.create({ storage, urlPolicy, githubAuth });
+  const releaseService = releaseServiceModule.create({ githubClient, urlPolicy, selector });
+  const buildService = buildServiceModule.create({ githubClient, urlPolicy, buildInstructions });
+  const navigation = navigationModule.create({ browserApi, extensionApi, urlPolicy });
+  const authService = authServiceModule.create({
+    storage,
+    githubClient,
+    urlPolicy,
+    githubAuth,
+    browserApi,
+    extensionApi,
+    clearCaches() {
+      releaseService.clearCache();
+      buildService.clearCache();
     }
-  }
-  return { ok: true, ...githubAuth.publicStatus(auth, pending) };
-}
-
-async function openGitHubDeviceVerification(value) {
-  const trusted = urlPolicy && urlPolicy.deviceVerification(value);
-  if (!trusted || !extensionApi.tabs || !extensionApi.tabs.create) return { ok: false, error: "verification_unavailable" };
-  await browserApi.tabs.create(trusted.href);
-  return { ok: true };
-}
-
-async function startGitHubAuthorization() {
-  if (!githubAuth) return { ok: false, error: "auth_unavailable" };
-  const existing = await getStoredGitHubAuth();
-  if (existing) return { ok: false, error: "already_connected", ...githubAuth.publicStatus(existing) };
-
-  const request = await oauthPost(githubAuth.DEVICE_CODE_ENDPOINT, githubAuth.deviceCodeBody());
-  if (!request.ok) return request;
-  const pending = githubAuth.normalizeDeviceResponse(request.data);
-  if (!pending) return { ok: false, error: "invalid_device_response" };
-  await localSet({ [githubAuth.PENDING_KEY]: pending });
-  await openGitHubDeviceVerification(pending.verificationUri);
-  return { ok: true, ...githubAuth.publicStatus(null, pending) };
-}
-
-async function pollGitHubAuthorization() {
-  if (!githubAuth) return { ok: false, error: "auth_unavailable" };
-  const existing = await getStoredGitHubAuth();
-  if (existing) return { ok: true, ...githubAuth.publicStatus(existing) };
-  const pending = await readGitHubAuthPending();
-  if (!pending) return { ok: false, error: "no_pending_authorization" };
-
-  const now = Date.now();
-  const nextPollAt = Math.max(0, Number(pending.nextPollAt) || 0);
-  if (now < nextPollAt) {
-    return {
-      ok: true,
-      ...githubAuth.publicStatus(null, pending),
-      retryAfterMs: nextPollAt - now
-    };
-  }
-
-  const locked = { ...pending, nextPollAt: now + Math.max(5, Number(pending.interval) || 5) * 1000 };
-  await localSet({ [githubAuth.PENDING_KEY]: locked });
-  const request = await oauthPost(githubAuth.ACCESS_TOKEN_ENDPOINT, githubAuth.accessTokenBody(pending.deviceCode));
-  if (!request.ok) return request;
-  const tokenResult = githubAuth.normalizeTokenResponse(request.data);
-
-  if (!tokenResult.ok) {
-    if (tokenResult.error === "authorization_pending" || tokenResult.error === "slow_down") {
-      const interval = Math.min(60, Math.max(5, Number(pending.interval) || 5) + (tokenResult.error === "slow_down" ? 5 : 0));
-      const updated = { ...pending, interval, nextPollAt: Date.now() + interval * 1000 };
-      await localSet({ [githubAuth.PENDING_KEY]: updated });
-      return { ok: true, ...githubAuth.publicStatus(null, updated), waiting: true };
-    }
-    await localRemove([githubAuth.PENDING_KEY]);
-    return tokenResult;
-  }
-
-  const rateResult = await fetchJson("https://api.github.com/rate_limit", {
-    token: tokenResult.token,
-    allowAnonymousFallback: false
   });
-  const rateLimit = rateResult.ok ? githubAuth.normalizeRateLimit(rateResult.data) : null;
-  const auth = await saveStoredGitHubAuth({
-    token: tokenResult.token,
-    tokenType: tokenResult.tokenType,
-    scope: tokenResult.scope,
-    connectedAt: new Date().toISOString(),
-    rateLimit
+  const trackerState = trackerStateModule.create({ storage, tracker, urlPolicy });
+  const alarms = alarmsModule.create({ browserApi, extensionApi, settingsApi });
+  const notifications = notificationsModule.create({
+    browserApi,
+    extensionApi,
+    i18n,
+    settingsApi,
+    trackerState,
+    navigation
   });
-  await localRemove([githubAuth.PENDING_KEY]);
-  return { ok: true, ...githubAuth.publicStatus(auth) };
-}
-
-async function disconnectGitHubAuthorization() {
-  if (!githubAuth) return { ok: false, error: "auth_unavailable" };
-  await localRemove([githubAuth.STORAGE_KEY, githubAuth.PENDING_KEY]);
-  githubAuthCache = null;
-  releaseCache.clear();
-  buildInstructionsCache.clear();
-  return { ok: true, ...githubAuth.publicStatus(null) };
-}
-
-function trustedExtensionSender(sender) {
-  const origin = extensionApi.runtime && extensionApi.runtime.getURL ? extensionApi.runtime.getURL("") : "";
-  return Boolean(
-    sender &&
-    (!sender.id || sender.id === extensionApi.runtime.id) &&
-    typeof sender.url === "string" &&
-    origin && sender.url.startsWith(origin)
-  );
-}
-
-function trustedReleasePage(value, owner, repo, expectedTag) {
-  const release = urlPolicy && urlPolicy.releaseTag(value, owner, repo);
-  return release && (!expectedTag || release.tag === expectedTag) ? release : null;
-}
-
-function trustedReleaseAsset(value, owner, repo, expectedTag) {
-  return urlPolicy && urlPolicy.releaseAsset(value, owner, repo, expectedTag || "");
-}
-
-function trustedDownload(entry) {
-  const clean = tracker.sanitizeDownload(entry);
-  if (!clean || !urlPolicy || !clean.releaseTag) return null;
-  const asset = urlPolicy.download(clean.assetUrl, clean.owner, clean.repo);
-  const release = trustedReleasePage(clean.releaseUrl, clean.owner, clean.repo, clean.releaseTag);
-  if (!asset || !release) return null;
-  if (asset.tag && asset.tag !== clean.releaseTag) return null;
-  return { ...clean, assetUrl: asset.href, releaseUrl: release.href };
-}
-
-function trustedWatch(entry) {
-  const clean = tracker.sanitizeWatch(entry);
-  if (!clean || !urlPolicy) return null;
-  const currentAsset = clean.currentAssetUrl
-    ? trustedReleaseAsset(clean.currentAssetUrl, clean.owner, clean.repo, clean.currentTag)
-    : null;
-  if (clean.currentAssetUrl && !currentAsset) return null;
-  return { ...clean, currentAssetUrl: currentAsset ? currentAsset.href : "" };
-}
-
-function trustedUpdate(entry) {
-  const clean = tracker.sanitizeUpdate(entry);
-  if (!clean || !urlPolicy || !clean.releaseTag) return null;
-  const release = trustedReleasePage(clean.releaseUrl, clean.owner, clean.repo, clean.releaseTag);
-  const asset = clean.assetUrl
-    ? trustedReleaseAsset(clean.assetUrl, clean.owner, clean.repo, clean.releaseTag)
-    : null;
-  if (!release || (clean.assetUrl && !asset)) return null;
-  return {
-    ...clean,
-    releaseUrl: release.href,
-    assetUrl: asset ? asset.href : ""
-  };
-}
-
-function normalizedTrackerMeta(value) {
-  const source = value && typeof value === "object" ? value : {};
-  const cursor = Math.max(0, Number(source.watchCursor) || 0);
-  const remaining = Number(source.apiRateLimitRemaining);
-  const limit = Number(source.apiRateLimitLimit);
-  return {
-    ...source,
-    watchCursor: cursor,
-    apiRateLimitRemaining: Number.isFinite(remaining) ? remaining : null,
-    apiRateLimitLimit: Number.isFinite(limit) ? limit : null,
-    apiRateLimitResetAt: typeof source.apiRateLimitResetAt === "string" ? source.apiRateLimitResetAt : null
-  };
-}
-
-async function readTrackerState() {
-  const data = await localGet({
-    [tracker.HISTORY_KEY]: [],
-    [tracker.WATCHES_KEY]: [],
-    [tracker.UPDATES_KEY]: [],
-    [tracker.META_KEY]: {}
+  const trackingService = trackingServiceModule.create({
+    settingsApi,
+    tracker,
+    selector,
+    urlPolicy,
+    trackerState,
+    releaseService,
+    notifications,
+    alarms,
+    navigation
   });
-  return {
-    history: Array.isArray(data[tracker.HISTORY_KEY]) ? data[tracker.HISTORY_KEY].map(trustedDownload).filter(Boolean) : [],
-    watches: Array.isArray(data[tracker.WATCHES_KEY]) ? data[tracker.WATCHES_KEY].map(trustedWatch).filter(Boolean) : [],
-    updates: Array.isArray(data[tracker.UPDATES_KEY]) ? data[tracker.UPDATES_KEY].map(trustedUpdate).filter(Boolean) : [],
-    meta: normalizedTrackerMeta(data[tracker.META_KEY])
-  };
-}
-
-async function writeTrackerState(patch) {
-  const values = {};
-  if (patch.history) values[tracker.HISTORY_KEY] = patch.history;
-  if (patch.watches) values[tracker.WATCHES_KEY] = patch.watches;
-  if (patch.updates) values[tracker.UPDATES_KEY] = patch.updates;
-  if (patch.meta) values[tracker.META_KEY] = patch.meta;
-  if (Object.keys(values).length) await localSet(values);
-}
-
-function downloadFromPayload(payload) {
-  return trustedDownload({
-    ...payload,
-    downloadedAt: payload && payload.downloadedAt || new Date().toISOString()
+  const messageRouter = messageRouterModule.create({
+    messages,
+    authService,
+    releaseService,
+    buildService,
+    trackingService,
+    navigation
   });
-}
 
-async function recordDownload(payload, sender = null) {
-  if (sender && sender.tab && sender.tab.incognito) return { ok: true, incognito: true, watchState: "none" };
-  const download = downloadFromPayload(payload);
-  if (!download) return { ok: false, error: "invalid_download" };
-
-  const settings = await settingsApi.get();
-  const state = await readTrackerState();
-  let history = state.history;
-  let watches = state.watches;
-  let updates = state.updates;
-  if (settings.historyEnabled) history = tracker.addHistory(history, download);
-
-  const existing = watches.find((item) => item.key === download.key);
-  let watchState = "none";
-  if (existing || settings.afterDownload === "always") {
-    const watch = tracker.watchFromDownload(download, existing);
-    watches = tracker.upsertWatch(watches, watch);
-    updates = tracker.removeUpdate(updates, download.key);
-    watchState = "watching";
-  } else if (settings.afterDownload === "ask") {
-    watchState = "prompt";
+  async function initializeBackground() {
+    await storage.restrictLocalStorageToTrustedContexts();
+    await alarms.ensureUpdateAlarm();
+    await notifications.updateBadge();
   }
 
-  await writeTrackerState({ history, watches, updates });
-  await updateBadge(updates, settings);
-  return { ok: true, watchState, download };
-}
-
-async function watchRepository(payload) {
-  const download = downloadFromPayload(payload);
-  if (!download) return { ok: false, error: "invalid_repository" };
-  const state = await readTrackerState();
-  const existing = state.watches.find((item) => item.key === download.key);
-  const watch = tracker.watchFromDownload(download, existing);
-  const watches = tracker.upsertWatch(state.watches, watch);
-  const updates = tracker.removeUpdate(state.updates, download.key);
-  await writeTrackerState({ watches, updates });
-  await updateBadge(updates);
-  await ensureUpdateAlarm();
-  return { ok: true, watch };
-}
-
-async function unwatchRepository(key) {
-  const state = await readTrackerState();
-  const watches = tracker.removeWatch(state.watches, key);
-  const updates = tracker.removeUpdate(state.updates, key);
-  await writeTrackerState({ watches, updates });
-  await updateBadge(updates);
-  return { ok: true };
-}
-
-function updateFromRelease(watch, response) {
-  const release = response.release;
-  const best = response.recommendation && response.recommendation.best;
-  const compatible = Boolean(best && response.recommendation.confidence !== "low");
-  return tracker.sanitizeUpdate({
-    key: watch.key,
-    owner: watch.owner,
-    repo: watch.repo,
-    fromReleaseId: watch.currentReleaseId,
-    fromTag: watch.currentTag,
-    releaseId: release.id,
-    releaseTag: release.tag_name,
-    releaseName: release.name,
-    releaseUrl: release.html_url,
-    releasePublishedAt: release.published_at,
-    releasePrerelease: release.prerelease,
-    assetId: compatible ? best.id : null,
-    assetName: compatible ? best.name : "",
-    assetUrl: compatible ? best.browser_download_url : "",
-    assetExtension: compatible ? (best.extension || selector.detectExtension(best.name)) : "",
-    assetSize: compatible ? best.size : 0,
-    compatibleAssetFound: compatible,
-    detectedAt: new Date().toISOString()
-  });
-}
-
-async function checkAllUpdates(options = {}) {
-  const state = await readTrackerState();
-  const settings = await settingsApi.get();
-  if (!settings.enabled) {
-    return { ok: true, disabled: true, detected: [], errors: [], watches: state.watches, updates: state.updates, meta: state.meta };
-  }
-
-  const now = Date.now();
-  const resetTime = Date.parse(state.meta.apiRateLimitResetAt || "");
-  if (state.meta.apiRateLimitRemaining === 0 && Number.isFinite(resetTime) && resetTime > now) {
-    return {
-      ok: true,
-      rateLimited: true,
-      detected: [],
-      errors: [{ error: "rate_limited", resetAt: state.meta.apiRateLimitResetAt }],
-      watches: state.watches,
-      updates: state.updates,
-      meta: state.meta
-    };
-  }
-
-  let watches = state.watches.slice();
-  let updates = state.updates.slice();
-  const detected = [];
-  const errors = [];
-  const total = watches.length;
-  const startCursor = total ? Math.min(state.meta.watchCursor % total, total - 1) : 0;
-  const targetCount = Math.min(UPDATE_BATCH_SIZE, total);
-  let processed = 0;
-  let lastRateLimit = null;
-
-  for (let offset = 0; offset < targetCount; offset += 1) {
-    const index = (startCursor + offset) % total;
-    const watch = watches[index];
-    let response;
-    try {
-      response = await getRelease(watch.owner, watch.repo, watch.platform, watch.releaseChannel, {
-        force: true,
-        etag: watch.etag
+  extensionApi.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    const operation = messageRouter.route(message, sender);
+    if (!operation) return false;
+    Promise.resolve(operation)
+      .then(sendResponse)
+      .catch((error) => {
+        console.error("GitHub Download Now:", error);
+        sendResponse({ ok: false, error: "internal_error" });
       });
-    } catch (_error) {
-      errors.push({ key: watch.key, error: "network_error" });
-      processed += 1;
-      continue;
-    }
-
-    processed += 1;
-    if (response.rateLimit) lastRateLimit = response.rateLimit;
-    const checkedAt = new Date().toISOString();
-
-    if (response.notModified) {
-      watches[index] = trustedWatch({ ...watch, lastCheckedAt: checkedAt }) || watch;
-    } else if (!response.ok) {
-      errors.push({ key: watch.key, error: response.error, resetAt: response.resetAt || null });
-      watches[index] = trustedWatch({ ...watch, lastCheckedAt: checkedAt }) || watch;
-      if (response.error === "rate_limited") break;
-    } else {
-      const release = response.release;
-      const oldPending = updates.find((item) => item.key === watch.key);
-      const isDifferentFromCurrent = Number(release.id) !== Number(watch.currentReleaseId);
-      const isNewDetection = isDifferentFromCurrent && (!oldPending || Number(oldPending.releaseId) !== Number(release.id));
-
-      watches[index] = trustedWatch({
-        ...watch,
-        lastCheckedReleaseId: release.id,
-        lastCheckedTag: release.tag_name,
-        lastCheckedAt: checkedAt,
-        etag: response.etag || watch.etag || "",
-        lastNotifiedReleaseId: isNewDetection ? release.id : watch.lastNotifiedReleaseId,
-        updatedAt: checkedAt
-      }) || watch;
-
-      if (isDifferentFromCurrent) {
-        const pending = trustedUpdate(updateFromRelease(watch, response));
-        if (pending) {
-          updates = tracker.upsertUpdate(updates, pending);
-          if (isNewDetection) detected.push(pending);
-        }
-      } else {
-        updates = tracker.removeUpdate(updates, watch.key);
-      }
-    }
-
-    if (lastRateLimit && Number.isFinite(lastRateLimit.remaining) && lastRateLimit.remaining <= 1) break;
-  }
-
-  const nextCursor = total ? (startCursor + processed) % total : 0;
-  const completedCycle = total === 0 || processed >= total;
-  const meta = normalizedTrackerMeta({
-    ...state.meta,
-    watchCursor: nextCursor,
-    lastCheckAt: new Date().toISOString(),
-    lastCheckSource: options.manual ? "manual" : "alarm",
-    lastCheckErrors: errors.length,
-    lastCheckErrorDetails: errors.slice(0, 10),
-    lastCheckChecked: processed,
-    lastCheckTotal: total,
-    lastCheckComplete: completedCycle,
-    apiRateLimitLimit: lastRateLimit && lastRateLimit.limit,
-    apiRateLimitRemaining: lastRateLimit && lastRateLimit.remaining,
-    apiRateLimitResetAt: lastRateLimit && lastRateLimit.resetAt
+    return true;
   });
 
-  await writeTrackerState({ watches, updates, meta });
-  await updateBadge(updates, settings);
-  if (detected.length) await notifyUpdates(detected, settings);
-  return { ok: true, detected, errors, watches, updates, meta, checked: processed, total };
-}
-
-async function dismissUpdate(key) {
-  const state = await readTrackerState();
-  const update = state.updates.find((item) => item.key === key);
-  if (!update) return { ok: false, error: "update_not_found" };
-  const watches = state.watches.map((item) => item.key === key ? tracker.sanitizeWatch({
-    ...item,
-    currentReleaseId: update.releaseId,
-    currentTag: update.releaseTag,
-    currentPublishedAt: update.releasePublishedAt,
-    lastCheckedReleaseId: update.releaseId,
-    lastCheckedTag: update.releaseTag,
-    updatedAt: new Date().toISOString()
-  }) : item);
-  const updates = tracker.removeUpdate(state.updates, key);
-  await writeTrackerState({ watches, updates });
-  await updateBadge(updates);
-  return { ok: true };
-}
-
-async function downloadUpdate(key) {
-  const state = await readTrackerState();
-  const update = state.updates.find((item) => item.key === key);
-  const watch = state.watches.find((item) => item.key === key);
-  if (!update || !watch || !update.assetUrl) return { ok: false, error: "asset_not_found" };
-
-  const download = trustedDownload({
-    owner: update.owner,
-    repo: update.repo,
-    releaseId: update.releaseId,
-    releaseTag: update.releaseTag,
-    releaseName: update.releaseName,
-    releaseUrl: update.releaseUrl,
-    releasePublishedAt: update.releasePublishedAt,
-    releasePrerelease: update.releasePrerelease,
-    assetId: update.assetId,
-    assetName: update.assetName,
-    assetUrl: update.assetUrl,
-    assetExtension: update.assetExtension,
-    assetSize: update.assetSize,
-    platform: watch.platform,
-    releaseChannel: watch.releaseChannel,
-    downloadedAt: new Date().toISOString()
-  });
-
-  if (!download) return { ok: false, error: "untrusted_url" };
-  const settings = await settingsApi.get();
-  const history = settings.historyEnabled ? tracker.addHistory(state.history, download) : state.history;
-  const watches = tracker.upsertWatch(state.watches, tracker.watchFromDownload(download, watch));
-  const updates = tracker.removeUpdate(state.updates, key);
-  await writeTrackerState({ history, watches, updates });
-  await updateBadge(updates, settings);
-  const trustedAsset = urlPolicy.download(update.assetUrl, update.owner, update.repo);
-  if (!trustedAsset) return { ok: false, error: "untrusted_url" };
-  await openTab(trustedAsset.href);
-  return { ok: true };
-}
-
-async function getDashboard() {
-  const state = await readTrackerState();
-  return {
-    ok: true,
-    history: state.history,
-    watches: state.watches,
-    updates: state.updates,
-    meta: state.meta,
-    limits: { history: tracker.MAX_HISTORY, watches: tracker.MAX_WATCHES }
-  };
-}
-
-async function clearHistory() {
-  await writeTrackerState({ history: [] });
-  return { ok: true };
-}
-
-async function clearTracking() {
-  await writeTrackerState({ watches: [], updates: [] });
-  await updateBadge([]);
-  return { ok: true };
-}
-
-function hasNotificationPermission() {
-  return browserApi.permissions.contains({ permissions: ["notifications"] });
-}
-
-function createNotification(id, options) {
-  return browserApi.notifications.create(id, options);
-}
-
-async function notifyUpdates(updates, settings) {
-  if (!settings.notificationsEnabled || !updates.length || !(await hasNotificationPermission())) return;
-  const tr = i18n.create(settings.language);
-  const t = tr.t;
-  const iconUrl = extensionApi.runtime.getURL("icons/icon-128.png");
-  if (updates.length === 1) {
-    const update = updates[0];
-    const assetText = update.compatibleAssetFound ? update.assetName : t("notificationNoAsset");
-    await createNotification(`${NOTIFICATION_PREFIX}${encodeURIComponent(update.key)}`, {
-      type: "basic",
-      iconUrl,
-      title: `${update.repo} ${update.releaseTag || t("notificationNewRelease")}`,
-      message: `${update.fromTag || t("notificationPreviousRelease")} → ${update.releaseTag || t("notificationNewReleaseLabel")}
-${assetText}`
+  if (extensionApi.alarms?.onAlarm) {
+    extensionApi.alarms.onAlarm.addListener((alarm) => {
+      if (alarms.isUpdateAlarm(alarm)) trackingService.checkAllUpdates({ manual: false }).catch(console.error);
     });
-    return;
-  }
-  const names = updates.slice(0, 3).map((item) => item.repo).join(", ");
-  const extra = updates.length > 3 ? ` +${updates.length - 3}` : "";
-  await createNotification(SUMMARY_NOTIFICATION, {
-    type: "basic",
-    iconUrl,
-    title: t("notificationUpdatesAvailable", [updates.length]),
-    message: `${names}${extra}`
-  });
-}
-
-async function updateBadge(updatesArg = null, settingsArg = null) {
-  const action = extensionApi.action || extensionApi.browserAction;
-  if (!action || !action.setBadgeText) return;
-  const settings = settingsArg || await settingsApi.get();
-  const tr = i18n.create(settings.language);
-  const updates = updatesArg || (await readTrackerState()).updates;
-  const text = settings.enabled && settings.badgeEnabled && updates.length ? String(Math.min(updates.length, 99)) : "";
-  const title = updates.length
-    ? tr.t(tr.pluralCategory(updates.length) === "one" ? "notificationBadgeOne" : "notificationBadgeOther", [updates.length])
-    : tr.t("extensionName");
-  try {
-    await action.setBadgeText({ text });
-    if (action.setBadgeBackgroundColor) await action.setBadgeBackgroundColor({ color: "#1f883d" });
-    if (action.setTitle) await action.setTitle({ title });
-  } catch (_error) {}
-}
-
-
-async function openOptionsPage() {
-  try {
-    await browserApi.runtime.openOptionsPage();
-    return { ok: true };
-  } catch (_error) {}
-  const url = extensionApi.runtime.getURL("options.html");
-  try {
-    await browserApi.tabs.create(url);
-    return { ok: true, fallback: true };
-  } catch (_error) {
-    return { ok: false, error: "options_unavailable" };
-  }
-}
-
-async function openTab(value) {
-  const trusted = urlPolicy && urlPolicy.repositoryWebUrl(value);
-  if (!trusted) return { ok: false, error: "untrusted_url" };
-  await browserApi.tabs.create(trusted.href);
-  return { ok: true };
-}
-
-function getAlarm(name) {
-  return browserApi.alarms.get(name);
-}
-
-function clearAlarm(name) {
-  return browserApi.alarms.clear(name);
-}
-
-function createAlarm(name, alarmInfo) {
-  return browserApi.alarms.create(name, alarmInfo);
-}
-
-async function ensureUpdateAlarm() {
-  if (!extensionApi.alarms || !extensionApi.alarms.create) return;
-  const settings = await settingsApi.get();
-  const periodInMinutes = settings.enabled ? INTERVAL_MINUTES[settings.updateCheckInterval] : 0;
-  const existing = await getAlarm(UPDATE_ALARM);
-
-  if (!periodInMinutes) {
-    if (existing) await clearAlarm(UPDATE_ALARM);
-    return;
   }
 
-  if (existing && Number(existing.periodInMinutes) === periodInMinutes) return;
-  if (existing) await clearAlarm(UPDATE_ALARM);
-  await createAlarm(UPDATE_ALARM, { delayInMinutes: Math.min(5, periodInMinutes), periodInMinutes });
-}
-
-async function initializeBackground() {
-  await restrictLocalStorageToTrustedContexts();
-  await ensureUpdateAlarm();
-  await updateBadge();
-}
-
-extensionApi.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (!message || typeof message.type !== "string") return false;
-  if (messages.isAuthType(message.type) && !trustedExtensionSender(sender)) {
-    sendResponse({ ok: false, error: "unauthorized_sender" });
-    return false;
+  if (extensionApi.runtime.onInstalled) {
+    extensionApi.runtime.onInstalled.addListener(() => initializeBackground().catch(console.error));
   }
-  let operation;
-  switch (message.type) {
-    case messages.TYPES.GET_LATEST_RELEASE:
-      operation = getRelease(message.owner, message.repo, message.platform, message.releaseChannel);
-      break;
-    case messages.TYPES.GET_RELEASE_BY_TAG:
-      operation = getReleaseByTag(message.owner, message.repo, message.tag, message.platform);
-      break;
-    case messages.TYPES.GET_BUILD_INSTRUCTIONS:
-      operation = getBuildInstructions(message.owner, message.repo, message.ref, message.platform);
-      break;
-    case messages.TYPES.AUTH_STATUS:
-      operation = publicGitHubAuthStatus({ refresh: Boolean(message.refresh) });
-      break;
-    case messages.TYPES.AUTH_START:
-      operation = startGitHubAuthorization();
-      break;
-    case messages.TYPES.AUTH_POLL:
-      operation = pollGitHubAuthorization();
-      break;
-    case messages.TYPES.AUTH_DISCONNECT:
-      operation = disconnectGitHubAuthorization();
-      break;
-    case messages.TYPES.RECORD_DOWNLOAD:
-      operation = recordDownload(message.download, sender);
-      break;
-    case messages.TYPES.WATCH_REPOSITORY:
-      operation = watchRepository(message.download);
-      break;
-    case messages.TYPES.UNWATCH_REPOSITORY:
-      operation = unwatchRepository(message.key);
-      break;
-    case messages.TYPES.GET_DASHBOARD:
-      operation = getDashboard();
-      break;
-    case messages.TYPES.CHECK_UPDATES:
-      operation = checkAllUpdates({ manual: true });
-      break;
-    case messages.TYPES.DISMISS_UPDATE:
-      operation = dismissUpdate(message.key);
-      break;
-    case messages.TYPES.DOWNLOAD_UPDATE:
-      operation = downloadUpdate(message.key);
-      break;
-    case messages.TYPES.OPEN_URL:
-      operation = openTab(message.url);
-      break;
-    case messages.TYPES.OPEN_OPTIONS:
-      operation = openOptionsPage();
-      break;
-    case messages.TYPES.CLEAR_HISTORY:
-      operation = clearHistory();
-      break;
-    case messages.TYPES.CLEAR_TRACKING:
-      operation = clearTracking();
-      break;
-    default:
-      return false;
+  if (extensionApi.runtime.onStartup) {
+    extensionApi.runtime.onStartup.addListener(() => initializeBackground().catch(console.error));
   }
 
-  Promise.resolve(operation)
-    .then(sendResponse)
-    .catch((error) => {
-      console.error("GitHub Download Now:", error);
-      sendResponse({ ok: false, error: "internal_error" });
+  if (extensionApi.storage?.onChanged) {
+    extensionApi.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName === "local" && githubAuth && changes[githubAuth.STORAGE_KEY]) githubClient.invalidateAuthCache();
+      if (areaName !== "sync") return;
+      if (changes.updateCheckInterval || changes.enabled) alarms.ensureUpdateAlarm().catch(console.error);
+      if (changes.badgeEnabled || changes.enabled) notifications.updateBadge().catch(console.error);
     });
-  return true;
-});
+  }
 
-if (extensionApi.alarms && extensionApi.alarms.onAlarm) {
-  extensionApi.alarms.onAlarm.addListener((alarm) => {
-    if (alarm && alarm.name === UPDATE_ALARM) checkAllUpdates({ manual: false }).catch(console.error);
+  if (extensionApi.notifications?.onClicked) {
+    extensionApi.notifications.onClicked.addListener((notificationId) => {
+      notifications.handleNotificationClick(notificationId).catch(console.error);
+    });
+  }
+
+  const app = Object.freeze({
+    storage,
+    githubClient,
+    releaseService,
+    buildService,
+    navigation,
+    authService,
+    trackerState,
+    alarms,
+    notifications,
+    trackingService,
+    messageRouter,
+    initializeBackground
   });
-}
+  root.GHDNBackgroundApp = app;
+  if (typeof module !== "undefined" && module.exports) module.exports = app;
 
-if (extensionApi.runtime.onInstalled) extensionApi.runtime.onInstalled.addListener(() => initializeBackground().catch(console.error));
-if (extensionApi.runtime.onStartup) extensionApi.runtime.onStartup.addListener(() => initializeBackground().catch(console.error));
-
-if (extensionApi.storage && extensionApi.storage.onChanged) {
-  extensionApi.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName === "local" && githubAuth && changes[githubAuth.STORAGE_KEY]) githubAuthCache = undefined;
-    if (areaName !== "sync") return;
-    if (changes.updateCheckInterval || changes.enabled) ensureUpdateAlarm().catch(console.error);
-    if (changes.badgeEnabled || changes.enabled) updateBadge().catch(console.error);
-  });
-}
-
-if (extensionApi.notifications && extensionApi.notifications.onClicked) {
-  extensionApi.notifications.onClicked.addListener((notificationId) => {
-    if (notificationId === SUMMARY_NOTIFICATION) {
-      const url = extensionApi.runtime.getURL("popup.html#updates");
-      browserApi.tabs.create(url).catch(console.error);
-      return;
-    }
-    if (!notificationId.startsWith(NOTIFICATION_PREFIX)) return;
-    const key = decodeURIComponent(notificationId.slice(NOTIFICATION_PREFIX.length));
-    readTrackerState().then((state) => {
-      const update = state.updates.find((item) => item.key === key);
-      if (update) return openTab(update.releaseUrl);
-    }).catch(console.error);
-  });
-}
-
-initializeBackground().catch(console.error);
+  initializeBackground().catch(console.error);
+})(typeof globalThis !== "undefined" ? globalThis : this);

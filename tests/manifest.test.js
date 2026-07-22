@@ -7,6 +7,23 @@ const path = require("node:path");
 const root = path.join(__dirname, "..");
 const packageJson = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
 
+const backgroundModules = [
+  "background/storage.js",
+  "background/github-client.js",
+  "background/release-service.js",
+  "background/build-service.js",
+  "background/navigation.js",
+  "background/auth-service.js",
+  "background/tracker-state.js",
+  "background/alarms.js",
+  "background/notifications.js",
+  "background/tracking-service.js",
+  "background/message-router.js",
+];
+
+const backgroundEntry = fs.readFileSync(path.join(root, "src", "background.js"), "utf8");
+for (const backgroundModule of backgroundModules) assert.ok(backgroundEntry.includes(`"${backgroundModule}"`));
+
 for (const file of ["manifest.chromium.json", "manifest.firefox.json"]) {
   const manifest = JSON.parse(fs.readFileSync(path.join(root, "src", file), "utf8"));
   assert.equal(manifest.manifest_version, 3);
@@ -76,6 +93,12 @@ for (const file of ["manifest.chromium.json", "manifest.firefox.json"]) {
     ]);
     assert.ok(manifest.background.scripts.indexOf("build-instructions.js") < manifest.background.scripts.indexOf("background.js"));
     assert.ok(manifest.background.scripts.indexOf("github-auth.js") < manifest.background.scripts.indexOf("background.js"));
+    assert.deepEqual(manifest.background.scripts.slice(-(backgroundModules.length + 1)), [
+      ...backgroundModules,
+      "background.js"
+    ]);
+  } else {
+    assert.equal(manifest.background.service_worker, "background.js");
   }
 }
 

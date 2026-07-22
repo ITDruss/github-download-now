@@ -16,6 +16,9 @@ Read [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) before changing runtime m
 
 Content-page changes must respect the current module boundaries: repository parsing in `src/content/repository-context.js`, GitHub DOM knowledge in `src/content/github-dom.js`, mount selection in `src/content/placement.js`, page state in `src/content/state.js`, trusted HTML requests in `src/content/page-client.js`, release parsing/loading in `src/content/release/`, navigation/observer ownership in `src/content/lifecycle.js`, platform classification in `src/content/platform.js`, and reusable presentation in `src/content/ui/`. `src/content.js` is only the composition root. Component styles belong in `src/styles/`; do not recreate a monolithic `styles.css` or add duplicate route parsers, GitHub selector sets, page fetchers, release caches or observers.
 
+
+Background changes must respect the service boundaries in `src/background/`: GitHub GET requests in `github-client.js`, release normalization in `release-service.js`, build-document discovery in `build-service.js`, OAuth Device Flow in `auth-service.js`, stored tracker sanitization in `tracker-state.js`, alarm ownership in `alarms.js`, notification/badge behavior in `notifications.js`, tracking operations in `tracking-service.js`, and runtime dispatch in `message-router.js`. `src/background.js` is only the composition root; do not add service algorithms back to it.
+
 ## Translations
 
 Translations live in `src/_locales/<locale>/messages.json`. See [`docs/TRANSLATING.md`](../docs/TRANSLATING.md) for the complete workflow. Do not add user-facing strings directly to JavaScript when a locale message can be used.

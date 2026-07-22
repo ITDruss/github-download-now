@@ -52,8 +52,30 @@ for (const match of lockText.matchAll(/"resolved"\s*:\s*"(https:[^"]+)"/g)) {
   assert(resolved.hostname === "registry.npmjs.org", `package-lock.json contains a non-public npm registry: ${resolved.hostname}`);
 }
 
+const backgroundModules = Object.freeze([
+  "background/storage.js",
+  "background/github-client.js",
+  "background/release-service.js",
+  "background/build-service.js",
+  "background/navigation.js",
+  "background/auth-service.js",
+  "background/tracker-state.js",
+  "background/alarms.js",
+  "background/notifications.js",
+  "background/tracking-service.js",
+  "background/message-router.js",
+]);
+
 const actual = await listFiles(source);
 assert(JSON.stringify(actual) === JSON.stringify([...ALLOWED_SOURCE_FILES].sort()), "src/ contains unexpected or missing files");
+
+const backgroundEntry = await readFile(path.join(source, "background.js"), "utf8");
+assert(backgroundEntry.split(/\r?\n/).length <= 250, "background.js must remain a small composition root");
+assert(!/async function getRelease\b/.test(backgroundEntry), "Release service logic must not return to background.js");
+assert(!/async function checkAllUpdates\b/.test(backgroundEntry), "Update tracking logic must not return to background.js");
+for (const backgroundModule of backgroundModules) {
+  assert(backgroundEntry.includes(`"${backgroundModule}"`), `background.js must import ${backgroundModule} for Chromium`);
+}
 
 for (const manifest of [chromium, firefox]) {
   assert(manifest.manifest_version === 3, "Manifest V3 is required");
@@ -112,6 +134,12 @@ for (const manifest of [chromium, firefox]) {
       "i18n-catalogs.js", "i18n.js", "settings.js"
     ]), "Shared contracts, browser adapter, locales and settings must load first in Firefox background scripts");
     assert(manifest.background.scripts.indexOf("github-auth.js") < manifest.background.scripts.indexOf("background.js"), "GitHub auth helpers must load before background.js");
+    assert(JSON.stringify(manifest.background.scripts.slice(-(backgroundModules.length + 1))) === JSON.stringify([
+      ...backgroundModules,
+      "background.js"
+    ]), "Firefox background modules must load in the documented dependency order");
+  } else {
+    assert(manifest.background?.service_worker === "background.js", "Chromium must use background.js as the service-worker composition root");
   }
 }
 

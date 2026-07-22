@@ -25,6 +25,17 @@
       "tracker.js",
       "build-instructions.js",
       "github-auth.js",
+      "background/storage.js",
+      "background/github-client.js",
+      "background/release-service.js",
+      "background/build-service.js",
+      "background/navigation.js",
+      "background/auth-service.js",
+      "background/tracker-state.js",
+      "background/alarms.js",
+      "background/notifications.js",
+      "background/tracking-service.js",
+      "background/message-router.js",
       "background.js"
     ]
   },
