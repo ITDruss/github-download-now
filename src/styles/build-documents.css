@@ -1,0 +1,90 @@
+/* Source archives and build documentation */
+.ghdn-source-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 4px;
+  padding: 0 2px 3px;
+}
+
+.ghdn-source-actions > .ghdn-source-link {
+  min-width: 0;
+}
+
+.ghdn-build-docs {
+  margin: 4px 4px 6px;
+  padding: 9px;
+  border: 1px solid var(--borderColor-muted, var(--color-border-muted, #d8dee4));
+  border-radius: 9px;
+  background: var(--bgColor-muted, var(--color-canvas-subtle, #f6f8fa));
+}
+
+.ghdn-build-docs[hidden] {
+  display: none !important;
+}
+
+.ghdn-build-docs-heading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 6px;
+  color: var(--fgColor-default, var(--color-fg-default, #1f2328));
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ghdn-build-docs-links {
+  display: grid;
+  gap: 3px;
+}
+
+.ghdn-build-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 3px 0;
+  color: var(--fgColor-muted, var(--color-fg-muted, #656d76));
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.ghdn-build-status-warning {
+  color: var(--fgColor-attention, #9a6700);
+}
+
+.ghdn-build-status-error {
+  color: var(--fgColor-danger, #cf222e);
+}
+
+.ghdn-build-doc-link {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 6px 7px;
+  border-radius: 7px;
+  color: var(--fgColor-accent, var(--color-accent-fg, #0969da));
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.ghdn-build-doc-link span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ghdn-build-doc-link:hover {
+  background: var(--control-transparent-bgColor-hover, var(--color-action-list-item-default-hover-bg, rgba(208, 215, 222, 0.32)));
+  text-decoration: underline;
+}
+
+.ghdn-build-doc-link:focus-visible {
+  outline: 2px solid var(--focus-outlineColor, #54aeff);
+  outline-offset: 1px;
+}
+
+@media (max-width: 520px) {
+  .ghdn-source-actions {
+    grid-template-columns: 1fr;
+  }
+}

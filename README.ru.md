@@ -6,6 +6,25 @@ GitHub Download Now — открытое расширение для Chromium и
 
 ![GitHub Download Now](assets/social-preview.png)
 
+<p align="center">
+  <a href="https://addons.mozilla.org/en-US/firefox/addon/github-download-now/">
+    <img
+      alt="Установить GitHub Download Now из Firefox Add-ons"
+      src="https://img.shields.io/amo/v/github-download-now?label=Firefox%20Add-ons&logo=firefoxbrowser"
+    >
+  </a>
+</p>
+
+## Установка
+
+### Firefox
+
+**[Установить GitHub Download Now из Firefox Add-ons →](https://addons.mozilla.org/en-US/firefox/addon/github-download-now/)**
+
+Официальная подписанная сборка доступна для настольного Firefox и Firefox для Android там, где поддерживаются дополнения.
+
+Для распакованных сборок разработчика см. раздел [Установка для разработки](#установка-для-разработки).
+
 ## Основные возможности
 
 - Определяет файлы для Windows, Linux, macOS и Android.
@@ -63,7 +82,13 @@ GitHub Download Now — открытое расширение для Chromium и
 3. Нажать **Загрузить временное дополнение**.
 4. Выбрать `manifest.json`.
 
-Для постоянной установки Firefox требуется подпись Mozilla AMO.
+Описанная выше временная установка предназначена для разработки. Для обычного использования установите подписанную сборку из [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/github-download-now/).
+
+## Языки
+
+Расширение поставляется с английской и русской локалями. Тексты интерфейса используют стандартный формат WebExtensions `_locales`, а неподдерживаемые языки браузера переключаются на английский.
+
+Чтобы добавить перевод, не требуется изменять логику приложения: достаточно скопировать английский каталог, перевести значения `message` и запустить проверку локалей. Подробности — в [инструкции для переводчиков](docs/TRANSLATING.md).
 
 ## Разработка
 
@@ -76,7 +101,7 @@ npm ci --ignore-scripts
 npm run verify
 ```
 
-`npm run verify` запускает проверку структуры проекта, ESLint, unit-тесты, проверку воспроизводимости архивов и Firefox lint. Полные UI-тесты:
+`npm run verify` запускает проверку локалей и проекта, контроль архитектурных границ, ESLint, автоматически обнаруживаемые unit-тесты, проверку синтаксиса JavaScript, воспроизводимости архивов и Firefox lint. Полные UI-тесты:
 
 ```bash
 python3 -m venv .venv-ui
@@ -112,6 +137,8 @@ gh attestation verify github-download-now-chromium-v1.1.0.zip -R ITDruss/github-
 ## Участие в разработке
 
 Особенно полезны примеры неверной рекомендации. Укажите URL публичного репозитория, определённую платформу, выбранный файл и ожидаемый вариант.
+
+Перед изменением кода прочитайте [правила участия](.github/CONTRIBUTING.md), [карту задач для разработчика](docs/DEVELOPMENT.md) и [описание архитектуры](docs/ARCHITECTURE.md). Для PR только с переводом есть отдельная [инструкция по локализации](docs/TRANSLATING.md).
 
 ## Отказ от аффилированности
 

@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import os
 from playwright.sync_api import sync_playwright
 
@@ -9,30 +10,18 @@ OUTPUTS = ROOT / "test-results" / "ui-smoke"
 OUTPUTS.mkdir(parents=True, exist_ok=True)
 
 html = DEMO.read_text(encoding="utf-8")
-html = html.replace(
-    '<link rel="stylesheet" href="../../src/styles.css">',
-    f'<style>{(ROOT / "src" / "styles.css").read_text(encoding="utf-8")}</style>'
-)
-html = html.replace(
-    '<script src="../../src/settings.js"></script>',
-    f'<script>{(ROOT / "src" / "settings.js").read_text(encoding="utf-8")}</script>'
-)
-html = html.replace(
-    '<script src="../../src/url-policy.js"></script>',
-    f'<script>{(ROOT / "src" / "url-policy.js").read_text(encoding="utf-8")}</script>'
-)
-html = html.replace(
-    '<script src="../../src/asset-selector.js"></script>',
-    f'<script>{(ROOT / "src" / "asset-selector.js").read_text(encoding="utf-8")}</script>'
-)
-html = html.replace(
-    '<script src="../../src/install-guides.js"></script>',
-    f'<script>{(ROOT / "src" / "install-guides.js").read_text(encoding="utf-8")}</script>'
-)
-html = html.replace(
-    '<script src="../../src/content.js"></script>',
-    f'<script>{(ROOT / "src" / "content.js").read_text(encoding="utf-8")}</script>'
-)
+manifest = json.loads((ROOT / "src" / "manifest.chromium.json").read_text(encoding="utf-8"))
+content_definition = manifest["content_scripts"][0]
+for relative in content_definition["css"]:
+    html = html.replace(
+        f'<link rel="stylesheet" href="../../src/{relative}">',
+        f'<style>{(ROOT / "src" / relative).read_text(encoding="utf-8")}</style>'
+    )
+for relative in content_definition["js"]:
+    html = html.replace(
+        f'<script src="../../src/{relative}"></script>',
+        f'<script>{(ROOT / "src" / relative).read_text(encoding="utf-8")}</script>'
+    )
 
 cases = [
     ("ru-RU", "Рекомендуется", "Подходит для вашего устройства", OUTPUTS / "screenshot-recommended-ru.png"),
@@ -94,6 +83,20 @@ with sync_playwright() as p:
         )
         assert namespaces and all(value == "http://www.w3.org/2000/svg" for value in namespaces)
         context.close()
+
+    # A manual language choice overrides the browser UI language.
+    context = browser.new_context(viewport={"width": 1280, "height": 800}, locale="ru-RU", device_scale_factor=1)
+    page = context.new_page()
+    manual_english_html = html.replace("const storedSettings = {};", 'const storedSettings = {language:"en"};')
+    page.set_content(manual_english_html, wait_until="load")
+    page.wait_for_selector("#ghdn-root")
+    page.hover(".ghdn-button-group")
+    page.wait_for_function("document.querySelector('.ghdn-primary-title-full')?.textContent.includes('AppImage')")
+    page.click("[data-role='menu']")
+    page.wait_for_selector("#ghdn-menu:not([hidden])")
+    assert page.locator(".ghdn-badge").first.text_content() == "Recommended"
+    assert page.locator(".ghdn-section-heading").first.text_content().strip() == "Suitable for your device"
+    context.close()
 
     # GitHub row-reverse toolbar: visual placement is to the right of Star,
     # while Fork and Star split groups remain untouched.
