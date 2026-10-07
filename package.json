@@ -8,13 +8,13 @@
     "test:unit": "node scripts/run-node-tests.mjs",
     "test": "npm run validate && npm run lint && npm run test:unit && npm run check:syntax",
     "build": "node scripts/build.mjs",
-    "package": "npm run build && python3 scripts/package.py",
-    "ui-test": "python3 tests/ui_smoke.py",
-    "settings-ui-test": "python3 tests/settings_ui_smoke.py",
+    "package": "npm run build && python scripts/package.py",
+    "ui-test": "python tests/ui_smoke.py",
+    "settings-ui-test": "python tests/settings_ui_smoke.py",
     "test:ui": "npm run ui-test && npm run settings-ui-test",
     "verify": "npm test && npm run verify:reproducible && npm run lint:firefox",
-    "lint:firefox": "web-ext lint --source-dir dist/firefox --warnings-as-errors",
-    "verify:reproducible": "python3 scripts/verify-reproducible.py",
+    "lint:firefox": "addons-linter dist/firefox --warnings-as-errors",
+    "verify:reproducible": "python scripts/verify-reproducible.py",
     "lint": "eslint .",
     "i18n:generate": "node scripts/generate-locales.mjs",
     "i18n:check": "node scripts/generate-locales.mjs --check",
@@ -22,21 +22,15 @@
     "check:architecture": "node scripts/check-architecture.mjs"
   },
   "engines": {
-    "node": ">=20"
+    "node": "^20.19.0 || ^22.13.0 || >=24"
   },
   "license": "MIT",
   "devDependencies": {
-    "eslint": "10.7.0",
-    "globals": "17.7.0",
-    "web-ext": "10.5.0"
+    "eslint": "10.12.0",
+    "globals": "17.13.0",
+    "addons-linter": "10.13.0"
   },
   "overrides": {
-    "firefox-profile": {
-      "adm-zip": "0.6.0"
-    },
-    "fx-runner": {
-      "shell-quote": "1.10.0"
-    },
-    "fast-uri": "3.1.4"
+    "fast-uri": "3.1.8"
   }
 }

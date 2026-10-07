@@ -33,9 +33,9 @@ for (const [name, version] of [
   assert(version === packageJson.version, `${name} version ${version} does not match ${packageJson.version}`);
 }
 assert(packageJson.private === true, "The npm package must remain private");
-assert(packageJson.devDependencies?.["web-ext"] === "10.5.0", "web-ext must be pinned exactly");
-assert(packageJson.devDependencies?.eslint === "10.7.0", "ESLint must be pinned exactly");
-assert(packageJson.devDependencies?.globals === "17.7.0", "ESLint globals must be pinned exactly");
+assert(packageJson.devDependencies?.["addons-linter"] === "10.13.0", "Mozilla Add-ons Linter must be pinned exactly");
+assert(packageJson.devDependencies?.eslint === "10.12.0", "ESLint must be pinned exactly");
+assert(packageJson.devDependencies?.globals === "17.13.0", "ESLint globals must be pinned exactly");
 for (const script of [
   "lint:firefox", "verify:reproducible", "verify", "i18n:generate", "i18n:check",
   "check:architecture", "check:syntax", "test:unit"

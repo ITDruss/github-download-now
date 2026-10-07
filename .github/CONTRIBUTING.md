@@ -4,7 +4,7 @@ Thanks for helping improve GitHub Download Now.
 
 ## Development
 
-1. Install Node.js 20 or newer and Python 3.13.
+1. Install Node.js 20.19+, 22.13+ or 24+ and Python 3.13.
 2. Run `npm ci --ignore-scripts`.
 3. Run `npm run verify` for validation, linting, unit tests, reproducible builds and Firefox lint.
 4. For UI changes, install Playwright from `requirements-dev.txt` and run `npm run test:ui`.

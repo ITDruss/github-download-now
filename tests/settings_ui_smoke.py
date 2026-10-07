@@ -74,7 +74,7 @@ with sync_playwright() as p:
         launch_options["executable_path"] = chromium_path
     browser = p.chromium.launch(**launch_options)
 
-    context = browser.new_context(viewport={"width": 380, "height": 560}, locale="ru-RU")
+    context = browser.new_context(user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/149.0.0.0 Safari/537.36", viewport={"width": 380, "height": 560}, locale="ru-RU")
     page = context.new_page()
     page.set_content(inline_page("popup.html", "popup.css"), wait_until="load")
     page.wait_for_function("document.querySelector('#preferredFormat')?.value === 'deb'")
@@ -89,7 +89,7 @@ with sync_playwright() as p:
     page.screenshot(path=str(OUTPUTS / "popup-settings-ru.png"), full_page=True)
     context.close()
 
-    context = browser.new_context(viewport={"width": 1280, "height": 800}, locale="ru-RU")
+    context = browser.new_context(user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/149.0.0.0 Safari/537.36", viewport={"width": 1280, "height": 800}, locale="ru-RU")
     page = context.new_page()
     page.set_content(inline_page("options.html", "options.css"), wait_until="load")
     page.wait_for_function("document.querySelector('#preferredLinux')?.value === 'deb'")
@@ -109,7 +109,7 @@ with sync_playwright() as p:
     assert page.locator("#githubAuthConnected").is_hidden()
     context.close()
 
-    context = browser.new_context(viewport={"width": 1280, "height": 800}, locale="ru-RU")
+    context = browser.new_context(user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/149.0.0.0 Safari/537.36", viewport={"width": 1280, "height": 800}, locale="ru-RU")
     page = context.new_page()
     english_options = inline_page("options.html", "options.css").replace('language:"ru"', 'language:"en"')
     page.set_content(english_options, wait_until="load")

@@ -96,7 +96,7 @@ The exact reviewer-oriented build procedure is documented in [BUILDING.md](BUILD
 
 Requirements:
 
-- Node.js 20 or newer;
+- Node.js 20.19+, 22.13+ or 24+;
 - Python 3.13 for UI tests;
 - Playwright from `requirements-dev.txt`.
 

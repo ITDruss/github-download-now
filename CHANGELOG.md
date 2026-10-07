@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Update development dependencies and use Mozilla Add-ons Linter directly for Firefox validation, removing unused Android runner dependencies.
+- Make Python packaging commands and locale validation work on Windows.
+
 All notable changes to this project are documented here.
 
 ## [1.2.0] - 2026-07-22
