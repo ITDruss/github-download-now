@@ -32,7 +32,7 @@ def source_epoch() -> str:
 
 def build(epoch: str) -> dict[str, str]:
     env = {**os.environ, "SOURCE_DATE_EPOCH": epoch}
-    subprocess.run(["npm", "run", "package"], cwd=ROOT, env=env, check=True)
+    subprocess.run(["npm.cmd" if os.name == "nt" else "npm", "run", "package"], cwd=ROOT, env=env, check=True)
     return {target.name: hashlib.sha256(target.read_bytes()).hexdigest() for target in TARGETS}
 
 

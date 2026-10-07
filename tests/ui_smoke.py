@@ -37,7 +37,7 @@ with sync_playwright() as p:
 
     # Wide desktop: integrate after the complete Star control.
     for locale, badge, heading, output in cases:
-        context = browser.new_context(viewport={"width": 1280, "height": 800}, locale=locale, device_scale_factor=1)
+        context = browser.new_context(user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/149.0.0.0 Safari/537.36", viewport={"width": 1280, "height": 800}, locale=locale, device_scale_factor=1)
         page = context.new_page()
         page.set_content(html, wait_until="load")
         page.wait_for_selector("#ghdn-root")
@@ -85,7 +85,7 @@ with sync_playwright() as p:
         context.close()
 
     # A manual language choice overrides the browser UI language.
-    context = browser.new_context(viewport={"width": 1280, "height": 800}, locale="ru-RU", device_scale_factor=1)
+    context = browser.new_context(user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/149.0.0.0 Safari/537.36", viewport={"width": 1280, "height": 800}, locale="ru-RU", device_scale_factor=1)
     page = context.new_page()
     manual_english_html = html.replace("const storedSettings = {};", 'const storedSettings = {language:"en"};')
     page.set_content(manual_english_html, wait_until="load")
@@ -100,7 +100,7 @@ with sync_playwright() as p:
 
     # GitHub row-reverse toolbar: visual placement is to the right of Star,
     # while Fork and Star split groups remain untouched.
-    context = browser.new_context(viewport={"width": 1400, "height": 800}, locale="en-US", device_scale_factor=1)
+    context = browser.new_context(user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/149.0.0.0 Safari/537.36", viewport={"width": 1400, "height": 800}, locale="en-US", device_scale_factor=1)
     page = context.new_page()
     reverse_actions = '''<div class="d-flex reverse-actions" style="flex-direction:row-reverse">
         <div class="action-group star-group"><button class="native-btn" aria-label="Star repository">Star</button><button class="native-btn" aria-label="Star options">▼</button></div>
@@ -132,7 +132,7 @@ with sync_playwright() as p:
     context.close()
 
     # Public-only policy fails closed when repository visibility is negative.
-    context = browser.new_context(viewport={"width": 1280, "height": 800}, locale="en-US", device_scale_factor=1)
+    context = browser.new_context(user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/149.0.0.0 Safari/537.36", viewport={"width": 1280, "height": 800}, locale="en-US", device_scale_factor=1)
     page = context.new_page()
     private_html = html.replace(
         'window.__GHDN_TEST_REPOSITORY__ = {owner: "localsend", repo: "localsend"};',
@@ -144,7 +144,7 @@ with sync_playwright() as p:
     context.close()
 
     # Hidden legacy header on the main repository page: visible in-flow control.
-    context = browser.new_context(viewport={"width": 1280, "height": 800}, locale="en-US", device_scale_factor=1)
+    context = browser.new_context(user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/149.0.0.0 Safari/537.36", viewport={"width": 1280, "height": 800}, locale="en-US", device_scale_factor=1)
     page = context.new_page()
     hidden_header_html = html.replace(
         "#repository-container-header { display:flex;",
@@ -159,7 +159,7 @@ with sync_playwright() as p:
     context.close()
 
     # Pull request and other secondary repository pages must never get a full-width bar.
-    context = browser.new_context(viewport={"width": 1280, "height": 800}, locale="en-US", device_scale_factor=1)
+    context = browser.new_context(user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/149.0.0.0 Safari/537.36", viewport={"width": 1280, "height": 800}, locale="en-US", device_scale_factor=1)
     page = context.new_page()
     pull_html = hidden_header_html.replace(
         'window.__GHDN_TEST_REPOSITORY__ = {owner: "localsend", repo: "localsend"};',
@@ -175,7 +175,7 @@ with sync_playwright() as p:
     context.close()
 
     # Releases page: compact, tag-specific control beside the selected release title.
-    context = browser.new_context(viewport={"width": 1280, "height": 800}, locale="ru-RU", device_scale_factor=1)
+    context = browser.new_context(user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/149.0.0.0 Safari/537.36", viewport={"width": 1280, "height": 800}, locale="ru-RU", device_scale_factor=1)
     page = context.new_page()
     release_markup = """
     <section id="release-v1.17.0" data-release-anchor="release-v1.17.0" style="margin:24px 0;border:1px solid #d0d7de;border-radius:8px;padding:20px">
@@ -248,7 +248,7 @@ with sync_playwright() as p:
     context.close()
 
     # Modern GitHub-like layout: hidden legacy header plus a separate visible actions toolbar.
-    context = browser.new_context(viewport={"width": 1280, "height": 800}, locale="en-US", device_scale_factor=1)
+    context = browser.new_context(user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/149.0.0.0 Safari/537.36", viewport={"width": 1280, "height": 800}, locale="en-US", device_scale_factor=1)
     page = context.new_page()
     modern_html = hidden_header_html.replace(
         '<div class="content">',
@@ -262,7 +262,7 @@ with sync_playwright() as p:
     context.close()
 
     # Constrained toolbar: compact density, then flow fallback on main repo only.
-    context = browser.new_context(viewport={"width": 1280, "height": 800}, locale="ru-RU", device_scale_factor=1)
+    context = browser.new_context(user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/149.0.0.0 Safari/537.36", viewport={"width": 1280, "height": 800}, locale="ru-RU", device_scale_factor=1)
     page = context.new_page()
     compact_html = html.replace(
         ".d-flex { display:flex;",
@@ -279,7 +279,7 @@ with sync_playwright() as p:
     assert page.locator(".ghdn-primary-title-compact").is_visible()
     context.close()
 
-    context = browser.new_context(viewport={"width": 1280, "height": 800}, locale="ru-RU", device_scale_factor=1)
+    context = browser.new_context(user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/149.0.0.0 Safari/537.36", viewport={"width": 1280, "height": 800}, locale="ru-RU", device_scale_factor=1)
     page = context.new_page()
     overflow_html = html.replace(
         ".d-flex { display:flex;",
@@ -295,7 +295,7 @@ with sync_playwright() as p:
     context.close()
 
     # Narrow main page: full-width in-flow button and bottom-sheet menu.
-    context = browser.new_context(viewport={"width": 480, "height": 720}, locale="ru-RU", device_scale_factor=1)
+    context = browser.new_context(user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/149.0.0.0 Safari/537.36", viewport={"width": 480, "height": 720}, locale="ru-RU", device_scale_factor=1)
     page = context.new_page()
     page.set_content(hidden_header_html, wait_until="load")
     page.wait_for_selector("#ghdn-root")
@@ -308,7 +308,7 @@ with sync_playwright() as p:
     context.close()
 
     # Last-resort fallback when no visible repository content container exists.
-    context = browser.new_context(viewport={"width": 1280, "height": 800}, locale="en-US", device_scale_factor=1)
+    context = browser.new_context(user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/149.0.0.0 Safari/537.36", viewport={"width": 1280, "height": 800}, locale="en-US", device_scale_factor=1)
     page = context.new_page()
     floating_html = html.replace(".page { width:", ".page { display:none; width:")
     page.set_content(floating_html, wait_until="load")
@@ -320,7 +320,7 @@ with sync_playwright() as p:
     context.close()
 
     # Beginner mode shows deterministic post-download guidance without download-history permission.
-    context = browser.new_context(viewport={"width": 1280, "height": 800}, locale="ru-RU", device_scale_factor=1)
+    context = browser.new_context(user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/149.0.0.0 Safari/537.36", viewport={"width": 1280, "height": 800}, locale="ru-RU", device_scale_factor=1)
     page = context.new_page()
     page.set_content(html, wait_until="load")
     page.wait_for_selector("#ghdn-root")
@@ -335,7 +335,7 @@ with sync_playwright() as p:
     context.close()
 
     # Preferred format still changes recommendation and menu badge.
-    context = browser.new_context(viewport={"width": 1280, "height": 800}, locale="ru-RU", device_scale_factor=1)
+    context = browser.new_context(user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/149.0.0.0 Safari/537.36", viewport={"width": 1280, "height": 800}, locale="ru-RU", device_scale_factor=1)
     page = context.new_page()
     deb_html = html.replace("const storedSettings = {};", 'const storedSettings = {preferredLinux:"deb"};')
     page.set_content(deb_html, wait_until="load")

@@ -4,7 +4,7 @@ This document describes the complete reproducible build used for the Chromium an
 
 ## Requirements
 
-- Node.js 20 or newer;
+- Node.js 20.19+, 22.13+ or 24+;
 - npm included with Node.js;
 - Python 3.9 or newer for ZIP packaging (Python 3.13 is used in CI);
 - optional: Python 3.13 and Playwright 1.61.0 for browser UI tests.
