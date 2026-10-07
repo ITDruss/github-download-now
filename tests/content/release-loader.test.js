@@ -27,7 +27,7 @@ function successfulParser() {
   const loader = loaderApi.create({
     documentObject: { id: "current" },
     pageParser: successfulParser(),
-    pageClient: { fetchDocument: async () => { throw new Error("not expected"); } },
+    pageClient: { fetchDocument: async () => ({ id: "expanded" }) },
     selector: {
       recommendation(assets) {
         recommendationCalls += 1;

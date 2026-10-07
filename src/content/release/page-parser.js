@@ -115,11 +115,16 @@
       published_at: publishedAt,
       created_at: publishedAt,
       draft: false,
-      prerelease: Boolean(section && /pre-release/i.test(section.textContent || "")),
+      prerelease: isPrereleaseSection(section),
       assets,
       zipball_url: `https://github.com/${repo.owner}/${repo.repo}/archive/refs/tags/${encodedTag}.zip`,
       tarball_url: `https://github.com/${repo.owner}/${repo.repo}/archive/refs/tags/${encodedTag}.tar.gz`
     };
+  }
+
+  function isPrereleaseSection(section) {
+    return [...(section?.querySelectorAll?.("span.Label, span.label, [data-testid='release-label']") || [])]
+      .some((label) => /^pre-release$/i.test(String(label.textContent || "").trim()));
   }
 
   function collectReleaseTags(doc, repo, options = {}) {
@@ -144,9 +149,13 @@
     const links = [...(doc?.querySelectorAll?.('a[href*="/releases/tag/"]') || [])]
       .filter((link) => releaseTagFromLink(link, repo, urlPolicy));
     const preferred = links.find((link) => {
-      const context = String(link.closest?.("aside, section, div")?.textContent || "");
-      return /latest|releases?/i.test(context);
-    }) || links[0];
+      const section = link.closest?.("section");
+      const container = section || link.closest?.("aside, section, div");
+      const context = String(container?.textContent || "");
+      const labeled = [...(container?.querySelectorAll?.("span.Label, span.label") || [])]
+        .some((label) => /^latest$/i.test(String(label.textContent || "").trim()));
+      return (labeled || /\blatest\b/i.test(context)) && !isPrereleaseSection(section);
+    }) || (options.releaseChannel === "stable" ? null : links[0]);
     return preferred ? releaseTagFromLink(preferred, repo, urlPolicy) : "";
   }
 
@@ -164,6 +173,7 @@
     releaseNameFromSection,
     releaseDateFromSection,
     releaseFromPage,
+    isPrereleaseSection,
     collectReleaseTags,
     latestReleaseTagFromDocument
   });
