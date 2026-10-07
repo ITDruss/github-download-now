@@ -1,0 +1,21 @@
+"use strict";
+const assert = require("node:assert/strict");
+const assets = require("../src/batch-assets.js");
+const urls = require("../src/url-policy.js");
+assert.equal(assets.extension("App.TAR.GZ"), ".tar.gz");
+assert.equal(assets.extension("file.gz"), ".gz");
+assert.equal(assets.extension("SUMS"), "");
+assert.equal(assets.extension("digest.sha256"), ".sha256");
+assert.ok(assets.matches({ name: "App.ZIP" }, "APP", [".zip"]));
+assert.ok(!assets.matches({ name: "App.tar.gz" }, "", [".gz"]));
+assert.equal(assets.safeName("../CON.exe"), "_CON.exe");
+assert.ok(!/[<>:"/\\|?*]/.test(assets.safeName("x:y?z*")));
+const batch = { id: "11111111-1111-1111-1111-111111111111", owner: "Acme", repo: "Tool", tag: "v1",
+  items: [{ url: "https://github.com/Acme/Tool/releases/download/v1/a.zip", name: "fake", state: "queued", downloadId: null }] };
+const normalized = assets.normalizeBatch(batch, urls);
+assert.equal(normalized.items[0].name, "a.zip");
+assert.equal(normalized.items[0].downloadId, null);
+assert.equal(assets.normalizeBatch({ ...batch, items: [{ ...batch.items[0], url: "https://evil.example/a.zip" }] }, urls), null);
+assert.equal(assets.normalizeBatch({ ...batch, tag: "v2" }, urls), null);
+assert.equal(assets.normalizeBatch({ ...batch, items: [...batch.items, ...batch.items] }, urls), null);
+console.log("batch asset selection and storage validation tests: OK");

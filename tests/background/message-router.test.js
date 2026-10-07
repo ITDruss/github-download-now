@@ -23,13 +23,20 @@ const router = routerModule.create({
     "recordDownload", "watchRepository", "unwatchRepository", "getDashboard", "checkAllUpdates",
     "dismissUpdate", "downloadUpdate", "clearHistory", "clearTracking"
   ]),
-  navigation: service("navigation", ["openTab", "openOptionsPage"])
+  navigation: service("navigation", ["openTab", "openOptionsPage", "openBatchPage"]),
+  catalog: service("catalog", ["load"]),
+  downloads: service("downloads", ["status", "start", "cancel", "retry", "clear"])
 });
 
 (async () => {
   assert.equal(router.route({ type: "UNKNOWN" }, {}), null);
   const rejected = await router.route({ type: messages.TYPES.AUTH_STATUS }, {});
   assert.equal(rejected.error, "unauthorized_sender");
+  for (const type of [messages.TYPES.GET_BATCH_ASSETS, messages.TYPES.GET_BATCH_STATUS, messages.TYPES.START_BATCH,
+    messages.TYPES.CANCEL_BATCH, messages.TYPES.RETRY_BATCH, messages.TYPES.CLEAR_BATCH]) {
+    assert.equal((await router.route({ type }, {})).error, "unauthorized_sender");
+    assert.equal((await router.route({ type }, { trusted: true })).ok, true);
+  }
   const auth = await router.route({ type: messages.TYPES.AUTH_STATUS, refresh: true }, { trusted: true });
   assert.equal(auth.method, "publicGitHubAuthStatus");
   const release = await router.route({

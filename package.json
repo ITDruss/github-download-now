@@ -1,6 +1,6 @@
 {
   "name": "github-download-now",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "private": true,
   "description": "A privacy-friendly cross-browser extension that recommends trusted GitHub Release assets, explains installation, and watches selected public repositories for updates.",
   "scripts": {
@@ -11,7 +11,7 @@
     "package": "npm run build && python scripts/package.py",
     "ui-test": "python tests/ui_smoke.py",
     "settings-ui-test": "python tests/settings_ui_smoke.py",
-    "test:ui": "npm run ui-test && npm run settings-ui-test",
+    "test:ui": "npm run ui-test && npm run settings-ui-test && npm run batch-ui-test",
     "verify": "npm test && npm run verify:reproducible && npm run lint:firefox",
     "lint:firefox": "addons-linter dist/firefox --warnings-as-errors",
     "verify:reproducible": "python scripts/verify-reproducible.py",
@@ -19,7 +19,8 @@
     "i18n:generate": "node scripts/generate-locales.mjs",
     "i18n:check": "node scripts/generate-locales.mjs --check",
     "check:syntax": "node scripts/check-syntax.mjs",
-    "check:architecture": "node scripts/check-architecture.mjs"
+    "check:architecture": "node scripts/check-architecture.mjs",
+    "batch-ui-test": "python tests/batch_ui_smoke.py"
   },
   "engines": {
     "node": "^20.19.0 || ^22.13.0 || >=24"

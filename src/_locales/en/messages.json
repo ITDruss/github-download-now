@@ -1458,5 +1458,128 @@
   "popupWeekly": {
     "message": "Once a week",
     "description": "User-facing extension text: popupWeekly."
+  },
+  "contentBulkDownload": {
+    "message": "Download multiple files…"
+  },
+  "contentBulkPrivate": {
+    "message": "Bulk downloads are available in a regular browser window."
+  },
+  "batchTitle": {
+    "message": "Download release files"
+  },
+  "batchSubtitle": {
+    "message": "Choose files by name or format and download them together."
+  },
+  "batchSearch": {
+    "message": "Search filenames"
+  },
+  "batchFormats": {
+    "message": "File formats"
+  },
+  "batchAllFormats": {
+    "message": "No format selected means all formats. Changing a filter clears the selection."
+  },
+  "batchNoExtension": {
+    "message": "No extension"
+  },
+  "batchSelectAll": {
+    "message": "Select all shown"
+  },
+  "batchClearSelection": {
+    "message": "Clear selection"
+  },
+  "batchDownload": {
+    "message": "Download selected"
+  },
+  "batchCopyLinks": {
+    "message": "Copy links"
+  },
+  "batchSelection": {
+    "message": "Selected"
+  },
+  "batchLoading": {
+    "message": "Loading the full file list…"
+  },
+  "batchEmpty": {
+    "message": "This release has no attached files."
+  },
+  "batchNoMatch": {
+    "message": "No files match these filters."
+  },
+  "batchQueue": {
+    "message": "Downloads"
+  },
+  "batchCancel": {
+    "message": "Cancel queue"
+  },
+  "batchRetry": {
+    "message": "Retry failed files"
+  },
+  "batchClearQueue": {
+    "message": "Clear queue details"
+  },
+  "batchPermission": {
+    "message": "The browser will ask for download permission the first time you start a queue."
+  },
+  "batchPermissionDenied": {
+    "message": "Download permission was not granted. You can still copy the selected links or download files individually."
+  },
+  "batchUnsupported": {
+    "message": "This browser does not support bulk downloads. You can copy selected links."
+  },
+  "batchPrivate": {
+    "message": "Bulk downloads are available in a regular browser window."
+  },
+  "batchBusy": {
+    "message": "A download queue is already active. Finish or cancel it before starting another."
+  },
+  "batchFailed": {
+    "message": "Unable to complete this action. Check your connection and try again."
+  },
+  "batchLimit": {
+    "message": "This release has more than 500 files. Open it on GitHub to access the full list."
+  },
+  "batchPublicOnly": {
+    "message": "Only public repositories are supported."
+  },
+  "batchSavedIn": {
+    "message": "Files are saved in a separate GitHub-Download-Now folder in your downloads directory. Closing this page does not stop the queue."
+  },
+  "batchQueued": {
+    "message": "Queued"
+  },
+  "batchStarting": {
+    "message": "Starting"
+  },
+  "batchIn_progress": {
+    "message": "Downloading"
+  },
+  "batchComplete": {
+    "message": "Downloaded"
+  },
+  "batchInterrupted": {
+    "message": "Failed"
+  },
+  "batchCanceled": {
+    "message": "Canceled"
+  },
+  "batchCopied": {
+    "message": "Links copied"
+  },
+  "batchRefresh": {
+    "message": "Refresh"
+  },
+  "batchCount": {
+    "message": "Shown"
+  },
+  "batchSummary": {
+    "message": "Queue status"
+  },
+  "batchWatch": {
+    "message": "Watch repository updates"
+  },
+  "batchWatching": {
+    "message": "Watching repository updates"
   }
 }

@@ -22,6 +22,7 @@
   const settingsApi = loadDependency("GHDNSettings", "settings.js", "./settings.js");
   const urlPolicy = loadDependency("GHDNUrlPolicy", "url-policy.js", "./url-policy.js");
   const selector = loadDependency("GHDNAssetSelector", "asset-selector.js", "./asset-selector.js");
+  const batchAssets = loadDependency("GHDNBatchAssets", "batch-assets.js", "./batch-assets.js");
   const tracker = loadDependency("GHDNTracker", "tracker.js", "./tracker.js");
   const buildInstructions = loadDependency("GHDNBuildInstructions", "build-instructions.js", "./build-instructions.js");
   const githubAuth = loadDependency("GHDNGitHubAuth", "github-auth.js", "./github-auth.js");
@@ -37,6 +38,8 @@
   const notificationsModule = loadDependency("GHDNBackgroundNotifications", "background/notifications.js", "./background/notifications.js");
   const trackingServiceModule = loadDependency("GHDNBackgroundTrackingService", "background/tracking-service.js", "./background/tracking-service.js");
   const messageRouterModule = loadDependency("GHDNBackgroundMessageRouter", "background/message-router.js", "./background/message-router.js");
+  const catalogModule = loadDependency("GHDNBackgroundBatchCatalog", "background/batch-catalog.js", "./background/batch-catalog.js");
+  const downloadsModule = loadDependency("GHDNBackgroundDownloadService", "background/download-service.js", "./background/download-service.js");
 
   if (!messages || !browserApi || !i18n || !settingsApi || !urlPolicy || !selector || !tracker || !buildInstructions) {
     throw new Error("Background entry dependencies are incomplete");
@@ -48,6 +51,8 @@
   const releaseService = releaseServiceModule.create({ githubClient, urlPolicy, selector });
   const buildService = buildServiceModule.create({ githubClient, urlPolicy, buildInstructions });
   const navigation = navigationModule.create({ browserApi, extensionApi, urlPolicy });
+  const catalog = catalogModule.create({ githubClient, releaseService, urlPolicy, batchAssets });
+  const downloads = downloadsModule.create({ storage, browserApi, extensionApi, catalog, urlPolicy, batchAssets });
   const authService = authServiceModule.create({
     storage,
     githubClient,
@@ -87,11 +92,14 @@
     releaseService,
     buildService,
     trackingService,
-    navigation
+    navigation,
+    catalog,
+    downloads
   });
 
   async function initializeBackground() {
     await storage.restrictLocalStorageToTrustedContexts();
+    await downloads.initialize();
     await alarms.ensureUpdateAlarm();
     await notifications.updateBadge();
   }
@@ -107,6 +115,7 @@
       });
     return true;
   });
+  extensionApi.permissions?.onAdded?.addListener(() => downloads.initialize().catch(console.error));
 
   if (extensionApi.alarms?.onAlarm) {
     extensionApi.alarms.onAlarm.addListener((alarm) => {

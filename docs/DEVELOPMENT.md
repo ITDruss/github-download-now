@@ -111,3 +111,9 @@ Before opening a pull request, confirm:
 - no generated or temporary files were placed in `src/`;
 - architecture, unit, syntax, reproducibility, Firefox lint and UI tests pass;
 - documentation describes any new module, message, permission or data flow.
+
+## Bulk download changes
+
+Use `src/batch/` for page labels, DOM and interaction, `src/batch-assets.js` for domain rules, `src/background/batch-catalog.js` for public catalog enumeration and `src/background/download-service.js` for queue operations. New background messages belong in `shared/messages.js` and must be protected by the router's trusted-extension check. Keep platform recommendations separate from the full asset catalog.
+
+Run `npm run batch-ui-test` for English/light and Russian/dark layout, filtering, selection, permission denial/grant and queue controls. Set `GHDN_UI_BROWSERS=chromium,firefox` to test both engines after installing both Playwright browsers. `npm run test:ui` also covers existing content and settings pages. The queue tests cover concurrency, download ID zero, permission changes, accepted-download recovery, retry and cancellation. Mocked page checks do not replace a native extension download smoke test.

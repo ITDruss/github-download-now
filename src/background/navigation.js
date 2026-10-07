@@ -38,7 +38,15 @@
       return { ok: true };
     }
 
-    return Object.freeze({ openOptionsPage, openTab, openExtensionPage });
+    async function openBatchPage(owner, repoName, tag, sender) {
+      const repo = urlPolicy.repository(owner, repoName);
+      if (!repo || typeof tag !== "string" || !tag || tag.length > 240) return { ok: false, error: "invalid_repository" };
+      if (sender?.tab?.incognito || extensionApi.extension?.inIncognitoContext) return { ok: false, error: "incognito_unsupported" };
+      const params = new URLSearchParams({ owner: repo.owner, repo: repo.repo, tag });
+      return openExtensionPage(`batch.html?${params}`);
+    }
+
+    return Object.freeze({ openOptionsPage, openTab, openExtensionPage, openBatchPage });
   }
 
   return Object.freeze({ create });

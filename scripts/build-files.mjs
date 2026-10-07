@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   BACKGROUND_IMPORTS,
+  BATCH_SCRIPTS,
   CONTENT_SCRIPTS,
   CONTENT_STYLES,
   OPTIONS_SCRIPTS,
@@ -32,6 +33,9 @@ export const EXTENSION_FILES = Object.freeze(unique([
   "background.js",
   ...POPUP_SCRIPTS,
   ...OPTIONS_SCRIPTS,
+  ...BATCH_SCRIPTS,
+  "batch.css",
+  "batch.html",
   "popup.css",
   "popup.html",
   "options.css",

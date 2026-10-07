@@ -27,6 +27,8 @@
       sourceCode: t("contentSourceCode"),
       openRelease: t("contentOpenRelease"),
       openSettings: t("contentOpenSettings"),
+      bulkDownload: t("contentBulkDownload"),
+      bulkPrivate: t("contentBulkPrivate"),
       moreOnRelease: (count) => t("contentMoreOnRelease", [count]),
       sourceZip: t("contentSourceZip"),
       sourceTar: t("contentSourceTar"),

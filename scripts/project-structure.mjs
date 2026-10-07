@@ -66,6 +66,8 @@ export const BACKGROUND_MODULES = Object.freeze([
   "background/alarms.js",
   "background/notifications.js",
   "background/tracking-service.js",
+  "background/batch-catalog.js",
+  "background/download-service.js",
   "background/message-router.js"
 ]);
 
@@ -76,6 +78,7 @@ export const BACKGROUND_IMPORTS = Object.freeze([
   "settings.js",
   "url-policy.js",
   "asset-selector.js",
+  "batch-assets.js",
   "tracker.js",
   "build-instructions.js",
   "github-auth.js",
@@ -136,3 +139,8 @@ export const SOURCE_LINE_LIMITS = Object.freeze({
   css: 350,
   html: 250
 });
+
+export const BATCH_SCRIPTS = Object.freeze([
+  ...EXTENSION_PAGE_BASE_SCRIPTS,
+  "url-policy.js", "batch-assets.js", "batch/strings.js", "batch/view.js", "batch/controller.js", "batch.js"
+]);

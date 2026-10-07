@@ -22,7 +22,7 @@ const { pathToFileURL } = require("node:url");
     assert.deepEqual(manifest.host_permissions, ["https://api.github.com/*", "https://github.com/*"]);
     assert.ok(manifest.content_scripts[0].matches.includes("https://github.com/*"));
     assert.deepEqual(manifest.permissions, ["storage", "alarms"]);
-    assert.deepEqual(manifest.optional_permissions, ["notifications"]);
+    assert.deepEqual(manifest.optional_permissions, ["notifications", "downloads"]);
     assert.equal(manifest.action.default_popup, "popup.html");
     assert.equal(manifest.options_ui.page, "options.html");
     assert.equal(manifest.default_locale, "en");

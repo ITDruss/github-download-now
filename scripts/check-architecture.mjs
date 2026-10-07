@@ -5,6 +5,7 @@ import { ALLOWED_SOURCE_FILES } from "./build-files.mjs";
 import { assert, lineCount, scriptsFromHtml } from "./file-utils.mjs";
 import {
   BACKGROUND_IMPORTS,
+  BATCH_SCRIPTS,
   CONTENT_SCRIPTS,
   CONTENT_STYLES,
   ENTRY_LINE_LIMITS,
@@ -29,6 +30,7 @@ function contextFor(relative) {
   if (relative === "content.js" || relative.startsWith("content/")) return "content";
   if (relative === "background.js" || relative.startsWith("background/")) return "background";
   if (relative === "popup.js" || relative.startsWith("popup/")) return "popup";
+  if (relative === "batch.js" || relative.startsWith("batch/")) return "batch";
   if (relative === "options.js" || relative.startsWith("options/")) return "options";
   return "shared";
 }
@@ -64,7 +66,7 @@ for (const relative of javascriptFiles) {
     definitions.set(name, relative);
   }
 
-  const expectedDefinitions = new Set(["content.js", "popup.js", "options.js"]);
+  const expectedDefinitions = new Set(["content.js", "popup.js", "options.js", "batch.js"]);
   if (!expectedDefinitions.has(relative)) {
     assert(defined.length === 1, `${relative} must expose exactly one GHDN module API`);
     if (relative !== "i18n-catalogs.js") {
@@ -137,6 +139,7 @@ assert(arraysEqual(firefox.background?.scripts || [], FIREFOX_BACKGROUND_SCRIPTS
 assertDependencyOrder("content scripts", CONTENT_SCRIPTS);
 assertDependencyOrder("Firefox background scripts", FIREFOX_BACKGROUND_SCRIPTS);
 assertDependencyOrder("popup scripts", POPUP_SCRIPTS);
+assertDependencyOrder("batch scripts", BATCH_SCRIPTS);
 assertDependencyOrder("options scripts", OPTIONS_SCRIPTS);
 
 const backgroundEntry = await readFile(path.join(source, "background.js"), "utf8");
@@ -145,7 +148,7 @@ for (const relative of BACKGROUND_IMPORTS) {
 }
 assert(!/(?:async\s+)?function\s+(?:getRelease|checkAllUpdates|pollGitHubAuthorization|recordDownload)\b/.test(backgroundEntry), "background.js contains service implementation logic");
 
-for (const [htmlFile, expected] of [["popup.html", POPUP_SCRIPTS], ["options.html", OPTIONS_SCRIPTS]]) {
+for (const [htmlFile, expected] of [["popup.html", POPUP_SCRIPTS], ["options.html", OPTIONS_SCRIPTS], ["batch.html", BATCH_SCRIPTS]]) {
   const html = await readFile(path.join(source, htmlFile), "utf8");
   assert(arraysEqual(scriptsFromHtml(html), expected), `${htmlFile} script order differs from project-structure.mjs`);
 }

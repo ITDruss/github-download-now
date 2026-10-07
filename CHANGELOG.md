@@ -1,11 +1,24 @@
 # Changelog
 
-## Unreleased
+All notable changes to this project are documented here.
+
+## [1.3.0] - Unreleased
+
+### Added
+
+- Add a separate bulk-download page with a complete public release asset catalog, extension filters, filename search, file selection, size totals and copying selected URLs.
+- Add a recoverable background queue with three concurrent downloads, per-file results, cancellation and retry of failures; request optional downloads permission on the first bulk download.
+- Add English/Russian bulk-download UI checks in Chromium and Firefox to CI.
+
+### Fixed
+
+- Respect stable/newest release-channel settings when using public page data, detect prerelease badges instead of prose, expire page caches and always load expanded asset lists.
+- Register download events after optional permission is granted so queues continue with their page closed.
+
+### Changed
 
 - Update development dependencies and use Mozilla Add-ons Linter directly for Firefox validation, removing unused Android runner dependencies.
 - Make Python packaging commands and locale validation work on Windows.
-
-All notable changes to this project are documented here.
 
 ## [1.2.0] - 2026-07-22
 

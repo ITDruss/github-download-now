@@ -93,7 +93,7 @@ const sourceFiles = (await listFiles(sourceRoot)).filter((file) =>
   file !== "i18n-catalogs.js"
 );
 const referencedKeys = new Set();
-const keyPattern = /["'`]((?:extension|locale|common|content|options|popup|notification|guide)[A-Z][A-Za-z0-9_]*)["'`]/g;
+const keyPattern = /["'`]((?:extension|locale|common|content|options|popup|batch|notification|guide)[A-Z][A-Za-z0-9_]*)["'`]/g;
 const manifestPattern = /__MSG_([A-Za-z][A-Za-z0-9_]*)__/g;
 for (const relative of sourceFiles) {
   const text = await readFile(path.join(sourceRoot, relative), "utf8");

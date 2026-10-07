@@ -6,6 +6,123 @@
 (function initLocaleCatalogs(root) {
   root.GHDNLocaleCatalogs = Object.freeze({
   "en": {
+    "batchAllFormats": {
+      "message": "No format selected means all formats. Changing a filter clears the selection."
+    },
+    "batchBusy": {
+      "message": "A download queue is already active. Finish or cancel it before starting another."
+    },
+    "batchCancel": {
+      "message": "Cancel queue"
+    },
+    "batchCanceled": {
+      "message": "Canceled"
+    },
+    "batchClearQueue": {
+      "message": "Clear queue details"
+    },
+    "batchClearSelection": {
+      "message": "Clear selection"
+    },
+    "batchComplete": {
+      "message": "Downloaded"
+    },
+    "batchCopied": {
+      "message": "Links copied"
+    },
+    "batchCopyLinks": {
+      "message": "Copy links"
+    },
+    "batchCount": {
+      "message": "Shown"
+    },
+    "batchDownload": {
+      "message": "Download selected"
+    },
+    "batchEmpty": {
+      "message": "This release has no attached files."
+    },
+    "batchFailed": {
+      "message": "Unable to complete this action. Check your connection and try again."
+    },
+    "batchFormats": {
+      "message": "File formats"
+    },
+    "batchIn_progress": {
+      "message": "Downloading"
+    },
+    "batchInterrupted": {
+      "message": "Failed"
+    },
+    "batchLimit": {
+      "message": "This release has more than 500 files. Open it on GitHub to access the full list."
+    },
+    "batchLoading": {
+      "message": "Loading the full file list…"
+    },
+    "batchNoExtension": {
+      "message": "No extension"
+    },
+    "batchNoMatch": {
+      "message": "No files match these filters."
+    },
+    "batchPermission": {
+      "message": "The browser will ask for download permission the first time you start a queue."
+    },
+    "batchPermissionDenied": {
+      "message": "Download permission was not granted. You can still copy the selected links or download files individually."
+    },
+    "batchPrivate": {
+      "message": "Bulk downloads are available in a regular browser window."
+    },
+    "batchPublicOnly": {
+      "message": "Only public repositories are supported."
+    },
+    "batchQueue": {
+      "message": "Downloads"
+    },
+    "batchQueued": {
+      "message": "Queued"
+    },
+    "batchRefresh": {
+      "message": "Refresh"
+    },
+    "batchRetry": {
+      "message": "Retry failed files"
+    },
+    "batchSavedIn": {
+      "message": "Files are saved in a separate GitHub-Download-Now folder in your downloads directory. Closing this page does not stop the queue."
+    },
+    "batchSearch": {
+      "message": "Search filenames"
+    },
+    "batchSelectAll": {
+      "message": "Select all shown"
+    },
+    "batchSelection": {
+      "message": "Selected"
+    },
+    "batchStarting": {
+      "message": "Starting"
+    },
+    "batchSubtitle": {
+      "message": "Choose files by name or format and download them together."
+    },
+    "batchSummary": {
+      "message": "Queue status"
+    },
+    "batchTitle": {
+      "message": "Download release files"
+    },
+    "batchUnsupported": {
+      "message": "This browser does not support bulk downloads. You can copy selected links."
+    },
+    "batchWatch": {
+      "message": "Watch repository updates"
+    },
+    "batchWatching": {
+      "message": "Watching repository updates"
+    },
     "commonArchive": {
       "message": "Archive"
     },
@@ -41,6 +158,12 @@
     },
     "contentBuildNotFound": {
       "message": "No build documentation was found."
+    },
+    "contentBulkDownload": {
+      "message": "Download multiple files…"
+    },
+    "contentBulkPrivate": {
+      "message": "Bulk downloads are available in a regular browser window."
     },
     "contentChooseDownload": {
       "message": "Choose a file"
@@ -1143,6 +1266,123 @@
     }
   },
   "ru": {
+    "batchAllFormats": {
+      "message": "Без выбранных форматов показаны все файлы. При смене фильтра выбор сбрасывается."
+    },
+    "batchBusy": {
+      "message": "Уже есть активная очередь. Дождитесь её завершения или отмените её."
+    },
+    "batchCancel": {
+      "message": "Отменить очередь"
+    },
+    "batchCanceled": {
+      "message": "Отменено"
+    },
+    "batchClearQueue": {
+      "message": "Удалить сведения об очереди"
+    },
+    "batchClearSelection": {
+      "message": "Снять выбор"
+    },
+    "batchComplete": {
+      "message": "Скачано"
+    },
+    "batchCopied": {
+      "message": "Ссылки скопированы"
+    },
+    "batchCopyLinks": {
+      "message": "Копировать ссылки"
+    },
+    "batchCount": {
+      "message": "Показано"
+    },
+    "batchDownload": {
+      "message": "Скачать выбранные"
+    },
+    "batchEmpty": {
+      "message": "У этого релиза нет прикреплённых файлов."
+    },
+    "batchFailed": {
+      "message": "Не удалось выполнить действие. Проверьте соединение и попробуйте снова."
+    },
+    "batchFormats": {
+      "message": "Форматы файлов"
+    },
+    "batchIn_progress": {
+      "message": "Скачивается"
+    },
+    "batchInterrupted": {
+      "message": "Ошибка"
+    },
+    "batchLimit": {
+      "message": "В этом релизе больше 500 файлов. Откройте его на GitHub, чтобы получить полный список."
+    },
+    "batchLoading": {
+      "message": "Загружаем полный список файлов…"
+    },
+    "batchNoExtension": {
+      "message": "Без расширения"
+    },
+    "batchNoMatch": {
+      "message": "Нет файлов по выбранным фильтрам."
+    },
+    "batchPermission": {
+      "message": "При первом запуске очереди браузер запросит разрешение на загрузки."
+    },
+    "batchPermissionDenied": {
+      "message": "Разрешение на загрузки не предоставлено. Можно скопировать выбранные ссылки или скачать файлы по одному."
+    },
+    "batchPrivate": {
+      "message": "Массовое скачивание доступно в обычном окне браузера."
+    },
+    "batchPublicOnly": {
+      "message": "Поддерживаются только публичные репозитории."
+    },
+    "batchQueue": {
+      "message": "Загрузки"
+    },
+    "batchQueued": {
+      "message": "В очереди"
+    },
+    "batchRefresh": {
+      "message": "Обновить"
+    },
+    "batchRetry": {
+      "message": "Повторить неудачные"
+    },
+    "batchSavedIn": {
+      "message": "Файлы сохраняются в отдельную папку GitHub-Download-Now внутри папки загрузок. Закрытие этой страницы не останавливает очередь."
+    },
+    "batchSearch": {
+      "message": "Поиск по имени файла"
+    },
+    "batchSelectAll": {
+      "message": "Выбрать все показанные"
+    },
+    "batchSelection": {
+      "message": "Выбрано"
+    },
+    "batchStarting": {
+      "message": "Запускается"
+    },
+    "batchSubtitle": {
+      "message": "Выберите файлы по имени или формату и скачайте их вместе."
+    },
+    "batchSummary": {
+      "message": "Состояние очереди"
+    },
+    "batchTitle": {
+      "message": "Скачать файлы релиза"
+    },
+    "batchUnsupported": {
+      "message": "Этот браузер не поддерживает массовое скачивание. Можно скопировать выбранные ссылки."
+    },
+    "batchWatch": {
+      "message": "Следить за обновлениями репозитория"
+    },
+    "batchWatching": {
+      "message": "Обновления репозитория отслеживаются"
+    },
     "commonArchive": {
       "message": "Архив"
     },
@@ -1178,6 +1418,12 @@
     },
     "contentBuildNotFound": {
       "message": "Документы по сборке не найдены."
+    },
+    "contentBulkDownload": {
+      "message": "Скачать несколько файлов…"
+    },
+    "contentBulkPrivate": {
+      "message": "Массовое скачивание доступно в обычном окне браузера."
     },
     "contentChooseDownload": {
       "message": "Выбрать файл"

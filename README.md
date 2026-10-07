@@ -45,6 +45,14 @@ For unpacked development builds, see [Install for development](#install-for-deve
 - Uses an original purple repository-branch/download mark while keeping green for successful download actions.
 - Supports Russian and English interfaces.
 
+## Download several release assets
+
+Open a release's download menu and choose **Download several files**. The separate extension page lists all uploaded assets for that tag, including checksums and signatures that are excluded from automatic recommendations. Filter by one or more extensions (including `.tar.gz`), search filenames, select individual files or all visible files, then download or copy the selected links.
+
+The browser asks for the optional `downloads` permission on the first download. The queue runs in the background with up to three active files, saves its state locally, shows per-file results and can retry errors or cancel remaining work. Files use a separate folder per queue inside the browser's download directory. Clearing the queue removes its local metadata; it does not delete downloaded files.
+
+Bulk downloads require a positively verified public repository, use anonymous GitHub API requests, and are unavailable in private/incognito contexts. Releases with more than 500 uploaded assets show a limit error rather than an incomplete list. GitHub's automatically generated source ZIP/TAR archives remain separate links in the release menu. Bulk queues do not create installation prompts or download-history entries. After a successful file, one repository-level button lets you explicitly opt into update tracking; queues never add watches automatically.
+
 ## Privacy and security
 
 The extension has no analytics, advertising, AI service, developer-operated backend or remote executable code.
@@ -69,7 +77,7 @@ Android in the feature list means the extension can recognise APK/APKS/AAB relea
 
 ### Chromium
 
-1. Extract `github-download-now-chromium-v1.2.0.zip`.
+1. Extract `github-download-now-chromium-v1.3.0.zip`.
 2. Open `chrome://extensions`.
 3. Enable **Developer mode**.
 4. Choose **Load unpacked**.
@@ -77,7 +85,7 @@ Android in the feature list means the extension can recognise APK/APKS/AAB relea
 
 ### Firefox
 
-1. Extract `github-download-now-firefox-v1.2.0.zip`.
+1. Extract `github-download-now-firefox-v1.3.0.zip`.
 2. Open `about:debugging#/runtime/this-firefox`.
 3. Choose **Load Temporary Add-on**.
 4. Select `manifest.json`.
@@ -111,8 +119,8 @@ npm run verify
 python3 -m venv .venv-ui
 source .venv-ui/bin/activate
 python -m pip install -r requirements-dev.txt
-python -m playwright install chromium
-npm run test:ui
+python -m playwright install chromium firefox
+GHDN_UI_BROWSERS=chromium,firefox npm run test:ui
 ```
 
 The release workflow runs both verification groups again before publishing artifacts with signed build-provenance attestations.
@@ -131,18 +139,19 @@ The build uses an explicit source-file allowlist. Unknown files in `src/` fail v
 - `storage`: saves settings and optional local update-tracking data.
 - `alarms`: schedules batched checks for explicitly watched repositories.
 - `notifications` (optional): displays update notifications only after the user enables them.
+- `downloads` (optional): starts bulk downloads and checks results for this extension's queue.
 - `https://github.com/*`: displays the interface on public repository pages and, only after an explicit connection action, uses GitHub's official OAuth Device Flow endpoints.
 - `https://api.github.com/*`: requests public release metadata, build documents, rate-limit status and watched-repository updates.
 
-The extension does not request cookie, download-history or browsing-history permissions. Optional GitHub authentication is initiated only from settings, requests no OAuth scopes and is disclosed in [PRIVACY.md](PRIVACY.md).
+The extension does not request cookie or browsing-history permissions. The optional `downloads` permission technically allows broader access to browser downloads; the implementation searches only its own queue IDs or unique queue filenames. Optional GitHub authentication is initiated only from settings, requests no OAuth scopes and is disclosed in [PRIVACY.md](PRIVACY.md).
 
 ## Supply-chain verification
 
 Release workflows create SHA-256 checksums and signed GitHub artifact attestations. A downloaded release can be checked with:
 
 ```bash
-sha256sum -c SHA256SUMS-v1.2.0.txt
-gh attestation verify github-download-now-chromium-v1.2.0.zip -R ITDruss/github-download-now
+sha256sum -c SHA256SUMS-v1.3.0.txt
+gh attestation verify github-download-now-chromium-v1.3.0.zip -R ITDruss/github-download-now
 ```
 
 ## Contributing
