@@ -54,34 +54,37 @@
       return tags;
     }
 
-    async function loadFromPage(repo, requestedTag, platform) {
+    async function loadFromPage(repo, requestedTag, platform, releaseChannel = "stable") {
       let tag = String(requestedTag || "");
-      if (!tag) tag = pageParser.latestReleaseTagFromDocument(documentObject, repo, { urlPolicy });
+      let releaseDocument = documentObject;
+      if (!tag && releaseChannel !== "newest") {
+        tag = pageParser.latestReleaseTagFromDocument(documentObject, repo, { urlPolicy, releaseChannel: "stable" });
+      }
       if (!tag) {
-        const tags = await getReleaseTags(repo);
-        tag = tags[0] || "";
+        releaseDocument = await pageClient.fetchDocument(`/${repo.owner}/${repo.repo}/releases`, repo);
+        tag = releaseChannel === "newest"
+          ? pageParser.collectReleaseTags(releaseDocument, repo, { urlPolicy })[0] || ""
+          : pageParser.latestReleaseTagFromDocument(releaseDocument, repo, { urlPolicy, releaseChannel: "stable" });
       }
       if (!tag) throw new Error("Release tag not found in GitHub page");
 
       const key = `${repo.key}:${tag}`;
-      let release = pageReleaseCache.get(key);
+      const cached = pageReleaseCache.get(key);
+      let release = cached && now() - cached.timestamp < tagCacheTtlMs ? cached.release : null;
       if (!release) {
-        const section = pageParser.releaseSectionByTag(documentObject, tag, repo, {
+        const section = pageParser.releaseSectionByTag(releaseDocument, tag, repo, {
           urlPolicy,
           isVisible: (element) => githubDom.isVisibleElement(element, {
             rootId,
             getComputedStyle: getComputedStyleFn
           })
         });
-        let assets = pageParser.releaseAssetsFromDocument(section || documentObject, repo, tag, { urlPolicy });
-        if (!assets.length) {
-          const encodedTag = pageParser.encodeGitHubPath(tag);
-          const path = `/${repo.owner}/${repo.repo}/releases/expanded_assets/${encodedTag}`;
-          const doc = await pageClient.fetchDocument(path, repo);
-          assets = pageParser.releaseAssetsFromDocument(doc, repo, tag, { urlPolicy });
-        }
+        const encodedTag = pageParser.encodeGitHubPath(tag);
+        const path = `/${repo.owner}/${repo.repo}/releases/expanded_assets/${encodedTag}`;
+        const doc = await pageClient.fetchDocument(path, repo);
+        const assets = pageParser.releaseAssetsFromDocument(doc, repo, tag, { urlPolicy });
         release = pageParser.releaseFromPage(repo, tag, assets, section);
-        setLimitedCache(pageReleaseCache, key, release, maxCacheEntries);
+        setLimitedCache(pageReleaseCache, key, { release, timestamp: now() }, maxCacheEntries);
       }
 
       const selection = selector.recommendation(release.assets, platform || {});
@@ -103,7 +106,7 @@
       const requestedTag = String(options.requestedTag || "");
       const platform = options.platform || {};
       try {
-        return await loadFromPage(repo, requestedTag, platform);
+        return await loadFromPage(repo, requestedTag, platform, options.releaseChannel);
       } catch (_pageError) {
         return runtime.sendMessage(requestedTag ? {
           type: messages.TYPES.GET_RELEASE_BY_TAG,

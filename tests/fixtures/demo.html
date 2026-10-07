@@ -127,7 +127,7 @@
       }
       if (/\/localsend\/localsend\/releases(?:$|[?#])/.test(url)) {
         return new Response(`
-          <a href="/localsend/localsend/releases/tag/v1.17.0">v1.17.0</a>
+          <div><a href="/localsend/localsend/releases/tag/v1.17.0">v1.17.0</a><span class="Label">Latest</span></div>
           <a href="/localsend/localsend/releases/tag/v1.16.1">v1.16.1</a>
           <a href="/localsend/localsend/releases/tag/v1.16.0">v1.16.0</a>
         `, {status: 200, headers: {"content-type": "text/html"}});

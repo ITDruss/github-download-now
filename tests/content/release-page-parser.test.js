@@ -47,7 +47,7 @@ const heading = { textContent: "Tool v1.2.3" };
 const time = { getAttribute: () => "2026-07-22T10:00:00Z" };
 const section = {
   textContent: "Pre-release Tool v1.2.3",
-  querySelectorAll(selector) { return selector === "h1, h2, h3" ? [heading] : []; },
+  querySelectorAll(selector) { return selector === "h1, h2, h3" ? [heading] : [{ textContent: "Pre-release" }]; },
   querySelector() { return time; }
 };
 const release = parser.releaseFromPage(repo, "v1.2.3", assets, section);
@@ -56,4 +56,7 @@ assert.equal(release.prerelease, true);
 assert.equal(release.published_at, "2026-07-22T10:00:00Z");
 assert.equal(release.html_url, "https://github.com/Acme/Tool/releases/tag/v1.2.3");
 
+const plainSection = { textContent: "Fixes pre-release compatibility", querySelectorAll: () => [] };
+assert.equal(parser.releaseFromPage(repo, "v2", [], plainSection).prerelease, false);
+assert.equal(parser.latestReleaseTagFromDocument({ querySelectorAll: () => [tagTwo] }, repo, { urlPolicy, releaseChannel: "stable" }), "");
 console.log("release page parser tests: OK");
