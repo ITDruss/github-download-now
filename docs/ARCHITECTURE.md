@@ -6,13 +6,14 @@ This document describes the current runtime boundaries, dependency direction and
 
 ## Runtime contexts
 
-The extension runs in four isolated contexts:
+The extension runs in five isolated contexts:
 
 | Context | Entry point | Responsibility |
 |---|---|---|
 | GitHub page | `src/content.js` plus `src/content/` modules | Coordinate repository detection, placement, release-page parsing, UI rendering and privileged background requests. |
 | Background | `src/background.js` plus `src/background/` services | Compose GitHub API, OAuth, tracking, alarms, notifications and trusted navigation services, then register browser events. |
 | Popup | `src/popup.js` | Show updates, watched repositories, history and common settings. |
+| Bulk downloads | `src/batch.js` plus `src/batch/` | Full asset catalog, filtering, selection and queue controls on a trusted extension page. |
 | Options | `src/options.js` | Full settings editor and optional GitHub connection. |
 
 These contexts do not share memory. Runtime messages are the contract between page, popup/options and background code.
@@ -145,7 +146,9 @@ Do not recreate a monolithic `styles.css`. Put a selector in the narrowest match
 | `background/alarms.js` | Own update-check alarm cadence and alarm-name matching. |
 | `background/notifications.js` | Own optional notifications, badge state and notification-click routing. |
 | `background/tracking-service.js` | Record downloads, manage watches, perform batched update checks and expose dashboard operations. |
-| `background/message-router.js` | Map canonical runtime message types to service methods and enforce trusted auth callers. |
+| `background/batch-catalog.js` | Anonymously verify public visibility and retrieve every uploaded release asset, bounded to 500; refuse partial catalogs. |
+| `background/download-service.js` | Own the permission-gated, serialized, persisted queue, three-file concurrency, recovery, cancellation and retry; query only its own downloads. |
+| `background/message-router.js` | Map canonical runtime message types to service methods and enforce trusted auth and bulk-operation callers. |
 
 ### Background boundary rules
 
@@ -343,3 +346,9 @@ deactivate
 ```
 
 Also load `dist/chromium` or `dist/firefox` manually and test public repository, Releases, popup, options and GitHub connection flows.
+
+## Bulk-download boundary
+
+`batch.js` composes `batch/strings.js`, `batch/view.js` and `batch/controller.js`. `batch-assets.js` is shared domain code for compound extensions, selection matching, portable filenames and stored queue normalization. Recommendation ranking remains separate from full catalog enumeration.
+
+Content scripts may request opening the validated local batch page; catalog and queue messages require a trusted extension sender. Queue creation re-fetches the complete catalog and validates every selected URL. The optional permission request must run directly in the page's user click handler before unrelated awaits. The background registers download events at initialization and when permission is granted, persists before accepting each download, and reconciles its own IDs or unique queue paths after worker restart. Terminal download events advance the queue even when its page is closed. Incognito contexts cannot read or mutate normal-profile queue metadata.

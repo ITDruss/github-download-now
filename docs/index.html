@@ -11,7 +11,7 @@
 </head>
 <body>
   <h1>GitHub Download Now — Privacy Policy</h1>
-  <p class="meta"><strong>Effective date:</strong> July 14, 2026</p>
+  <p class="meta"><strong>Effective date:</strong> October 7, 2026</p>
   <p>GitHub Download Now does not sell user data and does not send data to the developer, analytics providers or advertising services.</p>
 
   <h2>Public repositories only</h2>
@@ -35,6 +35,11 @@
     <li>The extension does not request profile, email or private-repository data.</li>
   </ul>
   <p>Without a connection, the extension continues to work in anonymous public-only mode.</p>
+
+  <h2>Optional bulk downloads</h2>
+  <p>Bulk catalogs use anonymous GitHub API requests and require a positively verified public repository. The optional <code>downloads</code> permission is requested only after a bulk-download click. Although this permission technically allows broader access, the extension checks only its own queue IDs or unique queue filenames and updates only matching download events; it never enumerates general download history or reads file contents.</p>
+  <p>One queue's repository/tag, names, validated URLs, sizes, browser IDs, time and per-file results stay in <code>storage.local</code> until cleared, replaced by a new queue or removed with the extension. These recovery records are independent of optional recommendation history. They are not synchronized or sent to the developer. The browser's own file transfers may include applicable cookies under normal browser rules; the extension does not read cookie values. Bulk downloads are unavailable in private/incognito contexts.</p>
+  <p>Users can cancel remaining files, retry failures, clear finished queue metadata, copy links without download permission or revoke the permission in browser settings. Clearing metadata does not delete files or erase browser history.</p>
 
   <h2>Local storage and notifications</h2>
   <p>Optional download records, watched repositories, pending updates, ETags and scheduling metadata remain in <code>storage.local</code>. Preferences may be synchronized through <code>storage.sync</code>. System notifications are disabled by default and require the optional notification permission.</p>

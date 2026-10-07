@@ -18,6 +18,7 @@
     const getSettings = options.getSettings || (() => ({}));
     const getStrings = options.getStrings || (() => ({}));
     const requestOpenOptions = options.requestOpenOptions;
+    const openBatchPage = options.openBatchPage;
     const showResponseError = options.showResponseError;
     const showToast = options.showToast;
     const rootId = options.rootId || "ghdn-root";
@@ -145,6 +146,12 @@
       settingsButton.type = "button";
       settingsButton.prepend(createIcon("settings", "ghdn-inline-icon"));
       settingsButton.addEventListener("click", requestOpenOptions);
+      if (openBatchPage) {
+        const batchButton = createElement("button", "ghdn-settings-link", strings.bulkDownload);
+        batchButton.type = "button";
+        batchButton.addEventListener("click", () => openBatchPage(release));
+        footer.append(batchButton);
+      }
       footer.append(releaseLink, settingsButton);
       menu.append(footer);
     }

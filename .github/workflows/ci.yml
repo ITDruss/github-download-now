@@ -64,9 +64,11 @@ jobs:
           cache-dependency-path: requirements-dev.txt
       - run: npm ci --ignore-scripts
       - run: python -m pip install -r requirements-dev.txt
-      - run: python -m playwright install --with-deps chromium
+      - run: python -m playwright install --with-deps chromium firefox
       - run: npm run build
       - run: npm run test:ui
+        env:
+          GHDN_UI_BROWSERS: chromium,firefox
       - name: Upload UI diagnostics on failure
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

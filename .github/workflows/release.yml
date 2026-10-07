@@ -48,8 +48,10 @@ jobs:
       - run: npm audit --audit-level=high
       - run: npm test
       - run: python -m pip install -r requirements-dev.txt
-      - run: python -m playwright install --with-deps chromium
+      - run: python -m playwright install --with-deps chromium firefox
       - run: npm run test:ui
+        env:
+          GHDN_UI_BROWSERS: chromium,firefox
       - name: Verify reproducible browser packages
         run: |
           set -euo pipefail

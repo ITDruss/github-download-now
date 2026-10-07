@@ -148,6 +148,13 @@
     return api.alarms.create(name, info);
   }
 
+  async function downloadOperation(method, value) {
+    const api = extensionApi();
+    if (!api?.downloads?.[method]) throw new Error("Downloads API is unavailable");
+    if (usesPromiseApi()) return api.downloads[method](value);
+    return callbackOperation((done) => api.downloads[method](value, done));
+  }
+
   const storage = Object.freeze({
     sync: Object.freeze({
       get: (defaults) => storageGet("sync", defaults),
@@ -172,6 +179,11 @@
     tabs: Object.freeze({ create: createTab }),
     permissions: Object.freeze({ contains: permissionContains, request: permissionRequest, getAll: permissionGetAll }),
     notifications: Object.freeze({ create: createNotification }),
+    downloads: Object.freeze({
+      download: (options) => downloadOperation("download", options),
+      search: (query) => downloadOperation("search", query),
+      cancel: (id) => downloadOperation("cancel", id)
+    }),
     alarms: Object.freeze({ get: getAlarm, clear: clearAlarm, create: createAlarm })
   });
 });

@@ -5,6 +5,7 @@ import { ALLOWED_SOURCE_FILES } from "./build-files.mjs";
 import { assert, listFiles, scriptsFromHtml } from "./file-utils.mjs";
 import {
   BACKGROUND_IMPORTS,
+  BATCH_SCRIPTS,
   CONTENT_SCRIPTS,
   CONTENT_STYLES,
   FIREFOX_BACKGROUND_SCRIPTS,
@@ -60,7 +61,7 @@ for (const manifest of [chromium, firefox]) {
   assert(manifest.description === "__MSG_extensionDescription__", "Manifest description must use the locale catalog");
   assert(manifest.action?.default_title === "__MSG_extensionName__", "Action title must use the locale catalog");
   assert(arraysEqual(manifest.permissions, ["storage", "alarms"]), "Unexpected required permissions");
-  assert(arraysEqual(manifest.optional_permissions, ["notifications"]), "Unexpected optional permissions");
+  assert(arraysEqual(manifest.optional_permissions, ["notifications", "downloads"]), "Unexpected optional permissions");
   assert(arraysEqual(manifest.host_permissions, ["https://api.github.com/*", "https://github.com/*"]), "Unexpected host permissions");
   assert(manifest.content_security_policy?.extension_pages === "script-src 'self'; object-src 'none'", "Strict extension CSP is required");
   assert(arraysEqual(manifest.content_scripts?.[0]?.js || [], CONTENT_SCRIPTS), "Content script order is inconsistent");
@@ -93,7 +94,7 @@ for (const relative of actual.filter((file) => file.endsWith(".html"))) {
   assert(!/<script(?![^>]*\bsrc=)[^>]*>/i.test(text), `${relative} contains inline script`);
   assert(!/\son\w+\s*=/i.test(text), `${relative} contains inline event handler`);
 }
-for (const [relative, expectedScripts] of [["popup.html", POPUP_SCRIPTS], ["options.html", OPTIONS_SCRIPTS]]) {
+for (const [relative, expectedScripts] of [["popup.html", POPUP_SCRIPTS], ["options.html", OPTIONS_SCRIPTS], ["batch.html", BATCH_SCRIPTS]]) {
   const text = await readFile(path.join(source, relative), "utf8");
   assert(arraysEqual(scriptsFromHtml(text), expectedScripts), `${relative} script order is inconsistent`);
 }

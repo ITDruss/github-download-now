@@ -5,7 +5,7 @@ const messages = require("../src/shared/messages.js");
 
 assert.equal(messages.TYPES.GET_LATEST_RELEASE, "GHDN_GET_LATEST_RELEASE");
 assert.equal(messages.TYPES.AUTH_START, "GHDN_AUTH_START");
-assert.equal(messages.VALUES.length, 18);
+assert.equal(messages.VALUES.length, 25);
 assert.equal(new Set(messages.VALUES).size, messages.VALUES.length);
 assert.equal(messages.isKnownType(messages.TYPES.OPEN_OPTIONS), true);
 assert.equal(messages.isKnownType("GHDN_UNKNOWN"), false);

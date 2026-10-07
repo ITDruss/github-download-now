@@ -188,6 +188,7 @@
     getSettings,
     getStrings,
     requestOpenOptions: () => actions.requestOpenOptions(),
+    openBatchPage: (release) => actions.openBatchPage(release),
     showResponseError: notices.showResponseError,
     showToast: notices.showToast,
     rootId: ROOT_ID,

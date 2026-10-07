@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GitHub Download Now</title>
+  <link rel="stylesheet" href="batch.css">
+</head>
+<body>
+  <main>
+    <header>
+      <img src="icons/icon-48.png" width="48" height="48" alt="">
+      <div><p class="brand">GitHub Download Now</p><h1 data-label="title"></h1><p data-label="subtitle"></p></div>
+    </header>
+    <section class="card" aria-labelledby="repository">
+      <div class="release"><h2 id="repository"></h2><span id="release-tag" class="tag"></span></div>
+      <a id="release-link" target="_blank" rel="noopener noreferrer"></a>
+      <p id="notice" role="status" aria-live="polite"></p>
+      <div class="search-bar"><input id="search" type="search" autocomplete="off"><button id="refresh" type="button" data-label="refresh"></button></div>
+      <fieldset><legend data-label="formats"></legend><p class="muted" data-label="allFormats"></p><div id="formats"></div></fieldset>
+      <div class="toolbar"><span id="count"></span><div><button id="select-all" type="button" data-label="selectAll"></button><button id="clear-selection" type="button" data-label="clearSelection"></button></div></div>
+      <div id="assets" class="asset-list"></div>
+      <div class="selection-bar"><strong id="selection" role="status"></strong><div><button id="copy-links" type="button" data-label="copyLinks" disabled></button><button id="download" type="button" class="primary" data-label="download" disabled></button></div></div>
+      <p class="muted" data-label="savedIn"></p>
+      <button id="watch" type="button" data-label="watch" disabled></button>
+    </section>
+    <section id="queue" class="card" aria-labelledby="queue-title" hidden>
+      <h2 id="queue-title" data-label="queue"></h2><p id="queue-release"></p>
+      <progress id="progress" value="0" max="1" aria-labelledby="queue-summary"></progress>
+      <p id="queue-summary" role="status" aria-live="polite"></p>
+      <div class="queue-actions"><button id="cancel" type="button" data-label="cancel"></button><button id="retry" type="button" data-label="retry"></button><button id="clear-queue" type="button" data-label="clearQueue"></button></div>
+      <ul id="queue-items"></ul>
+    </section>
+  </main>
+  <script src="shared/messages.js"></script>
+  <script src="shared/browser-api.js"></script>
+  <script src="shared/formatting.js"></script>
+  <script src="i18n-catalogs.js"></script>
+  <script src="i18n.js"></script>
+  <script src="settings.js"></script>
+  <script src="url-policy.js"></script>
+  <script src="batch-assets.js"></script>
+  <script src="batch/strings.js"></script>
+  <script src="batch/view.js"></script>
+  <script src="batch/controller.js"></script>
+  <script src="batch.js"></script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 # Privacy policy
 
-Effective date: July 14, 2026
+Effective date: October 7, 2026
 
 GitHub Download Now does not sell user data and does not send data to the developer, analytics providers or advertising services.
 
@@ -18,7 +18,7 @@ Every release, source archive and navigation URL is validated against the expect
 
 ## GitHub REST API requests
 
-The extension may query the official GitHub REST API at `api.github.com` when page data is unavailable, when the user explicitly requests build-document discovery, or when checking repositories the user chose to watch.
+The extension may query the official GitHub REST API at `api.github.com` when loading a bulk-release catalog, when page data is unavailable, when the user explicitly requests build-document discovery, or when checking repositories the user chose to watch.
 
 Build-document discovery may request public directory listings and the text of likely README files for the selected release tag. It first checks dedicated build documents and useful sections in root documentation. It may then follow at most three relevant same-repository links found in a README, with a maximum depth of one, two linked directories and three additional documents. Links are restricted to the same public owner/repository and are re-bound to the selected release tag instead of silently switching to another branch. The extension analyses headings such as “Building”, then links to the original GitHub section. It does not execute build commands or transmit repository content to the developer, an AI service or any service other than GitHub.
 
@@ -40,6 +40,16 @@ The OAuth access token is authentication information. It is stored in `storage.l
 During the connection process, the temporary device code is stored locally until it expires or authorization finishes. The extension checks GitHub's rate-limit endpoint to validate the token and show the remaining API budget. It does not request the user's GitHub profile, email address or private repository list.
 
 Without a GitHub connection, all existing public-repository functionality continues to work with anonymous API limits.
+
+## Optional bulk downloads
+
+The separate bulk-download page anonymously verifies repository visibility and requests the complete uploaded asset catalog for the selected public release, including pagination. Connecting GitHub does not authenticate these catalog requests. Automatically generated source archives remain separate.
+
+The optional `downloads` browser permission is requested only when the user clicks the bulk-download button. This permission technically permits access to browser downloads; this implementation queries only IDs created by its queue or a unique filename inside its own queue folder when recovering an interrupted background worker. It observes download events only to update matching queue IDs. It does not enumerate the browser's general download history, inspect file contents or read cookie values. The browser's own download manager performs file transfers and may send applicable browser cookies under the browser's normal rules; anonymous catalog/page requests remain credential-free.
+
+The extension stores one queue in `storage.local`: its random ID, public repository and tag, selected asset names, validated URLs, sizes, browser download IDs, creation time and per-file status/error. These operational records are required for recovery even when optional recommendation history is disabled. They remain on this device until the user clears the queue, replaces a finished queue, or uninstalls the extension. They are not synchronized, sent to the developer or added to repository watches automatically. Clearing queue metadata does not delete downloaded files or erase browser download history.
+
+Bulk downloads are unavailable from private/incognito tabs and private extension contexts. Users can cancel remaining files, retry failed files, clear a finished queue, copy selected URLs without download permission, or revoke download permission in browser settings. There is no telemetry or additional host permission.
 
 ## Local installation guidance
 
@@ -107,6 +117,8 @@ Users can:
 - remove individual watched repositories;
 - remove all watches;
 - clear local download history;
+- cancel bulk downloads, retry errors and clear finished queue metadata;
+- revoke optional download permission through browser settings;
 - choose whether installation guidance is shown;
 - disable notification permission through browser settings;
 - uninstall the extension to remove its stored extension data.

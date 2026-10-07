@@ -72,6 +72,17 @@
         });
     }
 
+    async function openBatchPage(release) {
+      const repo = repositoryContext.parse();
+      if (!repo) return;
+      try {
+        const result = await runtime.sendMessage({ type: messages.TYPES.OPEN_BATCH_PAGE,
+          owner: repo.owner, repo: repo.repo, tag: release.tag_name });
+        if (!result?.ok) notices.showToast(result?.error === "incognito_unsupported" ? getStrings().bulkPrivate : getStrings().networkError, "error");
+        else menuShell.setOpen(false);
+      } catch (_error) { notices.showToast(getStrings().networkError, "error"); }
+    }
+
     function openExternal(url) {
       const repo = repositoryContext.parse();
       const trusted = repo ? urlPolicy.repositoryWebUrl(url, repo.owner, repo.repo) : null;
@@ -183,6 +194,7 @@
       getDetectedPlatform,
       loadBuildInstructions,
       requestOpenOptions,
+      openBatchPage,
       openExternal,
       createDownloadRecord,
       startDownload,
